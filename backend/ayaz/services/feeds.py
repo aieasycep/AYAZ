@@ -260,8 +260,15 @@ def _apply_calculated(product: dict, config: dict) -> dict:
             safe_expr = expression
             for k, v in numeric_subs.items():
                 safe_expr = safe_expr.replace(f"{{{k}}}", str(v))
-            # Only allow digits, operators, parens, spaces, and dots
-            if re.fullmatch(r"[\d\s\+\-\*/\.\(\)]+", safe_expr):
+            # Only allow digits, the four basic operators, parens, spaces, and
+            # dots.  Reject the exponent operator (``**``) explicitly — it is the
+            # one arithmetic construct that can be abused for CPU/memory DoS
+            # (e.g. ``9**9**9``) and is never needed for feed price maths.
+            if "**" in safe_expr:
+                result = expression.format_map(
+                    {k: str(v) for k, v in numeric_subs.items()}
+                )
+            elif re.fullmatch(r"[\d\s\+\-\*/\.\(\)]+", safe_expr):
                 result = str(eval(safe_expr))  # noqa: S307 — safe after validation
             else:
                 result = expression.format_map({k: str(v) for k, v in numeric_subs.items()})

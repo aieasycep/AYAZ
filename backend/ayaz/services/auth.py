@@ -75,13 +75,21 @@ def create_access_token(
 def decode_access_token(token: str) -> dict[str, str]:
     """Decode and validate a JWT, returning its payload.
 
+    Security
+    --------
+    ``algorithms`` is pinned to a single algorithm so an attacker cannot
+    downgrade the token to ``alg=none`` or coerce an RS256/HS256 confusion
+    attack.  ``require_exp`` rejects tokens that omit the expiry claim so a
+    forged/malformed token without ``exp`` cannot be treated as non-expiring.
+
     Raises
     ------
     JWTError
-        If the token is invalid, expired, or tampered with.
+        If the token is invalid, expired, missing ``exp``, or tampered with.
     """
     return jwt.decode(
         token,
         settings.jwt_secret,
         algorithms=[settings.jwt_algorithm],
+        options={"require_exp": True},
     )

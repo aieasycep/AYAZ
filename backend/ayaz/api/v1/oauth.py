@@ -30,6 +30,7 @@ the decoded ``state.tid`` matches the row's ``tenant_id`` before proceeding.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Annotated, Any
 
@@ -46,6 +47,8 @@ from ayaz.services.oauth_broker import _sign_state, parse_state
 from ayaz.services.vault import EncryptedColumnVault, SecretsVault
 
 router = APIRouter(prefix="/oauth", tags=["oauth"])
+
+logger = logging.getLogger(__name__)
 
 # ── Dependency: vault instance ────────────────────────────────────────────────
 
@@ -245,16 +248,23 @@ def callback(
     )
 
     # 3. Exchange code for tokens
+    #    Never surface the raw exception to the client: provider error bodies can
+    #    echo back the authorization code, client_secret, or token fragments.
     try:
         tokens = oauth_broker.exchange_code(
             platform=platform,
             code=code,
             redirect_uri=effective_redirect_uri,
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(
+            "OAuth token exchange failed: platform=%s account=%s",
+            platform,
+            account.id,
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Token exchange failed: {exc}",
+            detail="Token exchange failed.",
         )
 
     # 4. Store tokens in vault (uses account.id as the ref)
@@ -264,10 +274,13 @@ def callback(
             tokens=tokens,
             vault=vault,
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception(
+            "Failed to store OAuth tokens: account=%s", account.id
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to store tokens: {exc}",
+            detail="Failed to store tokens.",
         )
 
     # 5. Mark the account as idle / connected and refresh the vault_secret_ref
