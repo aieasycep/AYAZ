@@ -29,6 +29,10 @@ const PLATFORMS: PlatformMeta[] = [
   { id: 'ga4', name: 'Google Analytics 4', label: 'Web Analitik', icon: 'A', iconBg: '#E37400' },
   { id: 'search_console', name: 'Search Console', label: 'SEO ve Organik Arama', icon: 'S', iconBg: '#34A853' },
   { id: 'tiktok_ads', name: 'TikTok Ads', label: 'TikTok Reklamları', icon: 'T', iconBg: '#010101' },
+  { id: 'linkedin_ads', name: 'LinkedIn Ads', label: 'LinkedIn Reklam Kampanyaları', icon: 'Li', iconBg: '#0A66C2' },
+  { id: 'microsoft_ads', name: 'Microsoft Ads', label: 'Bing Arama ve Görüntülü Reklamlar', icon: 'Ms', iconBg: '#00A4EF' },
+  { id: 'criteo', name: 'Criteo', label: 'Yeniden Hedefleme Reklamları', icon: 'Cr', iconBg: '#F05A22' },
+  { id: 'pinterest_ads', name: 'Pinterest Ads', label: 'Pinterest Reklam Kampanyaları', icon: 'Pi', iconBg: '#E60023' },
 ];
 
 // --- Status helpers ---

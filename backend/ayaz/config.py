@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     tiktok_app_id: str = ""
     tiktok_app_secret: str = ""
 
+    # ── AI / Insights ─────────────────────────────────────────────────────────
+    # Anthropic API key for ClaudeNarrator (M4 AI insights).
+    # Leave empty (default) to use TemplateNarrator (no network, fully offline).
+    anthropic_api_key: str = ""
+    # Model ID used by ClaudeNarrator when anthropic_api_key is set.
+    claude_narrator_model: str = "claude-opus-4-8"
+
     # ── Billing ───────────────────────────────────────────────────────────────
     # TODO (Faz 1): iyzico + Stripe integration
     iyzico_api_key: str = ""

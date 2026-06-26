@@ -1,0 +1,40 @@
+{
+  "rows": [
+    {
+      "TimePeriod": "2024-06-01",
+      "CampaignId": "720000001",
+      "CampaignName": "Brand Search UK",
+      "Impressions": "85000",
+      "Clicks": "4200",
+      "Spend": "310.75",
+      "Conversions": "93"
+    },
+    {
+      "TimePeriod": "2024-06-01",
+      "CampaignId": "720000002",
+      "CampaignName": "Retargeting Display",
+      "Impressions": "210000",
+      "Clicks": "1850",
+      "Spend": "128.40",
+      "Conversions": "31"
+    },
+    {
+      "TimePeriod": "2024-06-02",
+      "CampaignId": "720000001",
+      "CampaignName": "Brand Search UK",
+      "Impressions": "82400",
+      "Clicks": "4050",
+      "Spend": "298.90",
+      "Conversions": "88"
+    },
+    {
+      "TimePeriod": "2024-06-02",
+      "CampaignId": "720000002",
+      "CampaignName": "Retargeting Display",
+      "Impressions": "198000",
+      "Clicks": "1710",
+      "Spend": "119.20",
+      "Conversions": "0"
+    }
+  ]
+}

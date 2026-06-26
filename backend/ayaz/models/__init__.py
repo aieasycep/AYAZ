@@ -29,6 +29,10 @@ from ayaz.models.feeds import (  # noqa: F401
     FeedRule,
     FeedSource,
 )
+from ayaz.models.insights import (  # noqa: F401
+    AlertRule,
+    Insight,
+)
 
 __all__ = [
     "Base",
@@ -50,4 +54,6 @@ __all__ = [
     "FeedProduct",
     "FeedChannel",
     "FeedRule",
+    "Insight",
+    "AlertRule",
 ]

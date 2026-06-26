@@ -31,12 +31,12 @@ function getDefaultDates() {
 
 // --- Formatters ---
 
-function fmtCurrency(n: number): string {
+function fmtCurrency(n: number, decimals = 0): string {
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
     currency: 'TRY',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(n);
 }
 
@@ -209,8 +209,8 @@ export default function DashboardPage() {
               <KpiCard label="Tıklama" value={fmtNum(totals.clicks)} />
               <KpiCard label="Dönüşüm" value={fmtNum(totals.conversions)} />
               <KpiCard label="ROAS" value={fmtRoas(totals.roas)} />
-              <KpiCard label="CPC" value={fmtCurrency(totals.cpc)} />
-              <KpiCard label="CPA" value={fmtCurrency(totals.cpa)} />
+              <KpiCard label="CPC" value={fmtCurrency(totals.cpc, 2)} />
+              <KpiCard label="CPA" value={fmtCurrency(totals.cpa, 2)} />
               <KpiCard label="CTR" value={fmtPct(totals.ctr)} />
             </>
           ) : null}

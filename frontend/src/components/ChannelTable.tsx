@@ -9,12 +9,12 @@ interface ChannelTableProps {
   error: string | null;
 }
 
-function fmtCurrency(n: number): string {
+function fmtCurrency(n: number, decimals = 0): string {
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
     currency: 'TRY',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(n);
 }
 
@@ -82,7 +82,7 @@ export default function ChannelTable({ rows, loading, error }: ChannelTableProps
               <td className={`${styles.td} ${styles.right}`}>{fmtNum(row.clicks)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtNum(row.conversions)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtRoas(row.roas)}</td>
-              <td className={`${styles.td} ${styles.right}`}>{fmtCurrency(row.cpc)}</td>
+              <td className={`${styles.td} ${styles.right}`}>{fmtCurrency(row.cpc, 2)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtPct(row.ctr)}</td>
             </tr>
           ))}

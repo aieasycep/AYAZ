@@ -1,0 +1,658 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { getToken } from '@/lib/api';
+import {
+  getInsights,
+  patchInsight,
+  generateInsights,
+  getAlertRules,
+  createAlertRule,
+  patchAlertRule,
+  deleteAlertRule,
+  type Insight,
+  type InsightSeverity,
+  type InsightStatus,
+  type AlertRule,
+  type AlertComparator,
+  type AlertDelivery,
+} from '@/lib/insights-api';
+import AppNav from '@/components/AppNav';
+import styles from './insights.module.css';
+
+// --- Label helpers ---
+
+function severityLabel(s: InsightSeverity): string {
+  switch (s) {
+    case 'critical': return 'Kritik';
+    case 'warning': return 'Uyarı';
+    case 'info': return 'Bilgi';
+  }
+}
+
+function severityClass(s: InsightSeverity): string {
+  switch (s) {
+    case 'critical': return styles.badgeCritical;
+    case 'warning': return styles.badgeWarning;
+    case 'info': return styles.badgeInfo;
+  }
+}
+
+function comparatorLabel(c: AlertComparator): string {
+  switch (c) {
+    case 'pct_drop': return '% Düşüş';
+    case 'pct_rise': return '% Yükseliş';
+    case 'below': return 'Altında';
+    case 'above': return 'Üzerinde';
+    case 'anomaly': return 'Anomali';
+  }
+}
+
+function deliveryLabel(d: AlertDelivery): string {
+  switch (d) {
+    case 'email': return 'E-posta';
+    case 'slack': return 'Slack';
+    case 'none': return 'Bildirim Yok';
+  }
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+// --- Severity filter options ---
+
+type SeverityFilter = InsightSeverity | 'all';
+type StatusFilter = InsightStatus | 'all';
+
+const SEVERITY_OPTS: { value: SeverityFilter; label: string }[] = [
+  { value: 'all', label: 'Hepsi' },
+  { value: 'critical', label: 'Kritik' },
+  { value: 'warning', label: 'Uyarı' },
+  { value: 'info', label: 'Bilgi' },
+];
+
+const STATUS_OPTS: { value: StatusFilter; label: string }[] = [
+  { value: 'new', label: 'Yeni' },
+  { value: 'seen', label: 'Görüldü' },
+  { value: 'all', label: 'Tümü' },
+];
+
+// --- Alert rule form state ---
+
+interface RuleFormState {
+  name: string;
+  metric: string;
+  comparator: AlertComparator;
+  threshold: string;
+  delivery: AlertDelivery;
+  destination: string;
+  active: boolean;
+}
+
+const EMPTY_RULE_FORM: RuleFormState = {
+  name: '',
+  metric: '',
+  comparator: 'pct_drop',
+  threshold: '',
+  delivery: 'email',
+  destination: '',
+  active: true,
+};
+
+// --- Component ---
+
+export default function InsightsPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!getToken()) {
+      router.replace('/login');
+    }
+  }, [router]);
+
+  // --- Filters ---
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('new');
+
+  // --- Insights state ---
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(true);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [actionBusy, setActionBusy] = useState<Record<string, boolean>>({});
+
+  // --- Alert rules state ---
+  const [rules, setRules] = useState<AlertRule[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [rulesError, setRulesError] = useState<string | null>(null);
+  const [ruleForm, setRuleForm] = useState<RuleFormState>(EMPTY_RULE_FORM);
+  const [ruleSubmitting, setRuleSubmitting] = useState(false);
+  const [ruleFormError, setRuleFormError] = useState<string | null>(null);
+  const [ruleActionBusy, setRuleActionBusy] = useState<Record<string, boolean>>({});
+
+  // --- Fetch insights ---
+
+  const fetchInsights = useCallback(
+    async (sev: SeverityFilter, stat: StatusFilter) => {
+      setInsightsLoading(true);
+      setInsightsError(null);
+      try {
+        const data = await getInsights({
+          severity: sev === 'all' ? '' : sev,
+          status: stat === 'all' ? 'all' : stat,
+        });
+        // Sort descending by score
+        data.sort((a, b) => b.score - a.score);
+        setInsights(data);
+      } catch (err: unknown) {
+        setInsightsError(
+          err instanceof Error ? err.message : 'İçgörüler yüklenemedi',
+        );
+      } finally {
+        setInsightsLoading(false);
+      }
+    },
+    [],
+  );
+
+  // --- Fetch alert rules ---
+
+  const fetchRules = useCallback(async () => {
+    setRulesLoading(true);
+    setRulesError(null);
+    try {
+      const data = await getAlertRules();
+      setRules(data);
+    } catch (err: unknown) {
+      setRulesError(
+        err instanceof Error ? err.message : 'Kurallar yüklenemedi',
+      );
+    } finally {
+      setRulesLoading(false);
+    }
+  }, []);
+
+  // --- Initial load ---
+
+  useEffect(() => {
+    if (!getToken()) return;
+    fetchInsights(severityFilter, statusFilter);
+    fetchRules();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --- Re-fetch when filters change ---
+
+  useEffect(() => {
+    if (!getToken()) return;
+    fetchInsights(severityFilter, statusFilter);
+  }, [severityFilter, statusFilter, fetchInsights]);
+
+  // --- Generate insights ---
+
+  async function handleGenerate() {
+    setGenerating(true);
+    try {
+      await generateInsights();
+      await fetchInsights(severityFilter, statusFilter);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Yenileme başarısız');
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  // --- Insight actions ---
+
+  async function handleInsightAction(id: string, status: InsightStatus) {
+    setActionBusy((prev) => ({ ...prev, [id]: true }));
+    try {
+      const updated = await patchInsight(id, { status });
+      setInsights((prev) =>
+        prev.map((ins) => (ins.id === updated.id ? updated : ins)),
+      );
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'İşlem başarısız');
+    } finally {
+      setActionBusy((prev) => ({ ...prev, [id]: false }));
+    }
+  }
+
+  // --- Alert rule submit ---
+
+  async function handleRuleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setRuleFormError(null);
+
+    if (!ruleForm.name.trim()) {
+      setRuleFormError('Kural adı zorunludur.');
+      return;
+    }
+    if (!ruleForm.metric.trim()) {
+      setRuleFormError('Metrik zorunludur.');
+      return;
+    }
+
+    const needsThreshold = ruleForm.comparator !== 'anomaly';
+    const thresholdNum = parseFloat(ruleForm.threshold);
+    if (needsThreshold && (ruleForm.threshold === '' || isNaN(thresholdNum))) {
+      setRuleFormError('Bu karşılaştırıcı için eşik değeri zorunludur.');
+      return;
+    }
+
+    setRuleSubmitting(true);
+    try {
+      const created = await createAlertRule({
+        name: ruleForm.name.trim(),
+        metric: ruleForm.metric.trim(),
+        comparator: ruleForm.comparator,
+        threshold: needsThreshold ? thresholdNum : null,
+        delivery: ruleForm.delivery,
+        destination: ruleForm.destination.trim() || null,
+        active: ruleForm.active,
+      });
+      setRules((prev) => [...prev, created]);
+      setRuleForm(EMPTY_RULE_FORM);
+    } catch (err: unknown) {
+      setRuleFormError(
+        err instanceof Error ? err.message : 'Kural oluşturulamadı',
+      );
+    } finally {
+      setRuleSubmitting(false);
+    }
+  }
+
+  // --- Alert rule toggle ---
+
+  async function handleRuleToggle(rule: AlertRule) {
+    setRuleActionBusy((prev) => ({ ...prev, [rule.id]: true }));
+    try {
+      const updated = await patchAlertRule(rule.id, { active: !rule.active });
+      setRules((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r)),
+      );
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Güncelleme başarısız');
+    } finally {
+      setRuleActionBusy((prev) => ({ ...prev, [rule.id]: false }));
+    }
+  }
+
+  // --- Alert rule delete ---
+
+  async function handleRuleDelete(id: string) {
+    if (!confirm('Bu kuralı silmek istediğinizden emin misiniz?')) return;
+    setRuleActionBusy((prev) => ({ ...prev, [id]: true }));
+    try {
+      await deleteAlertRule(id);
+      setRules((prev) => prev.filter((r) => r.id !== id));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Silme başarısız');
+    } finally {
+      setRuleActionBusy((prev) => ({ ...prev, [id]: false }));
+    }
+  }
+
+  return (
+    <div className={styles.shell}>
+      <AppNav />
+
+      <main className={styles.main}>
+        {/* Page header */}
+        <div className={styles.pageHeader}>
+          <div>
+            <h1 className={styles.pageTitle}>İçgörüler ve Uyarılar</h1>
+            <p className={styles.pageSubtitle}>
+              Tüm kanallarınızdaki önemli değişimleri ve fırsatları takip edin.
+            </p>
+          </div>
+          <button
+            className={styles.refreshBtn}
+            onClick={handleGenerate}
+            disabled={generating}
+          >
+            {generating ? 'Yenileniyor...' : 'İçgörüleri Yenile'}
+          </button>
+        </div>
+
+        {/* Insights section */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>İçgörü Akışı</h2>
+
+            <div className={styles.filterBar}>
+              <span className={styles.filterLabel}>Önem:</span>
+              {SEVERITY_OPTS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`${styles.filterBtn} ${severityFilter === opt.value ? styles.filterBtnActive : ''}`}
+                  onClick={() => setSeverityFilter(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <span className={styles.filterSep} />
+              <span className={styles.filterLabel}>Durum:</span>
+              {STATUS_OPTS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`${styles.filterBtn} ${statusFilter === opt.value ? styles.filterBtnActive : ''}`}
+                  onClick={() => setStatusFilter(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {insightsLoading ? (
+            <div className={styles.stateBox}>
+              <span className={styles.muted}>İçgörüler yükleniyor...</span>
+            </div>
+          ) : insightsError ? (
+            <div className={styles.stateBox}>
+              <span className={styles.errorText}>{insightsError}</span>
+              <br />
+              <button
+                className={styles.retryBtn}
+                onClick={() => fetchInsights(severityFilter, statusFilter)}
+              >
+                Tekrar Dene
+              </button>
+            </div>
+          ) : insights.length === 0 ? (
+            <div className={styles.stateBox}>
+              <span className={styles.muted}>
+                Bu filtreler için içgörü bulunamadı.
+              </span>
+            </div>
+          ) : (
+            <div className={styles.feed}>
+              {insights.map((ins) => (
+                <div
+                  key={ins.id}
+                  className={`${styles.insightCard} ${ins.status === 'dismissed' ? styles.insightCardDismissed : ''}`}
+                >
+                  {/* Severity badge */}
+                  <div className={styles.severityCol}>
+                    <span
+                      className={`${styles.badge} ${severityClass(ins.severity)}`}
+                    >
+                      {severityLabel(ins.severity)}
+                    </span>
+                  </div>
+
+                  {/* Content */}
+                  <div className={styles.insightBody}>
+                    <div className={styles.insightTitle}>{ins.title}</div>
+                    <div className={styles.insightText}>{ins.body}</div>
+                    <div className={styles.insightMeta}>
+                      {ins.metric && (
+                        <span className={styles.metaChip}>{ins.metric}</span>
+                      )}
+                      {ins.channel && (
+                        <span className={styles.metaChip}>{ins.channel}</span>
+                      )}
+                      {ins.entity_name && (
+                        <span className={styles.metaChip}>
+                          {ins.entity_name}
+                        </span>
+                      )}
+                      {ins.period_start && ins.period_end && (
+                        <span className={styles.metaChip}>
+                          {fmtDate(ins.period_start)} –{' '}
+                          {fmtDate(ins.period_end)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className={styles.insightActions}>
+                    {ins.status !== 'seen' && ins.status !== 'dismissed' && (
+                      <button
+                        className={styles.actionBtn}
+                        onClick={() => handleInsightAction(ins.id, 'seen')}
+                        disabled={actionBusy[ins.id]}
+                      >
+                        Gördüm
+                      </button>
+                    )}
+                    {ins.status !== 'dismissed' && (
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
+                        onClick={() =>
+                          handleInsightAction(ins.id, 'dismissed')
+                        }
+                        disabled={actionBusy[ins.id]}
+                      >
+                        Yok say
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Alert rules section */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
+              Uyarı Kuralları{rules.length > 0 ? ` (${rules.length})` : ''}
+            </h2>
+          </div>
+
+          {rulesLoading ? (
+            <div className={styles.stateBox}>
+              <span className={styles.muted}>Kurallar yükleniyor...</span>
+            </div>
+          ) : rulesError ? (
+            <div className={styles.stateBox}>
+              <span className={styles.errorText}>{rulesError}</span>
+              <br />
+              <button className={styles.retryBtn} onClick={fetchRules}>
+                Tekrar Dene
+              </button>
+            </div>
+          ) : rules.length === 0 ? (
+            <div className={styles.stateBox}>
+              <span className={styles.muted}>
+                Henüz uyarı kuralı tanımlanmamış.
+              </span>
+            </div>
+          ) : (
+            <div className={styles.rulesList}>
+              {rules.map((rule) => (
+                <div key={rule.id} className={styles.ruleRow}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className={styles.ruleName}>{rule.name}</div>
+                    <div className={styles.ruleMeta}>
+                      {rule.metric} &bull; {comparatorLabel(rule.comparator)}
+                      {rule.threshold !== null
+                        ? ` ${rule.threshold}`
+                        : ''}{' '}
+                      &bull; {deliveryLabel(rule.delivery)}
+                      {rule.destination ? ` → ${rule.destination}` : ''}
+                    </div>
+                  </div>
+                  <button
+                    className={`${styles.ruleToggle} ${rule.active ? styles.ruleToggleActive : styles.ruleToggleInactive}`}
+                    onClick={() => handleRuleToggle(rule)}
+                    disabled={ruleActionBusy[rule.id]}
+                  >
+                    {rule.active ? 'Aktif' : 'Pasif'}
+                  </button>
+                  <button
+                    className={styles.ruleDeleteBtn}
+                    onClick={() => handleRuleDelete(rule.id)}
+                    disabled={ruleActionBusy[rule.id]}
+                  >
+                    Sil
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add rule form */}
+          <div className={styles.ruleFormWrapper}>
+            <div className={styles.ruleFormTitle}>Yeni Uyarı Kuralı Ekle</div>
+            <form onSubmit={handleRuleSubmit}>
+              <div className={styles.ruleForm}>
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Kural Adı</label>
+                  <input
+                    className={styles.fieldInput}
+                    type="text"
+                    placeholder="ör. CPC %20 Düşüş"
+                    value={ruleForm.name}
+                    onChange={(e) =>
+                      setRuleForm((f) => ({ ...f, name: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Metrik</label>
+                  <input
+                    className={styles.fieldInput}
+                    type="text"
+                    placeholder="ör. cpc, spend, roas"
+                    value={ruleForm.metric}
+                    onChange={(e) =>
+                      setRuleForm((f) => ({ ...f, metric: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Karşılaştırıcı</label>
+                  <select
+                    className={styles.fieldSelect}
+                    value={ruleForm.comparator}
+                    onChange={(e) =>
+                      setRuleForm((f) => ({
+                        ...f,
+                        comparator: e.target.value as AlertComparator,
+                      }))
+                    }
+                  >
+                    <option value="pct_drop">% Düşüş</option>
+                    <option value="pct_rise">% Yükseliş</option>
+                    <option value="below">Altında</option>
+                    <option value="above">Üzerinde</option>
+                    <option value="anomaly">Anomali</option>
+                  </select>
+                </div>
+
+                {ruleForm.comparator !== 'anomaly' && (
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>Eşik Değeri</label>
+                    <input
+                      className={styles.fieldInput}
+                      type="number"
+                      step="any"
+                      placeholder="ör. 20"
+                      value={ruleForm.threshold}
+                      onChange={(e) =>
+                        setRuleForm((f) => ({
+                          ...f,
+                          threshold: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Bildirim</label>
+                  <select
+                    className={styles.fieldSelect}
+                    value={ruleForm.delivery}
+                    onChange={(e) =>
+                      setRuleForm((f) => ({
+                        ...f,
+                        delivery: e.target.value as AlertDelivery,
+                      }))
+                    }
+                  >
+                    <option value="email">E-posta</option>
+                    <option value="slack">Slack</option>
+                    <option value="none">Bildirim Yok</option>
+                  </select>
+                </div>
+
+                {ruleForm.delivery !== 'none' && (
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>
+                      {ruleForm.delivery === 'email'
+                        ? 'E-posta Adresi'
+                        : 'Slack Webhook URL'}
+                    </label>
+                    <input
+                      className={styles.fieldInput}
+                      type="text"
+                      placeholder={
+                        ruleForm.delivery === 'email'
+                          ? 'ornek@sirket.com'
+                          : 'https://hooks.slack.com/...'
+                      }
+                      value={ruleForm.destination}
+                      onChange={(e) =>
+                        setRuleForm((f) => ({
+                          ...f,
+                          destination: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Durum</label>
+                  <div className={styles.fieldToggleRow}>
+                    <input
+                      type="checkbox"
+                      id="rule-active"
+                      checked={ruleForm.active}
+                      onChange={(e) =>
+                        setRuleForm((f) => ({ ...f, active: e.target.checked }))
+                      }
+                    />
+                    <label
+                      htmlFor="rule-active"
+                      className={styles.fieldToggleLabel}
+                    >
+                      Aktif
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className={styles.submitBtn}
+                  disabled={ruleSubmitting}
+                >
+                  {ruleSubmitting ? 'Kaydediliyor...' : 'Kural Ekle'}
+                </button>
+              </div>
+
+              {ruleFormError && (
+                <div className={styles.formError}>{ruleFormError}</div>
+              )}
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

@@ -7,6 +7,7 @@ import styles from './AppNav.module.css';
 
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Panel' },
+  { href: '/insights', label: 'İçgörüler' },
   { href: '/connections', label: 'Bağlantılar' },
   { href: '/feeds', label: 'Feed Yönetimi' },
 ];

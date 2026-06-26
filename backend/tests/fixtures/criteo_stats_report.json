@@ -1,0 +1,40 @@
+{
+  "rows": [
+    {
+      "AdvertiserId": "78901234",
+      "CampaignId": "456789001",
+      "Day": "2024-06-01",
+      "Displays": 95000,
+      "Clicks": 2100,
+      "AdvertiserCost": "312.50",
+      "Conversions": 45
+    },
+    {
+      "AdvertiserId": "78901234",
+      "CampaignId": "456789002",
+      "Day": "2024-06-01",
+      "Displays": 34000,
+      "Clicks": 780,
+      "AdvertiserCost": "98.75",
+      "Conversions": 12
+    },
+    {
+      "AdvertiserId": "78901234",
+      "CampaignId": "456789001",
+      "Day": "2024-06-02",
+      "Displays": 91500,
+      "Clicks": 2050,
+      "AdvertiserCost": "301.20",
+      "Conversions": 41
+    },
+    {
+      "AdvertiserId": "78901234",
+      "CampaignId": "456789002",
+      "Day": "2024-06-02",
+      "Displays": 31200,
+      "Clicks": 720,
+      "AdvertiserCost": "91.00",
+      "Conversions": 0
+    }
+  ]
+}

@@ -48,7 +48,11 @@ export type Platform =
   | 'meta_ads'
   | 'ga4'
   | 'search_console'
-  | 'tiktok_ads';
+  | 'tiktok_ads'
+  | 'linkedin_ads'
+  | 'microsoft_ads'
+  | 'criteo'
+  | 'pinterest_ads';
 
 export interface ConnectedAccount {
   id: string;

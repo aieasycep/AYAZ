@@ -24,6 +24,10 @@ import ayaz.connectors.meta_ads        # noqa: F401  — registers "meta_ads"
 import ayaz.connectors.ga4             # noqa: F401  — registers "ga4"
 import ayaz.connectors.search_console  # noqa: F401  — registers "search_console"
 import ayaz.connectors.tiktok_ads      # noqa: F401  — registers "tiktok_ads"
+import ayaz.connectors.linkedin_ads    # noqa: F401  — registers "linkedin_ads"
+import ayaz.connectors.microsoft_ads   # noqa: F401  — registers "microsoft_ads"
+import ayaz.connectors.criteo          # noqa: F401  — registers "criteo"
+import ayaz.connectors.pinterest_ads   # noqa: F401  — registers "pinterest_ads"
 
 __all__ = [
     "Connector",
