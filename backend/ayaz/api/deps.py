@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from ayaz.database import get_db
 from ayaz.models.oltp import Membership, User
-from ayaz.services.auth import decode_access_token
+from ayaz.services.auth import decode_access_token, is_token_revoked
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -41,8 +41,8 @@ def get_current_user(
 ) -> User:
     """Extract and validate the JWT, return the matching User row.
 
-    Raises HTTP 401 if the token is missing, invalid, or the user no longer
-    exists.
+    Raises HTTP 401 if the token is missing, invalid, expired, revoked (jti in
+    deny-list), or if the user no longer exists.
     """
     _unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -56,6 +56,11 @@ def get_current_user(
     try:
         payload = decode_access_token(credentials.credentials)
     except JWTError:
+        raise _unauthorized
+
+    # Check revocation deny-list by jti
+    jti: str | None = payload.get("jti")
+    if jti and is_token_revoked(db, jti):
         raise _unauthorized
 
     user_id_str: str | None = payload.get("sub")

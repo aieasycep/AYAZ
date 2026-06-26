@@ -50,8 +50,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
+from ayaz.config import settings
 from ayaz.models.oltp import Membership
 from ayaz.models.tracking import ConversionEvent, EventDestination, TrackingSource
+from ayaz.security.rate_limit import rate_limit
 from ayaz.services.tracking import ingest_event
 
 router = APIRouter(prefix="/tracking", tags=["tracking"])
@@ -539,8 +541,16 @@ def delete_destination(
 )
 def collect(
     public_token: str,
+    request: Request,
     payload: dict[str, Any],
     db: Session = Depends(get_db),
+    _rl: None = Depends(
+        rate_limit(
+            "tracking:collect",
+            limit=settings.rate_limit_public_limit,
+            window_seconds=settings.rate_limit_public_window,
+        )
+    ),
 ) -> CollectResponse:
     """Receive and ingest a server-side conversion event.
 
@@ -553,8 +563,7 @@ def collect(
     final disposition of the event (e.g. "forwarded", "skipped_no_consent",
     "duplicate").
 
-    Rate limiting and IP filtering are handled at the infrastructure layer
-    (reverse proxy / WAF) — not enforced here.
+    Rate limited: 120 requests/minute/IP (configurable via settings).
     """
     source = db.scalar(
         select(TrackingSource).where(

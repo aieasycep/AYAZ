@@ -80,9 +80,29 @@ class Settings(BaseSettings):
     # iyzico credentials (TR market).  Leave empty in development / stub mode.
     iyzico_api_key: str = ""
     iyzico_secret_key: str = ""
+    # iyzico webhook signing secret.  When non-empty, incoming webhook signatures
+    # are verified.  Leave empty in development / stub mode to accept all payloads.
+    iyzico_webhook_secret: str = ""
     # Stripe credentials (global market).  Leave empty in development / stub mode.
     stripe_secret_key: str = ""
+    # Stripe webhook signing secret (whsec_...).  When non-empty, the
+    # Stripe-Signature header is verified on every incoming webhook.  Leave empty
+    # in development / stub mode to accept all payloads (documented test mode).
     stripe_webhook_secret: str = ""
+
+    # ── Rate limiting ─────────────────────────────────────────────────────────
+    # Set to False in the test suite (or via RATE_LIMIT_ENABLED=false) so tests
+    # never receive HTTP 429.  Defaults to True in all other environments.
+    rate_limit_enabled: bool = True
+    # auth/login: max requests per IP per window
+    rate_limit_login_limit: int = 10
+    rate_limit_login_window: int = 60
+    # auth/signup: max requests per IP per window
+    rate_limit_signup_limit: int = 5
+    rate_limit_signup_window: int = 60
+    # public collect / feed / report endpoints: max requests per IP per window
+    rate_limit_public_limit: int = 120
+    rate_limit_public_window: int = 60
 
     @field_validator("allowed_origins", mode="before")
     @classmethod

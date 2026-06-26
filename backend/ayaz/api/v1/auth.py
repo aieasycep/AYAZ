@@ -1,8 +1,9 @@
-"""Auth endpoints: signup, login, me.
+"""Auth endpoints: signup, login, me, logout.
 
 POST /auth/signup  — create user + tenant + owner membership, return JWT
 POST /auth/login   — email/password → JWT
 GET  /auth/me      — return current user profile
+POST /auth/logout  — revoke the current JWT (insert jti into deny-list)
 """
 
 from __future__ import annotations
@@ -10,17 +11,29 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_user, get_db
+from ayaz.config import settings
 from ayaz.models.oltp import Membership, MembershipRole, Tenant, User
-from ayaz.services.auth import create_access_token, hash_password, verify_password
+from ayaz.security.rate_limit import rate_limit
+from ayaz.services.auth import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    revoke_token,
+    verify_password,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+_bearer = HTTPBearer(auto_error=False)
 
 
 # ── Request / response schemas ────────────────────────────────────────────────
@@ -58,6 +71,10 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class LogoutResponse(BaseModel):
+    detail: str
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
@@ -68,13 +85,23 @@ class UserResponse(BaseModel):
     summary="Register a new user and organisation",
 )
 def signup(
+    request: Request,
     body: SignupRequest,
     db: Session = Depends(get_db),
+    _rl: None = Depends(
+        rate_limit(
+            "auth:signup",
+            limit=settings.rate_limit_signup_limit,
+            window_seconds=settings.rate_limit_signup_window,
+        )
+    ),
 ) -> TokenResponse:
     """Create a new user, a new tenant (org), and an owner membership.
 
     Returns a JWT scoped to the new tenant so the client can proceed
     immediately without a separate login call.
+
+    Rate limited: 5 requests/minute/IP (configurable via settings).
     """
     # Check for duplicate email
     existing = db.scalar(select(User).where(User.email == body.email))
@@ -129,8 +156,16 @@ def signup(
     summary="Obtain a JWT access token",
 )
 def login(
+    request: Request,
     body: LoginRequest,
     db: Session = Depends(get_db),
+    _rl: None = Depends(
+        rate_limit(
+            "auth:login",
+            limit=settings.rate_limit_login_limit,
+            window_seconds=settings.rate_limit_login_window,
+        )
+    ),
 ) -> TokenResponse:
     """Authenticate with email + password, return a JWT.
 
@@ -138,6 +173,8 @@ def login(
     If the user belongs to multiple tenants, the first membership (by creation
     order) is used.  TODO (Faz 1): let the client specify the target tenant at
     login, or add a ``/auth/switch-tenant`` endpoint.
+
+    Rate limited: 10 requests/minute/IP (configurable via settings).
     """
     user = db.scalar(select(User).where(User.email == body.email))
     if user is None or not verify_password(body.password, user.hashed_password):
@@ -179,3 +216,39 @@ def me(
     Requires a valid JWT in the ``Authorization: Bearer <token>`` header.
     """
     return current_user
+
+
+@router.post(
+    "/logout",
+    response_model=LogoutResponse,
+    summary="Revoke the current JWT (logout)",
+)
+def logout(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(_bearer)
+    ] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> LogoutResponse:
+    """Revoke the current access token by inserting its ``jti`` into the deny-list.
+
+    After this call the token is invalid even if it has not yet expired.
+    The client should discard the token from local storage.
+
+    Subsequent requests with the same token receive HTTP 401.
+    """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Kimlik doğrulama gerekli.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except JWTError:
+        # Token is already invalid — treat as successful logout
+        return LogoutResponse(detail="Çıkış yapıldı.")
+
+    revoke_token(db, payload)
+    return LogoutResponse(detail="Çıkış yapıldı.")

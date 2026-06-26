@@ -37,15 +37,17 @@ from __future__ import annotations
 import secrets
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
+from ayaz.config import settings
 from ayaz.models.feeds import FeedChannel, FeedProduct, FeedRule, FeedSource
 from ayaz.models.oltp import Membership
+from ayaz.security.rate_limit import rate_limit
 from ayaz.services.feeds import (
     VALID_CHANNEL_TYPES,
     VALID_OUTPUT_FORMATS,
@@ -679,7 +681,15 @@ def delete_rule(
 )
 def public_feed(
     public_token: str,
+    request: Request,
     db: Session = Depends(get_db),
+    _rl: None = Depends(
+        rate_limit(
+            "feeds:public",
+            limit=settings.rate_limit_public_limit,
+            window_seconds=settings.rate_limit_public_window,
+        )
+    ),
 ) -> Response:
     """Return the generated channel feed for the given public token.
 
@@ -688,6 +698,8 @@ def public_feed(
 
     Content-Type is ``application/xml`` for XML feeds and
     ``text/csv; charset=utf-8`` for CSV feeds.
+
+    Rate limited: 120 requests/minute/IP (configurable via settings).
     """
     channel = db.scalar(
         select(FeedChannel).where(

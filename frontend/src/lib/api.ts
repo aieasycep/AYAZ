@@ -42,6 +42,22 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+// Best-effort server-side token revocation; never blocks logout if it fails.
+export async function logout(): Promise<void> {
+  const token = getToken();
+  if (token) {
+    try {
+      await fetch(`${API_BASE}/api/v1/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      /* ignore — clear locally regardless */
+    }
+  }
+  clearToken();
+}
+
 // --- Authenticated fetch ---
 
 async function authFetch<T>(path: string, params?: Record<string, string>): Promise<T> {

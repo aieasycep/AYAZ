@@ -46,15 +46,17 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
+from ayaz.config import settings
 from ayaz.models.oltp import Membership
 from ayaz.models.reports import ReportDefinition, ReportSchedule, SharedReport
+from ayaz.security.rate_limit import rate_limit
 from ayaz.services.reports import build_report_payload, render_report_html
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -623,6 +625,7 @@ def revoke_share(
 )
 def public_report(
     public_token: str,
+    request: Request,
     date_from: Annotated[
         date | None,
         Query(description="Inclusive start date (YYYY-MM-DD); defaults to 30 days ago"),
@@ -632,6 +635,13 @@ def public_report(
         Query(description="Inclusive end date (YYYY-MM-DD); defaults to today"),
     ] = None,
     db: Session = Depends(get_db),
+    _rl: None = Depends(
+        rate_limit(
+            "reports:public",
+            limit=settings.rate_limit_public_limit,
+            window_seconds=settings.rate_limit_public_window,
+        )
+    ),
 ) -> HTMLResponse:
     """Return the rendered white-label HTML report for the given public token.
 

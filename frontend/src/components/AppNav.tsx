@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { clearToken } from '@/lib/api';
+import { logout as logoutApi } from '@/lib/api';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import styles from './AppNav.module.css';
 
@@ -48,8 +48,8 @@ export default function AppNav() {
     };
   }, [drawerOpen]);
 
-  function handleLogout() {
-    clearToken();
+  async function handleLogout() {
+    await logoutApi(); // revoke server-side (best-effort) + clear local token
     router.push('/login');
   }
 

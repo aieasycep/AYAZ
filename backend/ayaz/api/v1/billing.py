@@ -25,17 +25,20 @@ No live network calls are made.  All checkout URLs are synthetic test URLs.
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
+from ayaz.config import settings
 from ayaz.models.billing import BillingEvent
 from ayaz.models.oltp import ConnectedAccount, Membership
+from ayaz.security.webhook_sig import verify_iyzico_signature, verify_stripe_signature
 from ayaz.services.billing import (
     PLANS,
     cancel_subscription,
@@ -251,12 +254,12 @@ def cancel_current_subscription(
     "/webhook/{provider}",
     response_model=WebhookResponse,
     summary="Receive a billing webhook from a payment provider",
-    # No auth — webhook is authenticated via provider signature (stub: accepts all)
+    # No JWT auth — authenticated via provider HMAC signature when secret is set.
     include_in_schema=True,
 )
-def receive_webhook(
+async def receive_webhook(
     provider: str,
-    payload: dict,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> WebhookResponse:
     """Process an incoming webhook from iyzico or Stripe.
@@ -264,17 +267,28 @@ def receive_webhook(
     This endpoint has NO JWT authentication — it is secured (in production) via
     the provider's request signature (iyzico HMAC / Stripe-Signature header).
 
-    In STUB mode every payload is accepted.  The endpoint expects a JSON body
-    with at minimum::
+    Signature verification
+    ----------------------
+    * **Stripe:** If ``STRIPE_WEBHOOK_SECRET`` is configured, the
+      ``Stripe-Signature`` header is verified with HMAC-SHA256 over the raw
+      body.  Invalid or missing signatures return HTTP 400.
+    * **iyzico:** If ``IYZICO_WEBHOOK_SECRET`` is configured, the
+      ``X-Iyzico-Signature`` header is verified.  Invalid or missing signatures
+      return HTTP 400.
+    * **Stub / test mode (no secret configured):** Signature is skipped and
+      ``tenant_id`` is read directly from the request body.
+      SECURITY NOTE (residual risk): in unsigned mode ``tenant_id`` comes from
+      the body and is spoofable — never deploy without a signing secret in
+      production.
+
+    The endpoint expects a JSON body with at minimum::
 
         {
-          "tenant_id": "<uuid>",           // required to scope the event
+          "tenant_id": "<uuid>",           // required (unsigned mode) / fallback
           "type": "subscription.renewed",  // optional; defaults to "webhook.received"
           "plan_code": "growth",           // optional; triggers a plan update
           "status": "active"               // optional; subscription status override
         }
-
-    TODO (Faz 1): verify HMAC/signature before processing; reject unsigned payloads.
     """
     if provider not in ("iyzico", "stripe", "none"):
         raise HTTPException(
@@ -282,7 +296,53 @@ def receive_webhook(
             detail=f"Bilinmeyen sağlayıcı: {provider!r}",
         )
 
-    # Extract tenant_id from payload — required for scoping
+    # Read the raw body once — needed for HMAC verification before JSON parsing
+    raw_body: bytes = await request.body()
+
+    # ── Signature verification ────────────────────────────────────────────────
+
+    if provider == "stripe":
+        stripe_sig = request.headers.get("stripe-signature", "")
+        if not verify_stripe_signature(
+            raw_body, stripe_sig, settings.stripe_webhook_secret
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Stripe webhook imzası geçersiz veya eksik.",
+            )
+
+    elif provider == "iyzico":
+        iyzico_sig = request.headers.get("x-iyzico-signature", "")
+        if not verify_iyzico_signature(
+            raw_body, iyzico_sig, settings.iyzico_webhook_secret
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="iyzico webhook imzası geçersiz veya eksik.",
+            )
+
+    # ── Parse JSON body ───────────────────────────────────────────────────────
+
+    try:
+        payload: dict = json.loads(raw_body)
+    except (json.JSONDecodeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook body geçerli JSON değil.",
+        )
+
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook body bir JSON nesnesi olmalıdır.",
+        )
+
+    # ── Resolve tenant ────────────────────────────────────────────────────────
+    # TODO (Faz 1): when live provider IDs are stored, resolve tenant from
+    # provider_customer_id / provider_subscription_id rather than the body field.
+    # In unsigned (stub) mode this is the only tenant resolution path; body
+    # spoofing risk is documented above.
+
     tenant_id_raw = payload.get("tenant_id")
     if not tenant_id_raw:
         raise HTTPException(
