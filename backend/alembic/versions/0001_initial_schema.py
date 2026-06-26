@@ -104,7 +104,7 @@ def upgrade() -> None:
             comment="RLS: filter by current_setting('app.tenant_id')",
         ),
         sa.Column(
-            "role", sa.Enum("owner", "admin", "member", name="membership_role"),
+            "role", membership_role,
             nullable=False, server_default="member",
         ),
         sa.Column(
@@ -130,11 +130,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "platform",
-            sa.Enum(
-                "google_ads", "meta_ads", "ga4", "search_console",
-                "tiktok_ads", "linkedin_ads", "microsoft_ads", "sample",
-                name="platform",
-            ),
+            platform,
             nullable=False,
         ),
         sa.Column("external_account_id", sa.String(200), nullable=False),
@@ -145,7 +141,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "sync_status",
-            sa.Enum("idle", "syncing", "success", "error", "paused", name="sync_status"),
+            sync_status,
             nullable=False, server_default="idle",
         ),
         sa.Column(
