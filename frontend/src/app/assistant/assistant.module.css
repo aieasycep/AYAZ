@@ -450,13 +450,44 @@
   font-size: 0.9rem;
 }
 
+/* Mobile sidebar toggle bar */
+
+.mobileSidebarToggle {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 1rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.mobileSidebarToggleBtn {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-primary);
+  border-radius: 7px;
+  padding: 0.35rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: all 0.15s;
+  min-height: 36px;
+}
+
+.mobileSidebarToggleBtn:hover {
+  border-color: var(--color-primary);
+  background: rgba(59, 91, 219, 0.05);
+}
+
+.mobileSidebarLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
 /* ---- Responsive ---- */
 
-@media (max-width: 640px) {
-  .sidebar {
-    width: 200px;
-  }
-
+@media (max-width: 768px) {
   .bubble {
     max-width: 85%;
   }
@@ -467,10 +498,16 @@
 
   .inputBar {
     padding: 0.75rem 1rem 0.875rem;
+    /* ensure input is reachable above keyboard */
+    padding-bottom: max(0.875rem, env(safe-area-inset-bottom, 0.875rem));
+  }
+
+  .textarea {
+    font-size: 16px; /* prevent iOS zoom on focus */
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .body {
     flex-direction: column;
     height: auto;
@@ -480,12 +517,38 @@
   .sidebar {
     width: 100%;
     height: auto;
-    max-height: 180px;
+    max-height: 200px;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
+    transition: max-height 0.25s ease;
+  }
+
+  .sidebarCollapsed {
+    max-height: 0;
+    overflow: hidden;
+    border-bottom: none;
+  }
+
+  .mobileSidebarToggle {
+    display: flex;
   }
 
   .chat {
-    height: calc(100vh - 56px - 180px);
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+
+  .inputHint {
+    display: none;
+  }
+
+  .suggestGrid {
+    gap: 0.5rem;
+  }
+
+  .suggestChip {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
   }
 }

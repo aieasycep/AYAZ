@@ -126,6 +126,8 @@ export default function AssistantPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [lastFailedContent, setLastFailedContent] = useState<string | null>(null);
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -286,8 +288,20 @@ export default function AssistantPage() {
       <AppNav />
 
       <div className={styles.body}>
+        {/* Mobile sidebar toggle bar */}
+        <div className={styles.mobileSidebarToggle}>
+          <span className={styles.mobileSidebarLabel}>Sohbetler</span>
+          <button
+            className={styles.mobileSidebarToggleBtn}
+            onClick={() => setSidebarCollapsed((v) => !v)}
+            aria-expanded={!sidebarCollapsed}
+          >
+            {sidebarCollapsed ? 'Sohbetleri Göster' : 'Gizle'}
+          </button>
+        </div>
+
         {/* ---- Sidebar ---- */}
-        <aside className={styles.sidebar}>
+        <aside className={`${styles.sidebar} ${sidebarCollapsed ? styles.sidebarCollapsed : ''}`}>
           <div className={styles.sidebarHeader}>
             <div className={styles.sidebarTitle}>Sohbetler</div>
             <button

@@ -47,3 +47,37 @@ button {
 input {
   font-family: inherit;
 }
+
+/* ============================================================
+   PWA / Mobile global helpers
+   ============================================================ */
+
+/* Prevent overscroll bounce on iOS while keeping scroll inside containers */
+html {
+  overscroll-behavior: none;
+}
+
+/* Prevent tap highlight flash on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Inputs at 16px minimum on iOS to prevent zoom-on-focus */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Safe area padding for notched phones (standalone PWA mode) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
