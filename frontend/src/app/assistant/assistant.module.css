@@ -288,6 +288,13 @@
   white-space: nowrap;
 }
 
+/* Action chip — green, distinct from neutral read chips */
+.toolChipAction {
+  background: rgba(16, 185, 129, 0.10);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.30);
+}
+
 /* Typing indicator */
 
 .typingRow {

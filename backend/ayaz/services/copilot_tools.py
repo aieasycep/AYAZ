@@ -408,6 +408,124 @@ def _draft_automation_rule(
     }
 
 
+# ── ACTION tools (v2) — real writes, tenant-scoped ────────────────────────────
+
+
+def _create_automation_rule(
+    db: Session,
+    tenant_id: uuid.UUID,
+    name: str,
+    metric: str,
+    comparator: str,
+    action: str,
+    scope: str = "account",
+    scope_filter: str | None = None,
+    threshold: float | None = None,
+    window_days: int = 7,
+) -> dict:
+    """Persist a new AutomationRule for the tenant.
+
+    This is an ACTION tool — it writes to the DB.  The stub path only calls
+    this when the user clearly requests rule creation with enough parameters.
+    """
+    from ayaz.models.automation import AutomationRule
+    from ayaz.services.automation import VALID_METRICS, VALID_COMPARATORS, VALID_ACTIONS, VALID_SCOPES
+
+    errors = []
+    if scope not in VALID_SCOPES:
+        scope = "account"
+    if metric not in VALID_METRICS:
+        errors.append(f"Geçersiz metrik: {metric!r}. Geçerli değerler: {sorted(VALID_METRICS)}")
+    if comparator not in VALID_COMPARATORS:
+        errors.append(f"Geçersiz karşılaştırıcı: {comparator!r}. Geçerli değerler: {sorted(VALID_COMPARATORS)}")
+    if action not in VALID_ACTIONS:
+        errors.append(f"Geçersiz eylem: {action!r}. Geçerli değerler: {sorted(VALID_ACTIONS)}")
+
+    if errors:
+        return {"created": False, "errors": errors}
+
+    rule = AutomationRule(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        name=name,
+        scope=scope,
+        scope_filter=scope_filter if scope != "account" else None,
+        metric=metric,
+        comparator=comparator,
+        threshold=float(threshold) if threshold is not None else None,
+        window_days=max(int(window_days), 1),
+        action=action,
+        action_config={},
+        is_active=True,
+    )
+    db.add(rule)
+    db.flush()
+
+    return {
+        "created": True,
+        "rule_id": str(rule.id),
+        "name": rule.name,
+        "metric": rule.metric,
+        "comparator": rule.comparator,
+        "threshold": rule.threshold,
+        "action": rule.action,
+        "scope": rule.scope,
+        "window_days": rule.window_days,
+        "is_active": rule.is_active,
+        "message": f"Otomasyon kuralı oluşturuldu: '{rule.name}'",
+    }
+
+
+def _create_goal(
+    db: Session,
+    tenant_id: uuid.UUID,
+    name: str,
+    metric: str,
+    target_value: float,
+    period_start: str,
+    period_end: str,
+    channel_filter: str | None = None,
+) -> dict:
+    """Persist a new Goal for the tenant.
+
+    This is an ACTION tool — it writes to the DB.  The stub path only calls
+    this when the user clearly requests goal creation with enough parameters.
+    """
+    from ayaz.services.goals import create_goal, ALL_METRICS
+
+    if metric not in ALL_METRICS:
+        return {
+            "created": False,
+            "errors": [f"Geçersiz metrik: {metric!r}. Geçerli değerler: {sorted(ALL_METRICS)}"],
+        }
+
+    try:
+        goal = create_goal(
+            db=db,
+            tenant_id=tenant_id,
+            name=name,
+            metric=metric,
+            target_value=float(target_value),
+            period_start=period_start,
+            period_end=period_end,
+            channel_filter=channel_filter,
+        )
+    except ValueError as exc:
+        return {"created": False, "errors": [str(exc)]}
+
+    return {
+        "created": True,
+        "goal_id": str(goal.id),
+        "name": goal.name,
+        "metric": goal.metric,
+        "target_value": goal.target_value,
+        "period_start": goal.period_start,
+        "period_end": goal.period_end,
+        "channel_filter": goal.channel_filter,
+        "message": f"Hedef oluşturuldu: '{goal.name}'",
+    }
+
+
 def _get_subscription_status(
     db: Session,
     tenant_id: uuid.UUID,
@@ -430,7 +548,13 @@ def _get_subscription_status(
 
 # ── Tool dispatch table ────────────────────────────────────────────────────────
 
+# Tools marked is_action=True perform real DB writes.  The stub path should
+# only call them when the user's intent is unambiguous and all required
+# parameters are present.  The Claude path relies on the model's judgment,
+# guided by the updated system prompt.
+
 _TOOLS: dict[str, Any] = {
+    # ── Read tools ──────────────────────────────────────────────────────────
     "get_performance_summary": _get_performance_summary,
     "get_timeseries": _get_timeseries,
     "list_campaigns": _list_campaigns,
@@ -439,7 +563,13 @@ _TOOLS: dict[str, Any] = {
     "get_feed_channels": _get_feed_channels,
     "draft_automation_rule": _draft_automation_rule,
     "get_subscription_status": _get_subscription_status,
+    # ── Action tools (v2) — real writes ─────────────────────────────────────
+    "create_automation_rule": _create_automation_rule,
+    "create_goal": _create_goal,
 }
+
+# Which tools perform writes (used for audit / confirmation logic)
+ACTION_TOOLS: frozenset[str] = frozenset({"create_automation_rule", "create_goal"})
 
 
 def dispatch(
@@ -641,5 +771,96 @@ TOOL_SPECS: list[dict] = [
             "properties": {},
             "required": [],
         },
+    },
+    # ── ACTION tools (v2) ────────────────────────────────────────────────────
+    # is_action=True: these tools write to the DB.  Only call them when the
+    # user EXPLICITLY asks to create/set something ("kural oluştur", "hedef koy").
+    # Always summarise what was created in the assistant reply.
+    {
+        "name": "create_automation_rule",
+        "description": (
+            "[EYLEM — DB YAZMA] Kullanıcı açıkça 'kural oluştur', 'uyarı kur' veya "
+            "'otomatik kural ekle' gibi bir şey istediğinde bu aracı çağır. "
+            "Veritabanına GERÇEK bir otomasyon kuralı yazar. "
+            "Gerekli bilgiler eksikse ÖNCE sor; tahmin etme. "
+            "Geçerli metrikler: spend, roas, ctr, cpc, cpa, conversions. "
+            "Geçerli karşılaştırıcılar: pct_drop, pct_rise, below, above, anomaly. "
+            "Geçerli eylemler: alert, notify_email, notify_slack, pause_suggest. "
+            "Geçerli kapsam: account, channel, campaign."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Kural adı (kullanıcının belirlediği)."},
+                "metric": {
+                    "type": "string",
+                    "description": "İzlenecek metrik: spend | roas | ctr | cpc | cpa | conversions",
+                },
+                "comparator": {
+                    "type": "string",
+                    "description": "Koşul: pct_drop | pct_rise | below | above | anomaly",
+                },
+                "action": {
+                    "type": "string",
+                    "description": "Tetiklenecek eylem: alert | notify_email | notify_slack | pause_suggest",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Kapsam: account | channel | campaign. Varsayılan: account.",
+                },
+                "scope_filter": {
+                    "type": "string",
+                    "description": "Kanal anahtarı veya kampanya UUID'si (scope=channel/campaign ise). İsteğe bağlı.",
+                },
+                "threshold": {
+                    "type": "number",
+                    "description": "Eşik değeri. pct_* için yüzde (ör. 20 = %20). anomaly için boş bırak.",
+                },
+                "window_days": {
+                    "type": "integer",
+                    "description": "Değerlendirme penceresi (gün). Varsayılan: 7.",
+                },
+            },
+            "required": ["name", "metric", "comparator", "action"],
+        },
+        "is_action": True,
+    },
+    {
+        "name": "create_goal",
+        "description": (
+            "[EYLEM — DB YAZMA] Kullanıcı açıkça 'hedef koy', 'hedef oluştur' veya "
+            "'KPI hedefi ekle' gibi bir şey istediğinde bu aracı çağır. "
+            "Veritabanına GERÇEK bir hedef yazar. "
+            "Gerekli bilgiler (metric, target_value, period_start, period_end) eksikse ÖNCE sor. "
+            "Geçerli metrikler: spend, roas, conversions, conversion_value."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Hedef adı."},
+                "metric": {
+                    "type": "string",
+                    "description": "Hedeflenen metrik: spend | roas | conversions | conversion_value",
+                },
+                "target_value": {
+                    "type": "number",
+                    "description": "Hedef değeri (sayısal).",
+                },
+                "period_start": {
+                    "type": "string",
+                    "description": "Başlangıç tarihi (YYYY-MM-DD).",
+                },
+                "period_end": {
+                    "type": "string",
+                    "description": "Bitiş tarihi (YYYY-MM-DD).",
+                },
+                "channel_filter": {
+                    "type": "string",
+                    "description": "Kanal anahtarı (ör. google_ads). İsteğe bağlı; boş = tüm kanallar.",
+                },
+            },
+            "required": ["name", "metric", "target_value", "period_start", "period_end"],
+        },
+        "is_action": True,
     },
 ]

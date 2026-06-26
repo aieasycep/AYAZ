@@ -58,8 +58,15 @@ _SYSTEM_PROMPT = (
     "Görevin, kullanıcıya ait reklam ve pazarlama verilerini analiz etmek, "
     "içgörüler sunmak ve aksiyon önerileri yapmaktır. "
     "YALNIZCA araçların döndürdüğü gerçek verilere dayan — asla uydurma. "
-    "Aksiyonları öneri olarak sun; hiçbir şeyi otomatik olarak çalıştırma. "
-    "Yanıtlarını kısa, net ve Türkçe yaz."
+    "Yanıtlarını kısa, net ve Türkçe yaz.\n\n"
+    "## Eylem araçları hakkında önemli kurallar\n"
+    "- create_automation_rule ve create_goal araçları gerçek veritabanı yazmaları yapar.\n"
+    "- Bu araçları YALNIZCA kullanıcı açıkça 'kural oluştur', 'hedef koy', 'uyarı kur' "
+    "gibi net bir eylem isteği yaptığında çağır.\n"
+    "- Gerekli parametreler eksikse ÖNCE kullanıcıya sor; eksik parametrelerle araç çağırma.\n"
+    "- Bir eylem aracı çağırdıktan sonra yanıtında ne oluşturulduğunu özetle: "
+    "'Oluşturuldu: [kural/hedef adı] (ID: ...)'\n"
+    "- Sadece okuma araçları (get_*, list_*, draft_*) için onay gerekmez."
 )
 
 # Default date range used by stub when user doesn't specify dates
@@ -223,6 +230,225 @@ def _summarise_subscription(result: dict) -> str:
     )
 
 
+def _extract_rule_params(user_text: str) -> dict:
+    """Try to extract automation rule parameters from free-form Turkish text.
+
+    Returns a dict of the params found.  Missing params are absent from the dict.
+    This is a best-effort heuristic; the stub asks for missing params rather than
+    creating with guessed values.
+    """
+    params: dict = {}
+    text_lower = user_text.replace("İ", "i").replace("I", "i").lower()
+
+    # Metric detection
+    metric_keywords = {
+        "roas": "roas",
+        "harcama": "spend",
+        "spend": "spend",
+        "tıklama oranı": "ctr",
+        "ctr": "ctr",
+        "tıklama başı": "cpc",
+        "cpc": "cpc",
+        "dönüşüm başı": "cpa",
+        "cpa": "cpa",
+        "dönüşüm": "conversions",
+        "conversions": "conversions",
+    }
+    for kw, val in metric_keywords.items():
+        if kw in text_lower:
+            params["metric"] = val
+            break
+
+    # Comparator detection
+    if any(kw in text_lower for kw in ["düştüğünde", "azaldığında", "pct_drop", "düşüş"]):
+        params["comparator"] = "pct_drop"
+    elif any(kw in text_lower for kw in ["arttığında", "yükseldiğinde", "artış", "pct_rise"]):
+        params["comparator"] = "pct_rise"
+    elif any(kw in text_lower for kw in ["altına", "below"]):
+        params["comparator"] = "below"
+    elif any(kw in text_lower for kw in ["üzerine", "above"]):
+        params["comparator"] = "above"
+    elif any(kw in text_lower for kw in ["anomali", "anormal", "anomaly"]):
+        params["comparator"] = "anomaly"
+
+    # Action detection (default to alert)
+    if any(kw in text_lower for kw in ["bildir", "e-posta", "email", "notify_email"]):
+        params["action"] = "notify_email"
+    elif any(kw in text_lower for kw in ["slack"]):
+        params["action"] = "notify_slack"
+    else:
+        params["action"] = "alert"
+
+    # Threshold detection: look for numbers followed by % or bağımsız
+    import re
+    pct_match = re.search(r"(%\s*)?(\d+(?:[.,]\d+)?)\s*(%|yüzde|pct)?", user_text)
+    if pct_match and params.get("comparator") in ("pct_drop", "pct_rise"):
+        try:
+            params["threshold"] = float(pct_match.group(2).replace(",", "."))
+        except ValueError:
+            pass
+    elif pct_match and params.get("comparator") in ("below", "above"):
+        try:
+            params["threshold"] = float(pct_match.group(2).replace(",", "."))
+        except ValueError:
+            pass
+
+    return params
+
+
+def _handle_create_rule_intent(
+    db: "Session",
+    tenant_id: uuid.UUID,
+    user_text: str,
+    tools_used: "list[ToolUsed]",
+) -> str:
+    """Handle 'kural oluştur' intent: create if params present, else ask."""
+    params = _extract_rule_params(user_text)
+
+    missing = []
+    if "metric" not in params:
+        missing.append("hangi metrik (roas, spend, ctr, cpc, cpa, dönüşüm)")
+    if "comparator" not in params:
+        missing.append("hangi koşul (düşüş, artış, altına, üzerine, anomali)")
+    if "threshold" not in params and params.get("comparator") not in ("anomaly", None):
+        missing.append("eşik değeri (ör. %20)")
+
+    if missing:
+        return (
+            "Otomasyon kuralı oluşturmak için şu bilgilere ihtiyacım var: "
+            + "; ".join(missing) + ". "
+            "Lütfen belirtin ve 'kural oluştur' diyerek tekrar deneyin."
+        )
+
+    # All required params present — create the rule
+    name_base = params.get("metric", "Metrik").upper()
+    comparator = params["comparator"]
+    comp_tr = {
+        "pct_drop": "Düşüş", "pct_rise": "Artış",
+        "below": "Alt Limit", "above": "Üst Limit", "anomaly": "Anomali",
+    }.get(comparator, comparator)
+    rule_name = f"{name_base} {comp_tr} Uyarısı"
+
+    dispatch_args: dict = {
+        "name": rule_name,
+        "metric": params["metric"],
+        "comparator": comparator,
+        "action": params.get("action", "alert"),
+        "scope": "account",
+        "window_days": 7,
+    }
+    if "threshold" in params:
+        dispatch_args["threshold"] = params["threshold"]
+
+    result = dispatch("create_automation_rule", db, tenant_id, dispatch_args)
+    summary = _short_summary_action("create_automation_rule", result)
+    tools_used.append(ToolUsed(name="create_automation_rule", summary=summary))
+
+    if result.get("created"):
+        return (
+            f"Oluşturuldu: '{result['name']}' kuralı (ID: {result['rule_id']}). "
+            f"Kural; {result['metric']} metriği için {result['comparator']} koşuluyla "
+            f"{'eşik: ' + str(result['threshold']) if result.get('threshold') is not None else 'anomali tespiti'} "
+            f"durumunda {result['action']} eylemi tetikleyecek."
+        )
+    else:
+        return f"Kural oluşturulamadı: {result.get('errors', 'Bilinmeyen hata')}"
+
+
+def _handle_create_goal_intent(
+    db: "Session",
+    tenant_id: uuid.UUID,
+    user_text: str,
+    tools_used: "list[ToolUsed]",
+) -> str:
+    """Handle 'hedef koy' intent: create if params present, else ask."""
+    from datetime import date as _date
+    import re
+
+    text_lower = user_text.replace("İ", "i").replace("I", "i").lower()
+
+    # Metric detection
+    metric: str | None = None
+    metric_keywords = {
+        "roas": "roas",
+        "harcama": "spend",
+        "spend": "spend",
+        "dönüşüm değeri": "conversion_value",
+        "dönüşüm": "conversions",
+        "conversions": "conversions",
+    }
+    for kw, val in metric_keywords.items():
+        if kw in text_lower:
+            metric = val
+            break
+
+    # Target value detection
+    target_value: float | None = None
+    num_match = re.search(r"(\d+(?:[.,]\d+)?)", user_text)
+    if num_match:
+        try:
+            target_value = float(num_match.group(1).replace(",", "."))
+        except ValueError:
+            pass
+
+    missing = []
+    if metric is None:
+        missing.append("hangi metrik (roas, spend, dönüşüm, dönüşüm değeri)")
+    if target_value is None:
+        missing.append("hedef değer (sayısal)")
+
+    if missing:
+        return (
+            "Hedef oluşturmak için şu bilgilere ihtiyacım var: "
+            + "; ".join(missing) + ". "
+            "Ayrıca dönem başlangıç ve bitiş tarihlerini de belirtebilirsiniz "
+            "(varsayılan: bu ayın başından sonuna). "
+            "Lütfen belirtin ve 'hedef koy' diyerek tekrar deneyin."
+        )
+
+    # Default period: current month
+    today = _date.today()
+    period_start = today.replace(day=1).isoformat()
+    import calendar
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    period_end = today.replace(day=last_day).isoformat()
+
+    goal_name = f"{metric.upper()} Hedefi — {today.strftime('%B %Y')}"
+    dispatch_args: dict = {
+        "name": goal_name,
+        "metric": metric,
+        "target_value": target_value,
+        "period_start": period_start,
+        "period_end": period_end,
+    }
+
+    result = dispatch("create_goal", db, tenant_id, dispatch_args)
+    summary = _short_summary_action("create_goal", result)
+    tools_used.append(ToolUsed(name="create_goal", summary=summary))
+
+    if result.get("created"):
+        return (
+            f"Oluşturuldu: '{result['name']}' hedefi (ID: {result['goal_id']}). "
+            f"Hedef: {result['metric']} metriği için {result['target_value']} değeri, "
+            f"dönem: {result['period_start']} → {result['period_end']}."
+        )
+    else:
+        return f"Hedef oluşturulamadı: {result.get('errors', 'Bilinmeyen hata')}"
+
+
+def _short_summary_action(tool_name: str, result: dict) -> str:
+    """One-line Turkish summary for action tool results."""
+    if tool_name == "create_automation_rule":
+        if result.get("created"):
+            return f"Kural oluşturuldu: {result.get('name', '?')} (ID: {result.get('rule_id', '?')})"
+        return f"Kural oluşturulamadı: {result.get('errors', [])}"
+    if tool_name == "create_goal":
+        if result.get("created"):
+            return f"Hedef oluşturuldu: {result.get('name', '?')} (ID: {result.get('goal_id', '?')})"
+        return f"Hedef oluşturulamadı: {result.get('errors', [])}"
+    return "Tamamlandı"
+
+
 def _stub_chat(
     db: Session,
     tenant_id: uuid.UUID,
@@ -235,8 +461,26 @@ def _stub_chat(
     # Turkish-safe normalisation (see _keyword_match docstring)
     text_lower = user_text.replace("İ", "i").replace("I", "i").lower()
 
-    # ── intent: performance summary ────────────────────────────────────────
+    # ── ACTION intents checked FIRST (most specific — user explicitly asks) ──
+
+    # ── intent: create automation rule (ACTION) ────────────────────────────
     if _keyword_match(
+        text_lower,
+        "kural oluştur", "kural ekle", "uyarı kur", "alarm kur",
+        "otomatik kural", "otomasyon kural", "create rule",
+    ):
+        reply_text = _handle_create_rule_intent(db, tenant_id, user_text, tools_used)
+
+    # ── intent: create goal (ACTION) ──────────────────────────────────────
+    elif _keyword_match(
+        text_lower,
+        "hedef koy", "hedef oluştur", "hedef ekle", "kpi hedef",
+        "create goal", "set goal",
+    ):
+        reply_text = _handle_create_goal_intent(db, tenant_id, user_text, tools_used)
+
+    # ── intent: performance summary ────────────────────────────────────────
+    elif _keyword_match(
         text_lower,
         "özet", "performans", "nasıl gidiyor", "genel durum",
         "harcama", "toplam", "summary", "nasıl",
@@ -328,7 +572,8 @@ def _stub_chat(
             "• Optimizasyon önerileri "
             "• İçgörü ve anomali analizi "
             "• Ürün feed durumu "
-            "• Otomasyon kuralı taslağı "
+            "• Otomasyon kuralı oluşturma ('kural oluştur') "
+            "• Hedef belirleme ('hedef koy') "
             "• Abonelik ve limit bilgisi "
             "Sorularınızı Türkçe veya İngilizce yazabilirsiniz."
         )
@@ -530,6 +775,14 @@ def _short_summary(tool_name: str, result: dict) -> str:
         return "Taslak kural oluşturuldu" if result.get("draft") else "Hata"
     if tool_name == "get_subscription_status":
         return f"Plan: {result.get('plan_name', '?')}"
+    if tool_name == "create_automation_rule":
+        if result.get("created"):
+            return f"Kural oluşturuldu: {result.get('name', '?')} (ID: {result.get('rule_id', '?')})"
+        return f"Kural oluşturulamadı: {result.get('errors', [])}"
+    if tool_name == "create_goal":
+        if result.get("created"):
+            return f"Hedef oluşturuldu: {result.get('name', '?')} (ID: {result.get('goal_id', '?')})"
+        return f"Hedef oluşturulamadı: {result.get('errors', [])}"
     return "Tamamlandı"
 
 

@@ -164,3 +164,42 @@ export function deleteAlertRule(id: string): Promise<void> {
     method: 'DELETE',
   });
 }
+
+// --- Root-cause & one-click fixes ---
+
+export type FixActionType =
+  | 'create_alert_rule'
+  | 'create_goal'
+  | 'view_campaign'
+  | 'dismiss';
+
+export interface FixAction {
+  label: string;
+  action_type: FixActionType;
+  payload: Record<string, unknown>;
+}
+
+export interface InsightFixes {
+  root_cause: string;
+  fixes: FixAction[];
+}
+
+export interface ApplyFixResponse {
+  status: string;
+  created?: Record<string, unknown>;
+}
+
+export function getInsightFixes(id: string): Promise<InsightFixes> {
+  return authFetch<InsightFixes>(`/api/v1/insights/${id}/fixes`);
+}
+
+export function applyInsightFix(
+  id: string,
+  action_type: FixActionType,
+  payload: Record<string, unknown>,
+): Promise<ApplyFixResponse> {
+  return authFetch<ApplyFixResponse>(`/api/v1/insights/${id}/fixes/apply`, {
+    method: 'POST',
+    body: JSON.stringify({ action_type, payload }),
+  });
+}

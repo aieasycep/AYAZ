@@ -60,6 +60,51 @@ from ayaz.services.insights import generate_insights
 router = APIRouter(prefix="/insights", tags=["insights"])
 
 
+# ── Fixes schemas ─────────────────────────────────────────────────────────────
+
+
+class FixActionOut(BaseModel):
+    """One one-click fix action."""
+
+    label: str
+    action_type: str
+    payload: dict[str, Any]
+
+
+class FixSuggestionOut(BaseModel):
+    """Root cause + fix list for a single insight."""
+
+    insight_id: uuid.UUID
+    root_cause: str
+    fixes: list[FixActionOut]
+
+
+class ApplyFixRequest(BaseModel):
+    """Payload for POST /insights/{id}/fixes/apply."""
+
+    action_type: str = Field(
+        ...,
+        description=(
+            "One of: create_automation_rule | create_goal | "
+            "view_campaign | dismiss_insight"
+        ),
+    )
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Ready-to-apply parameters for the action.",
+    )
+
+
+class ApplyFixResponse(BaseModel):
+    """Result of applying a fix action."""
+
+    action_type: str
+    success: bool
+    message: str
+    entity_id: str | None = None
+    entity_type: str | None = None
+
+
 # ── Response schemas ──────────────────────────────────────────────────────────
 
 
@@ -417,3 +462,99 @@ def delete_alert_rule(
     db.delete(rule)
     db.flush()
     db.commit()
+
+
+# ── Insight fixes endpoints ───────────────────────────────────────────────────
+
+
+@router.get(
+    "/{insight_id}/fixes",
+    response_model=FixSuggestionOut,
+    summary="Get root-cause explanation and one-click fix suggestions for an insight",
+)
+def get_insight_fixes(
+    insight_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> FixSuggestionOut:
+    """Return a Turkish root-cause analysis and a list of one-click fix actions
+    for the given insight.
+
+    The insight must belong to the caller's tenant.  Tenant isolation is
+    enforced by the WHERE clause in _get_insight_or_404.
+
+    Fix actions are ready-to-apply; their payloads can be submitted to
+    POST /insights/{id}/fixes/apply.
+    """
+    from ayaz.services.fixes import suggested_fixes_for_insight
+
+    insight = _get_insight_or_404(db, insight_id, membership.tenant_id)
+    suggestion = suggested_fixes_for_insight(db, membership.tenant_id, insight)
+
+    return FixSuggestionOut(
+        insight_id=suggestion.insight_id,
+        root_cause=suggestion.root_cause,
+        fixes=[
+            FixActionOut(
+                label=f.label,
+                action_type=f.action_type,
+                payload=f.payload,
+            )
+            for f in suggestion.fixes
+        ],
+    )
+
+
+@router.post(
+    "/{insight_id}/fixes/apply",
+    response_model=ApplyFixResponse,
+    summary="Apply a one-click fix action for an insight",
+)
+def apply_insight_fix(
+    insight_id: uuid.UUID,
+    body: ApplyFixRequest,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> ApplyFixResponse:
+    """Execute a safe one-click fix action associated with an insight.
+
+    Allowed action types:
+    - ``create_automation_rule`` — persists an AutomationRule (no live ad write)
+    - ``create_goal``            — persists a Goal
+    - ``dismiss_insight``        — sets the insight status to 'dismissed'
+    - ``view_campaign``          — no-op navigational (returns success)
+
+    The insight must belong to the caller's tenant.  All entity creations are
+    scoped to the same tenant.
+    """
+    from ayaz.services.fixes import apply_fix
+
+    _ALLOWED = frozenset(
+        {"create_automation_rule", "create_goal", "view_campaign", "dismiss_insight"}
+    )
+    if body.action_type not in _ALLOWED:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Geçersiz eylem türü: {body.action_type!r}. "
+                f"İzin verilenler: {sorted(_ALLOWED)}"
+            ),
+        )
+
+    insight = _get_insight_or_404(db, insight_id, membership.tenant_id)
+    result = apply_fix(
+        db=db,
+        tenant_id=membership.tenant_id,
+        insight=insight,
+        action_type=body.action_type,
+        payload=body.payload,
+    )
+    db.commit()
+
+    return ApplyFixResponse(
+        action_type=result.action_type,
+        success=result.success,
+        message=result.message,
+        entity_id=result.entity_id,
+        entity_type=result.entity_type,
+    )

@@ -28,18 +28,48 @@ const SUGGESTED_PROMPTS = [
   'ROAS\'ım neden düştü?',
   'Kampanyalarımı özetle',
   'En kötü performanslı kampanya hangisi?',
+  'ROAS %20 düşerse beni uyaracak bir kural oluştur',
+  'Bu ay için 5x ROAS hedefi koy',
 ];
+
+// ---- Action tool names (these trigger a green "aksiyon" chip) ----
+
+const ACTION_TOOLS = new Set([
+  'create_automation_rule',
+  'create_goal',
+  'create_alert_rule',
+  'apply_fix',
+  'set_goal',
+  'set_budget',
+]);
 
 // ---- Tool chip icon mapping ----
 
 function toolIcon(name: string): string {
   const n = name.toLowerCase();
+  if (n.includes('rule') || n.includes('kural') || n.includes('automation')) return '⚡';
+  if (n.includes('goal') || n.includes('hedef')) return '🎯';
   if (n.includes('performans') || n.includes('performance')) return '📊';
   if (n.includes('kampanya') || n.includes('campaign')) return '📣';
   if (n.includes('içgörü') || n.includes('insight')) return '💡';
   if (n.includes('roas') || n.includes('spend') || n.includes('budget')) return '💰';
   if (n.includes('rapor') || n.includes('report')) return '📋';
   return '🔧';
+}
+
+function isActionTool(name: string): boolean {
+  return ACTION_TOOLS.has(name.toLowerCase());
+}
+
+function actionToolLabel(name: string, summary: string): string {
+  const n = name.toLowerCase();
+  if (n.includes('rule') || n.includes('kural') || n.includes('automation')) {
+    return summary || 'kural oluşturuldu';
+  }
+  if (n.includes('goal') || n.includes('hedef')) {
+    return summary || 'hedef oluşturuldu';
+  }
+  return summary || 'aksiyon alındı';
 }
 
 // ---- Date formatter ----
@@ -401,11 +431,20 @@ export default function AssistantPage() {
                         msg.tools_used &&
                         msg.tools_used.length > 0 && (
                           <div className={styles.toolChips}>
-                            {msg.tools_used.map((tool, i) => (
-                              <span key={i} className={styles.toolChip} title={tool.summary}>
-                                {toolIcon(tool.name)} {tool.summary || tool.name}
-                              </span>
-                            ))}
+                            {msg.tools_used.map((tool, i) => {
+                              const action = isActionTool(tool.name);
+                              return (
+                                <span
+                                  key={i}
+                                  className={`${styles.toolChip} ${action ? styles.toolChipAction : ''}`}
+                                  title={tool.summary}
+                                >
+                                  {action
+                                    ? `✅ ${actionToolLabel(tool.name, tool.summary)}`
+                                    : `${toolIcon(tool.name)} ${tool.summary || tool.name}`}
+                                </span>
+                              );
+                            })}
                           </div>
                         )}
                     </div>

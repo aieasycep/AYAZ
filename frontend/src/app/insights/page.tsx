@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
 import {
@@ -11,12 +11,17 @@ import {
   createAlertRule,
   patchAlertRule,
   deleteAlertRule,
+  getInsightFixes,
+  applyInsightFix,
   type Insight,
   type InsightSeverity,
   type InsightStatus,
   type AlertRule,
   type AlertComparator,
   type AlertDelivery,
+  type InsightFixes,
+  type FixAction,
+  type FixActionType,
 } from '@/lib/insights-api';
 import AppNav from '@/components/AppNav';
 import styles from './insights.module.css';
@@ -64,6 +69,132 @@ function fmtDate(iso: string | null): string {
     month: '2-digit',
     year: 'numeric',
   });
+}
+
+// --- Fix action label helpers ---
+
+function fixActionIcon(action_type: FixActionType): string {
+  switch (action_type) {
+    case 'create_alert_rule': return 'Otomatik uyari kurali olustur';
+    case 'create_goal':       return 'Hedef koy';
+    case 'view_campaign':     return 'Kampanyayi gor';
+    case 'dismiss':           return 'Yok say';
+  }
+}
+
+// --- InsightFixesPanel sub-component ---
+
+interface InsightFixesPanelProps {
+  insightId: string;
+  onToast: (msg: string) => void;
+  onNavigate: (path: string) => void;
+}
+
+function InsightFixesPanel({ insightId, onToast, onNavigate }: InsightFixesPanelProps) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fixes, setFixes] = useState<InsightFixes | null>(null);
+  const [applying, setApplying] = useState<Record<string, boolean>>({});
+  const [applied, setApplied] = useState<Record<string, boolean>>({});
+  const fetchedRef = useRef(false);
+
+  async function handleToggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getInsightFixes(insightId);
+      setFixes(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Cozumler yuklenemedi');
+      fetchedRef.current = false; // allow retry
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleApply(fix: FixAction, idx: number) {
+    const key = `${idx}`;
+    setApplying((prev) => ({ ...prev, [key]: true }));
+    try {
+      if (fix.action_type === 'view_campaign') {
+        onNavigate('/ads');
+        return;
+      }
+      await applyInsightFix(insightId, fix.action_type, fix.payload);
+      setApplied((prev) => ({ ...prev, [key]: true }));
+      onToast('Olusturuldu');
+    } catch (err: unknown) {
+      onToast(err instanceof Error ? err.message : 'Islem basarisiz');
+    } finally {
+      setApplying((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  return (
+    <div className={styles.fixesExpander}>
+      <button
+        className={styles.fixesToggleBtn}
+        onClick={handleToggle}
+      >
+        {open ? '▲' : '▼'} Kok neden &amp; cozum
+      </button>
+
+      {open && (
+        <div className={styles.fixesPanel}>
+          {loading ? (
+            <div className={styles.fixesLoading}>Yuklenıyor...</div>
+          ) : error ? (
+            <div className={styles.fixesError}>
+              {error}{' '}
+              <button
+                className={styles.fixesToggleBtn}
+                onClick={() => {
+                  fetchedRef.current = false;
+                  setOpen(false);
+                  setTimeout(() => handleToggle(), 0);
+                }}
+              >
+                Tekrar dene
+              </button>
+            </div>
+          ) : fixes ? (
+            <>
+              <div className={styles.rootCauseLabel}>Kok Neden</div>
+              <div className={styles.rootCauseText}>{fixes.root_cause}</div>
+              {fixes.fixes.length > 0 && (
+                <div className={styles.fixesList}>
+                  {fixes.fixes.map((fix, idx) => {
+                    const key = `${idx}`;
+                    const isDone = applied[key];
+                    const isBusy = applying[key];
+                    return (
+                      <button
+                        key={idx}
+                        className={`${styles.fixBtn} ${isDone ? styles.fixBtnSuccess : ''}`}
+                        onClick={() => handleApply(fix, idx)}
+                        disabled={isBusy || isDone}
+                        title={fixActionIcon(fix.action_type)}
+                      >
+                        {isDone ? '✅ ' : ''}{fix.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // --- Severity filter options ---
@@ -116,6 +247,16 @@ export default function InsightsPage() {
       router.replace('/login');
     }
   }, [router]);
+
+  // --- Toast ---
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(msg: string) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(msg);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  }
 
   // --- Filters ---
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
@@ -412,6 +553,15 @@ export default function InsightsPage() {
                         </span>
                       )}
                     </div>
+
+                    {/* Root-cause & one-click fix expander */}
+                    {ins.status !== 'dismissed' && (
+                      <InsightFixesPanel
+                        insightId={ins.id}
+                        onToast={showToast}
+                        onNavigate={(path) => router.push(path)}
+                      />
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -653,6 +803,13 @@ export default function InsightsPage() {
           </div>
         </section>
       </main>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={styles.toast}>
+          ✅ {toast}
+        </div>
+      )}
     </div>
   );
 }
