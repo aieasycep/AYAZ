@@ -18,7 +18,8 @@ from ayaz.connectors.base import (
 from ayaz.connectors.registry import ConnectorRegistry
 
 # Import connectors so they self-register on import
-import ayaz.connectors.sample  # noqa: F401  — registers "sample" connector
+import ayaz.connectors.sample      # noqa: F401  — registers "sample" connector
+import ayaz.connectors.google_ads  # noqa: F401  — registers "google_ads" connector
 
 __all__ = [
     "Connector",

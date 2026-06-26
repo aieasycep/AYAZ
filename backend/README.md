@@ -143,3 +143,25 @@ See `.env.example` for the full list. Key variables:
   path reference (`vault_secret_ref`). HashiCorp Vault integration: TODO Faz 1.
 - Derived metrics (CTR/CPC/CPA/ROAS) are computed by the Metric Layer, not
   stored in `fact_daily_metrics`.
+
+## Google Ads connector — required credentials
+
+The following credentials must be stored in Vault and injected via
+`ConnectorConfig.extra` at runtime. Never hardcode them.
+
+| Key | Description |
+|---|---|
+| `client_id` | OAuth 2.0 client ID from a Google Cloud project with the Google Ads API enabled |
+| `client_secret` | OAuth 2.0 client secret for the same Cloud project |
+| `developer_token` | Google Ads developer token issued to your manager (MCC) account — required in every API request header |
+| `refresh_token` | Long-lived refresh token from a one-time OAuth 2.0 consent flow (scope `https://www.googleapis.com/auth/adwords`). Use the Google OAuth2 Playground or a CLI helper to generate, then store in Vault |
+| `customer_id` | 10-digit Google Ads customer ID whose data is synced |
+| `login_customer_id` | Manager (MCC) account ID — required only when accessing a sub-account through a manager hierarchy; omit for standalone accounts |
+| `currency` | ISO-4217 currency code for the account (e.g. `USD`); defaults to `USD` if omitted |
+
+To generate the refresh token for the first time:
+1. Create an OAuth 2.0 client (Web or Desktop app) in Google Cloud Console.
+2. Grant it access to the `https://www.googleapis.com/auth/adwords` scope.
+3. Run the consent flow once (e.g. via the OAuth2 Playground at
+   `https://developers.google.com/oauthplayground`) and capture the refresh token.
+4. Store the refresh token in Vault at the path referenced by `vault_secret_ref`.
