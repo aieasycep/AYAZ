@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed>
+  <item>
+    <id>SKU-001</id>
+    <title>Running Shoes Pro</title>
+    <description>High-performance running shoes for trail and road.</description>
+    <link>https://example.com/products/running-shoes-pro</link>
+    <image_link>https://example.com/images/running-shoes-pro.jpg</image_link>
+    <price>149.99 USD</price>
+    <availability>in stock</availability>
+    <brand>SpeedTrek</brand>
+    <condition>new</condition>
+    <product_type>Footwear &gt; Athletic</product_type>
+  </item>
+  <item>
+    <id>SKU-002</id>
+    <title>Yoga Mat Premium</title>
+    <description>Non-slip premium yoga mat, 6mm thickness.</description>
+    <link>https://example.com/products/yoga-mat-premium</link>
+    <image_link>https://example.com/images/yoga-mat-premium.jpg</image_link>
+    <price>49.99 USD</price>
+    <availability>in stock</availability>
+    <brand>ZenFit</brand>
+    <condition>new</condition>
+    <product_type>Sports &gt; Yoga</product_type>
+  </item>
+  <item>
+    <id>SKU-003</id>
+    <title>Protein Shaker Bottle</title>
+    <description>BPA-free 28oz shaker bottle with mixing ball.</description>
+    <link>https://example.com/products/protein-shaker</link>
+    <image_link>https://example.com/images/protein-shaker.jpg</image_link>
+    <price>14.99 USD</price>
+    <availability>out of stock</availability>
+    <brand>NutriBlend</brand>
+    <condition>new</condition>
+    <product_type>Nutrition &gt; Accessories</product_type>
+  </item>
+</feed>

@@ -23,6 +23,12 @@ from ayaz.models.analytics import (  # noqa: F401
     DimDate,
     FactDailyMetrics,
 )
+from ayaz.models.feeds import (  # noqa: F401
+    FeedChannel,
+    FeedProduct,
+    FeedRule,
+    FeedSource,
+)
 
 __all__ = [
     "Base",
@@ -40,4 +46,8 @@ __all__ = [
     "DimDate",
     "DimCurrencyRate",
     "FactDailyMetrics",
+    "FeedSource",
+    "FeedProduct",
+    "FeedChannel",
+    "FeedRule",
 ]

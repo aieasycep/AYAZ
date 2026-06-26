@@ -44,6 +44,19 @@ class Settings(BaseSettings):
     # TODO (Faz 1): replace with real HashiCorp Vault client
     vault_addr: str = "http://localhost:8200"
     vault_token: str = "root"
+    # vault_key: 32-byte URL-safe base64 string used to derive a Fernet key.
+    # In production set this via the VAULT_KEY environment variable — never commit
+    # a real key.  The dev default is a deterministic test-only value.
+    vault_key: str = "ZEVBWUFaX0RFVl9WQVVMVF9LRVlfMzJCWVRFU18h"
+
+    # ── OAuth Broker ─────────────────────────────────────────────────────────
+    # Per-platform OAuth2 client credentials (injected via env in production).
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    meta_app_id: str = ""
+    meta_app_secret: str = ""
+    tiktok_app_id: str = ""
+    tiktok_app_secret: str = ""
 
     # ── Billing ───────────────────────────────────────────────────────────────
     # TODO (Faz 1): iyzico + Stripe integration

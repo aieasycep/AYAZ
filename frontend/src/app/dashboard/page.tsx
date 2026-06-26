@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getToken,
-  clearToken,
   getDashboardSummary,
   getTimeseries,
   type DashboardSummary,
@@ -14,6 +13,7 @@ import {
 import KpiCard from '@/components/KpiCard';
 import TimeSeriesChart from '@/components/TimeSeriesChart';
 import ChannelTable from '@/components/ChannelTable';
+import AppNav from '@/components/AppNav';
 import styles from './dashboard.module.css';
 
 // --- Date helpers ---
@@ -149,11 +149,6 @@ export default function DashboardPage() {
     fetchTimeseries(dateFrom, dateTo, metric);
   }
 
-  function handleLogout() {
-    clearToken();
-    router.push('/login');
-  }
-
   const totals = summary?.totals;
 
   const metricLabel =
@@ -161,15 +156,7 @@ export default function DashboardPage() {
 
   return (
     <div className={styles.shell}>
-      {/* Top bar */}
-      <header className={styles.topbar}>
-        <div className={styles.topbarInner}>
-          <span className={styles.brand}>AYAZ</span>
-          <button className={styles.logoutBtn} onClick={handleLogout}>
-            Oturumu Kapat
-          </button>
-        </div>
-      </header>
+      <AppNav />
 
       <main className={styles.main}>
         {/* Date range */}
