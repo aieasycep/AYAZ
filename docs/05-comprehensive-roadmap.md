@@ -16,7 +16,7 @@
 | **M5 — Feed Yönetimi** | Tek feed → kurallarla kanal-özel çıktı + her kanal için ayrı feed URL'i (Google Shopping, Meta katalog, vb.) | Channable | 🟢 Hazır (public feed URL dahil) |
 | **M6 — Reklam Yönetimi & Optimizasyon** | Kanal-üstü kampanya görünümü, düzenleme, bütçe/teklif kuralları, optimizasyon önerisi | Adin.ai | 🟢 Okuma + öneri hazır (yazma/optimizasyon faz 2) |
 | **M7 — Server-side Ölçümleme (CAPI)** | Meta CAPI, TikTok Events, GA4 MP + KVKK rıza | SignalSight | 🟢 Hazır (toplama endpoint + hash/consent/dedup + 3 platform iletimi) |
-| **M8 — Çoklu Hesap / Ajans** | Workspace, müşteri yönetimi, white-label, roller | — | 🔵 Bu dalga |
+| **M8 — Çoklu Hesap / Ajans** | Workspace, müşteri yönetimi, white-label, roller | — | 🟢 Hazır (workspace + üye/rol + white-label + switcher) |
 | **M9 — Otomasyon & Kurallar** | "ROAS < x ise kampanyayı durdur" tarzı kural motoru, zamanlı görevler, bildirim | — | 🟢 Hazır (kural motoru + audit + celery beat) |
 | **M10 — Abonelik & Faturalama** | iyzico/Stripe, planlar, entitlement, kullanım | — | 🟢 Plan/entitlement/gating + sağlayıcı stub hazır (canlı için kimlik bekler) |
 | **Platform** | Auth/RBAC/multi-tenant, OAuth Broker + Vault, scheduler, observability, KVKK | — | 🟢 Auth + OAuth Broker + şifreli Vault + Celery scheduler hazır |
@@ -32,8 +32,10 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 5 (tamamlandı):** Otomasyon & Kurallar motoru (M9) · demo seed zenginleştirme · Otomasyon UI · canlı ekran görüntüleri.
 - **Dalga 6 (tamamlandı):** Server-side/CAPI ölçümleme (M7) + KVKK rıza + UI.
 - **Dalga 7 (tamamlandı):** Abonelik & faturalama (M10) · CI + sağlamlaştırma · Faturalama UI.
-- **Dalga 8 (şimdi):** Çoklu hesap / Ajans / white-label (M8) — workspace yönetimi + üye davet + marka.
-- **Dalga 9:** Güvenlik denetimi + sağlamlaştırma.
-- **Dalga 10:** Mobil uygulama.
+- **Dalga 8 (tamamlandı):** Çoklu hesap / Ajans / white-label (M8) — workspace yönetimi + üye davet + marka.
+- **Dalga 9 (şimdi):** Güvenlik denetimi + sağlamlaştırma (token/PII/multi-tenant/public endpoint).
+- **Dalga 10 (talebe bağlı):** Mobil uygulama — kullanıcı "ihtiyaç halinde" dediği için talep gelince.
+
+> **M1–M10 çekirdek modüllerin tamamı tamamlandı.** Kalan: güvenlik sertleştirme (Dalga 9) ve talebe bağlı mobil.
 
 > Sıralama değer/risk'e göre ekip tarafından güncellenebilir. Her dalga: tasarla → uzman ajanlarla yap → entegre et → test/doğrula → commit + push.
