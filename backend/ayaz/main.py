@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ayaz.api.v1 import auth as auth_router
 from ayaz.api.v1 import connectors as connectors_router
+from ayaz.api.v1 import dashboard as dashboard_router
 from ayaz.config import settings
 
 app = FastAPI(
@@ -43,6 +44,7 @@ _PREFIX = "/api/v1"
 
 app.include_router(auth_router.router, prefix=_PREFIX)
 app.include_router(connectors_router.router, prefix=_PREFIX)
+app.include_router(dashboard_router.router, prefix=_PREFIX)
 
 # TODO (Faz 1): add routers for /metrics, /reports, /billing
 

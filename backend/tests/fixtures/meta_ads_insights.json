@@ -1,0 +1,73 @@
+{
+  "data": [
+    {
+      "date_start": "2024-06-01",
+      "date_stop": "2024-06-01",
+      "campaign_id": "23855001001780001",
+      "campaign_name": "Summer Sale EMEA",
+      "impressions": "145200",
+      "clicks": "3840",
+      "spend": "87.43",
+      "actions": [
+        {"action_type": "link_click", "value": "3840"},
+        {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "62"},
+        {"action_type": "offsite_conversion.fb_pixel_add_to_cart", "value": "210"}
+      ],
+      "action_values": [
+        {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "1984.50"},
+        {"action_type": "offsite_conversion.fb_pixel_add_to_cart", "value": "3102.00"}
+      ]
+    },
+    {
+      "date_start": "2024-06-01",
+      "date_stop": "2024-06-01",
+      "campaign_id": "23855001001780002",
+      "campaign_name": "Brand Retargeting EU",
+      "impressions": "52000",
+      "clicks": "890",
+      "spend": "21.10",
+      "actions": [
+        {"action_type": "link_click", "value": "890"},
+        {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "8"}
+      ],
+      "action_values": [
+        {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "240.00"}
+      ]
+    },
+    {
+      "date_start": "2024-06-02",
+      "date_stop": "2024-06-02",
+      "campaign_id": "23855001001780001",
+      "campaign_name": "Summer Sale EMEA",
+      "impressions": "138900",
+      "clicks": "3610",
+      "spend": "83.75",
+      "actions": [
+        {"action_type": "link_click", "value": "3610"},
+        {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "58"},
+        {"action_type": "offsite_conversion.fb_pixel_add_to_cart", "value": "195"}
+      ],
+      "action_values": [
+        {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "1856.00"},
+        {"action_type": "offsite_conversion.fb_pixel_add_to_cart", "value": "2940.00"}
+      ]
+    },
+    {
+      "date_start": "2024-06-02",
+      "date_stop": "2024-06-02",
+      "campaign_id": "23855001001780002",
+      "campaign_name": "Brand Retargeting EU",
+      "impressions": "49500",
+      "clicks": "820",
+      "spend": "19.90",
+      "actions": [],
+      "action_values": []
+    }
+  ],
+  "paging": {
+    "cursors": {
+      "before": "before_cursor_token",
+      "after": "after_cursor_token"
+    }
+  }
+}
