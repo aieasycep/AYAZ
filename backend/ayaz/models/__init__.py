@@ -33,6 +33,11 @@ from ayaz.models.insights import (  # noqa: F401
     AlertRule,
     Insight,
 )
+from ayaz.models.reports import (  # noqa: F401
+    ReportDefinition,
+    ReportSchedule,
+    SharedReport,
+)
 
 __all__ = [
     "Base",
@@ -56,4 +61,7 @@ __all__ = [
     "FeedRule",
     "Insight",
     "AlertRule",
+    "ReportDefinition",
+    "ReportSchedule",
+    "SharedReport",
 ]

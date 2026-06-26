@@ -1,0 +1,582 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { getToken } from '@/lib/api';
+import {
+  getCampaigns,
+  getCampaignDetail,
+  getRecommendations,
+  type Campaign,
+  type CampaignDetail,
+  type Recommendation,
+  type CampaignStatus,
+  type CampaignSortField,
+  type RecommendationSeverity,
+} from '@/lib/ads-api';
+import TimeSeriesChart from '@/components/TimeSeriesChart';
+import AppNav from '@/components/AppNav';
+import styles from './ads.module.css';
+
+// --- Date helpers ---
+
+function toISODate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function getDefaultDates() {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 29);
+  return { from: toISODate(from), to: toISODate(to) };
+}
+
+// --- Formatters ---
+
+function fmtCurrency(n: number, decimals = 0): string {
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(n);
+}
+
+function fmtNum(n: number): string {
+  return new Intl.NumberFormat('tr-TR').format(Math.round(n));
+}
+
+function fmtPct(n: number): string {
+  return (
+    (n * 100).toLocaleString('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + '%'
+  );
+}
+
+function fmtRoas(n: number): string {
+  return (
+    n.toLocaleString('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + 'x'
+  );
+}
+
+// --- Status badge ---
+
+function statusLabel(s: CampaignStatus): string {
+  switch (s) {
+    case 'active': return 'Aktif';
+    case 'paused': return 'Duraklatıldı';
+    case 'ended': return 'Bitti';
+    case 'draft': return 'Taslak';
+  }
+}
+
+function statusBadgeClass(s: CampaignStatus): string {
+  switch (s) {
+    case 'active': return styles.badgeActive;
+    case 'paused': return styles.badgePaused;
+    case 'ended': return styles.badgeEnded;
+    case 'draft': return styles.badgeDraft;
+  }
+}
+
+// --- Recommendation severity ---
+
+function recoSeverityLabel(s: RecommendationSeverity): string {
+  switch (s) {
+    case 'critical': return 'Kritik';
+    case 'warning': return 'Uyarı';
+    case 'info': return 'Bilgi';
+  }
+}
+
+function recoSeverityClass(s: RecommendationSeverity): string {
+  switch (s) {
+    case 'critical': return styles.badgeCritical;
+    case 'warning': return styles.badgeWarning;
+    case 'info': return styles.badgeInfo;
+  }
+}
+
+// --- Sortable column header ---
+
+interface SortConfig {
+  field: CampaignSortField | null;
+  dir: 'asc' | 'desc';
+}
+
+function sortCampaigns(
+  campaigns: Campaign[],
+  config: SortConfig,
+): Campaign[] {
+  if (!config.field) return campaigns;
+  const field = config.field;
+  return [...campaigns].sort((a, b) => {
+    const av = a[field] as number;
+    const bv = b[field] as number;
+    return config.dir === 'asc' ? av - bv : bv - av;
+  });
+}
+
+// --- Component ---
+
+export default function AdsPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!getToken()) router.replace('/login');
+  }, [router]);
+
+  // Filters & dates
+  const defaults = getDefaultDates();
+  const [dateFrom, setDateFrom] = useState(defaults.from);
+  const [dateTo, setDateTo] = useState(defaults.to);
+  const [appliedFrom, setAppliedFrom] = useState(defaults.from);
+  const [appliedTo, setAppliedTo] = useState(defaults.to);
+  const [channelFilter, setChannelFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<CampaignStatus | ''>('');
+  const [appliedChannel, setAppliedChannel] = useState('');
+  const [appliedStatus, setAppliedStatus] = useState<CampaignStatus | ''>('');
+
+  // Sort
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    field: 'spend',
+    dir: 'desc',
+  });
+
+  // Campaigns
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(true);
+  const [campaignsError, setCampaignsError] = useState<string | null>(null);
+
+  const fetchCampaigns = useCallback(
+    async (from: string, to: string, channel: string, status: CampaignStatus | '') => {
+      setCampaignsLoading(true);
+      setCampaignsError(null);
+      try {
+        const data = await getCampaigns({
+          date_from: from,
+          date_to: to,
+          channel: channel || undefined,
+          status: status || undefined,
+        });
+        setCampaigns(data);
+      } catch (err: unknown) {
+        setCampaignsError(err instanceof Error ? err.message : 'Kampanyalar yüklenemedi');
+      } finally {
+        setCampaignsLoading(false);
+      }
+    },
+    [],
+  );
+
+  // Recommendations
+  const [recos, setRecos] = useState<Recommendation[]>([]);
+  const [recosLoading, setRecosLoading] = useState(true);
+  const [recosError, setRecosError] = useState<string | null>(null);
+
+  const fetchRecos = useCallback(async (from: string, to: string) => {
+    setRecosLoading(true);
+    setRecosError(null);
+    try {
+      const data = await getRecommendations({ date_from: from, date_to: to });
+      setRecos(data);
+    } catch (err: unknown) {
+      setRecosError(err instanceof Error ? err.message : 'Öneriler yüklenemedi');
+    } finally {
+      setRecosLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    if (!getToken()) return;
+    fetchCampaigns(appliedFrom, appliedTo, appliedChannel, appliedStatus);
+    fetchRecos(appliedFrom, appliedTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function applyFilters() {
+    setAppliedFrom(dateFrom);
+    setAppliedTo(dateTo);
+    setAppliedChannel(channelFilter);
+    setAppliedStatus(statusFilter);
+    fetchCampaigns(dateFrom, dateTo, channelFilter, statusFilter);
+    fetchRecos(dateFrom, dateTo);
+  }
+
+  // Expanded campaign detail
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailMap, setDetailMap] = useState<Record<string, CampaignDetail>>({});
+  const [detailLoadingMap, setDetailLoadingMap] = useState<Record<string, boolean>>({});
+  const [detailErrorMap, setDetailErrorMap] = useState<Record<string, string | null>>({});
+
+  async function toggleCampaign(id: string) {
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    if (detailMap[id]) return; // already fetched
+
+    setDetailLoadingMap((m) => ({ ...m, [id]: true }));
+    setDetailErrorMap((m) => ({ ...m, [id]: null }));
+    try {
+      const data = await getCampaignDetail(id, appliedFrom, appliedTo);
+      setDetailMap((m) => ({ ...m, [id]: data }));
+    } catch (err: unknown) {
+      setDetailErrorMap((m) => ({
+        ...m,
+        [id]: err instanceof Error ? err.message : 'Detay alınamadı',
+      }));
+    } finally {
+      setDetailLoadingMap((m) => ({ ...m, [id]: false }));
+    }
+  }
+
+  // Sort toggle
+  function toggleSort(field: CampaignSortField) {
+    setSortConfig((prev) => {
+      if (prev.field === field) {
+        return { field, dir: prev.dir === 'desc' ? 'asc' : 'desc' };
+      }
+      return { field, dir: 'desc' };
+    });
+  }
+
+  function sortIcon(field: CampaignSortField): React.ReactNode {
+    if (sortConfig.field !== field) {
+      return <i className={styles.sortIcon}>&#8597;</i>;
+    }
+    return (
+      <i className={`${styles.sortIcon} ${styles.sortIconActive}`}>
+        {sortConfig.dir === 'desc' ? '↓' : '↑'}
+      </i>
+    );
+  }
+
+  const sortedCampaigns = sortCampaigns(campaigns, sortConfig);
+
+  // "Coming soon" modal
+  const [showComingSoon, setShowComingSoon] = useState(false);
+  const [comingSoonAction, setComingSoonAction] = useState('');
+
+  function handleRecoAction(action: string) {
+    setComingSoonAction(action);
+    setShowComingSoon(true);
+  }
+
+  // Unique channels for filter dropdown (derived from fetched campaigns)
+  const allChannels = Array.from(new Set(campaigns.map((c) => c.channel))).sort();
+
+  return (
+    <div className={styles.shell}>
+      <AppNav />
+
+      <main className={styles.main}>
+        {/* Page header */}
+        <div className={styles.pageHeader}>
+          <div>
+            <h1 className={styles.pageTitle}>Reklam Yönetimi</h1>
+            <p className={styles.pageSubtitle}>
+              Tüm kanallarınızdaki reklam kampanyalarını tek ekrandan takip edin ve yönetin.
+            </p>
+          </div>
+        </div>
+
+        {/* Campaign table section */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
+              Kampanyalar
+              {campaigns.length > 0 ? ` (${campaigns.length})` : ''}
+            </h2>
+          </div>
+
+          {/* Toolbar */}
+          <div className={styles.toolbar}>
+            <div className={styles.dateGroup}>
+              <label className={styles.dateLabel} htmlFor="ads-from">
+                Başlangıç
+              </label>
+              <input
+                id="ads-from"
+                type="date"
+                className={styles.dateInput}
+                value={dateFrom}
+                max={dateTo}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+            </div>
+            <div className={styles.dateGroup}>
+              <label className={styles.dateLabel} htmlFor="ads-to">
+                Bitiş
+              </label>
+              <input
+                id="ads-to"
+                type="date"
+                className={styles.dateInput}
+                value={dateTo}
+                min={dateFrom}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+            </div>
+            <div className={styles.filterGroup}>
+              <label className={styles.filterLabel}>Kanal</label>
+              <select
+                className={styles.filterSelect}
+                value={channelFilter}
+                onChange={(e) => setChannelFilter(e.target.value)}
+              >
+                <option value="">Tüm Kanallar</option>
+                {allChannels.map((ch) => (
+                  <option key={ch} value={ch}>
+                    {ch}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.filterGroup}>
+              <label className={styles.filterLabel}>Durum</label>
+              <select
+                className={styles.filterSelect}
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as CampaignStatus | '')
+                }
+              >
+                <option value="">Tüm Durumlar</option>
+                <option value="active">Aktif</option>
+                <option value="paused">Duraklatıldı</option>
+                <option value="ended">Bitti</option>
+                <option value="draft">Taslak</option>
+              </select>
+            </div>
+            <button className={styles.applyBtn} onClick={applyFilters}>
+              Uygula
+            </button>
+          </div>
+
+          {campaignsLoading ? (
+            <div className={styles.stateBox}>
+              <span className={styles.muted}>Kampanyalar yükleniyor...</span>
+            </div>
+          ) : campaignsError ? (
+            <div className={styles.stateBox}>
+              <span className={styles.errorText}>{campaignsError}</span>
+              <br />
+              <button
+                className={styles.retryBtn}
+                onClick={() =>
+                  fetchCampaigns(appliedFrom, appliedTo, appliedChannel, appliedStatus)
+                }
+              >
+                Tekrar Dene
+              </button>
+            </div>
+          ) : sortedCampaigns.length === 0 ? (
+            <div className={styles.stateBox}>
+              <span className={styles.muted}>
+                Bu filtreler için kampanya bulunamadı.
+              </span>
+            </div>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th className={styles.th}>Kampanya</th>
+                    <th className={styles.th}>Kanal</th>
+                    <th className={styles.th}>Durum</th>
+                    <th
+                      className={`${styles.th} ${styles.thRight} ${styles.thSortable} ${sortConfig.field === 'spend' ? styles.thActive : ''}`}
+                      onClick={() => toggleSort('spend')}
+                    >
+                      Harcama {sortIcon('spend')}
+                    </th>
+                    <th
+                      className={`${styles.th} ${styles.thRight} ${styles.thSortable} ${sortConfig.field === 'roas' ? styles.thActive : ''}`}
+                      onClick={() => toggleSort('roas')}
+                    >
+                      ROAS {sortIcon('roas')}
+                    </th>
+                    <th
+                      className={`${styles.th} ${styles.thRight} ${styles.thSortable} ${sortConfig.field === 'cpc' ? styles.thActive : ''}`}
+                      onClick={() => toggleSort('cpc')}
+                    >
+                      CPC {sortIcon('cpc')}
+                    </th>
+                    <th
+                      className={`${styles.th} ${styles.thRight} ${styles.thSortable} ${sortConfig.field === 'ctr' ? styles.thActive : ''}`}
+                      onClick={() => toggleSort('ctr')}
+                    >
+                      CTR {sortIcon('ctr')}
+                    </th>
+                    <th
+                      className={`${styles.th} ${styles.thRight} ${styles.thSortable} ${sortConfig.field === 'conversions' ? styles.thActive : ''}`}
+                      onClick={() => toggleSort('conversions')}
+                    >
+                      Dönüşüm {sortIcon('conversions')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedCampaigns.map((c, idx) => {
+                    const isLast = idx === sortedCampaigns.length - 1;
+                    const isExpanded = expandedId === c.campaign_id;
+                    const detail = detailMap[c.campaign_id];
+                    const detailLoading = detailLoadingMap[c.campaign_id] ?? false;
+                    const detailError = detailErrorMap[c.campaign_id] ?? null;
+
+                    return (
+                      <>
+                        <tr
+                          key={c.campaign_id}
+                          className={`${styles.campaignRow} ${isExpanded ? styles.campaignRowExpanded : ''} ${isLast && !isExpanded ? styles.campaignRowLast : ''}`}
+                          onClick={() => toggleCampaign(c.campaign_id)}
+                        >
+                          <td className={styles.td}>
+                            {c.campaign_name}
+                          </td>
+                          <td className={styles.td}>{c.channel}</td>
+                          <td className={styles.td}>
+                            <span
+                              className={`${styles.badge} ${statusBadgeClass(c.status)}`}
+                            >
+                              {statusLabel(c.status)}
+                            </span>
+                          </td>
+                          <td className={`${styles.td} ${styles.tdRight}`}>
+                            {fmtCurrency(c.spend)}
+                          </td>
+                          <td className={`${styles.td} ${styles.tdRight}`}>
+                            {fmtRoas(c.roas)}
+                          </td>
+                          <td className={`${styles.td} ${styles.tdRight}`}>
+                            {fmtCurrency(c.cpc, 2)}
+                          </td>
+                          <td className={`${styles.td} ${styles.tdRight}`}>
+                            {fmtPct(c.ctr)}
+                          </td>
+                          <td className={`${styles.td} ${styles.tdRight}`}>
+                            {fmtNum(c.conversions)}
+                          </td>
+                        </tr>
+
+                        {isExpanded && (
+                          <tr key={`${c.campaign_id}-detail`} className={styles.expandedRow}>
+                            <td colSpan={8}>
+                              <div className={styles.expandedCell}>
+                                <div className={styles.expandedTitle}>
+                                  {c.campaign_name} — Zaman Serisi (Harcama)
+                                </div>
+                                <TimeSeriesChart
+                                  points={detail?.timeseries ?? []}
+                                  metricLabel="Harcama"
+                                  loading={detailLoading}
+                                  error={detailError}
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* Recommendations section */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
+              Öneriler
+              {recos.length > 0 ? ` (${recos.length})` : ''}
+            </h2>
+          </div>
+
+          {recosLoading ? (
+            <div className={styles.stateBox}>
+              <span className={styles.muted}>Öneriler yükleniyor...</span>
+            </div>
+          ) : recosError ? (
+            <div className={styles.stateBox}>
+              <span className={styles.errorText}>{recosError}</span>
+              <br />
+              <button
+                className={styles.retryBtn}
+                onClick={() => fetchRecos(appliedFrom, appliedTo)}
+              >
+                Tekrar Dene
+              </button>
+            </div>
+          ) : recos.length === 0 ? (
+            <div className={styles.stateBox}>
+              <span className={styles.muted}>
+                Bu dönem için öneri bulunmuyor.
+              </span>
+            </div>
+          ) : (
+            <div className={styles.recoList}>
+              {recos.map((r, idx) => (
+                <div key={`${r.campaign_id}-${idx}`} className={styles.recoRow}>
+                  <div className={styles.recoBadgeCol}>
+                    <span
+                      className={`${styles.badge} ${recoSeverityClass(r.severity)}`}
+                    >
+                      {recoSeverityLabel(r.severity)}
+                    </span>
+                  </div>
+                  <div className={styles.recoBody}>
+                    <div className={styles.recoCampaign}>{r.campaign_name}</div>
+                    <div className={styles.recoMessage}>{r.message}</div>
+                    <div className={styles.recoAction}>{r.suggested_action}</div>
+                  </div>
+                  <button
+                    className={styles.recoBtn}
+                    onClick={() => handleRecoAction(r.suggested_action)}
+                  >
+                    {r.suggested_action}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* Coming soon modal */}
+      {showComingSoon && (
+        <div
+          className={styles.comingSoonOverlay}
+          onClick={() => setShowComingSoon(false)}
+        >
+          <div
+            className={styles.comingSoonBox}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.comingSoonTitle}>Yakında</div>
+            <p className={styles.comingSoonBody}>
+              <strong>{comingSoonAction}</strong> özelliği M6 Faz 2 kapsamında
+              hayata geçirilecektir. Otomatik kampanya aksiyonları şu an
+              kullanılamıyor.
+            </p>
+            <button
+              className={styles.comingSoonClose}
+              onClick={() => setShowComingSoon(false)}
+            >
+              Anladım
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

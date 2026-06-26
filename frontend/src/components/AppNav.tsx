@@ -10,6 +10,8 @@ const NAV_LINKS = [
   { href: '/insights', label: 'İçgörüler' },
   { href: '/connections', label: 'Bağlantılar' },
   { href: '/feeds', label: 'Feed Yönetimi' },
+  { href: '/reports', label: 'Raporlar' },
+  { href: '/ads', label: 'Reklam' },
 ];
 
 export default function AppNav() {
