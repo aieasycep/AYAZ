@@ -21,8 +21,14 @@ Bu proje, bir **AI yazılım ekibi** tarafından geliştiriliyor. Takım lideri
 - **Birleştirilecek araçların envanteri:** [`docs/research/tools-inventory.md`](docs/research/tools-inventory.md)
 - **Ekip ajan tanımları:** [`.claude/agents/`](.claude/agents/)
 
-## Sıradaki adım
+## Durum (2026-06-26)
 
-Kullanıcı, birleştirilmesi planlanan mevcut araçların listesini paylaşacak. Ekip bu
-araçları araştıracak, mimari ve entegrasyon kararlarını verecek, ardından yol haritası
-netleşip MVP geliştirmesi başlayacak.
+Faz 0 tamamlandı: 6 referans araç (Channable, Funnel.io, Looker Studio, SignalSight,
+Adin.ai, heyBooster) araştırıldı; strateji, mimari ve birleşik yol haritası çıkarıldı.
+
+- **Kama (wedge):** Tek panelde kanal-üstü performans + Türkçe otomatik içgörü (salt-okunur).
+- **Çekirdek karar:** Konektör + birleşik veri + dashboard + içgörü sıfırdan; LLM/ödeme/kur entegre.
+- **İlk satılabilir sürüm:** Faz 1 (veri+dashboard) + Faz 2 (otomatik içgörü).
+
+**Sıradaki adım:** Trendyol/Hepsiburada reklam verisine programatik erişim derinliğinin
+doğrulanması, ardından Faz 1 altyapısının geliştirilmesine başlanması.
