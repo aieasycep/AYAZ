@@ -104,6 +104,22 @@
 - Dashboard, reklam ve kreatif görünümlerinde dönem-üstü karşılaştırma.
 - Dashboard / reklam / kreatif CSV export.
 
+## Dalga 21 — Dokümantasyon + E2E Smoke Suite
+- README, CHANGELOG ve özellik kataloğu (`10-features.md`) baştan yazıldı.
+- Playwright tabanlı uçtan uca smoke suite (`e2e/`) — 17 rota; "Application error"
+  sınıfı runtime çökme hatalarını yakalar (token enjeksiyonlu auth).
+- **CI düzeltmesi:** SQLite test motorunda `postgresql.UUID` kaynaklı, derlenmiş-
+  sorgu-cache'i ile tetiklenen `'float' object has no attribute 'replace'` hatası;
+  taşınabilir `GUID` TypeDecorator ile kökten çözüldü (Postgres'te native UUID,
+  diğer motorlarda `CHAR(32)`).
+
+## Dalga 22 — Hesap & Ayarlar
+- Yeni `/settings` sayfası: Profil (ad/e-posta), Şifre Değiştir, Tercihler.
+- Yeni endpoint'ler: `PATCH /auth/me`, `POST /auth/change-password`,
+  `GET|PATCH /auth/preferences` (dil/saat dilimi/e-posta bildirimleri).
+- `users` tablosuna 4 tercih kolonu (migration 0013); change-password için
+  rate-limit. 28 yeni test (toplam suite 1231 geçiyor).
+
 ---
 
 > **Mevcut durum:** Çekirdek M1–M10 + 7 farklılaştırıcı + güvenlik sertleştirme + PWA tamam.

@@ -4,7 +4,7 @@
 > ilgili web sayfası (`frontend/src/app/`). Tüm v1 endpoint'leri `/api/v1` önekiyle servis
 > edilir (`backend/ayaz/main.py`). Sayfalar Next.js route segmentleridir.
 >
-> Toplam: **18 router · ~113 endpoint · 18 web sayfası · 10 konektör.**
+> Toplam: **18 router · ~117 endpoint · 19 web sayfası · 10 konektör.**
 > Durum etiketleri: 🟢 canlı (kod + fixture/mock) · 🟡 kısmi · ⏳ canlı kimlik bekler.
 
 ---
@@ -24,6 +24,7 @@
 | M9 Otomasyon & Kurallar | `/automation` | `/automation` | 🟢 |
 | M10 Abonelik & Faturalama | `/billing` | `/billing` | 🟢 / ⏳ canlı ödeme |
 | Platform — Kimlik | `/login` | `/auth` | 🟢 |
+| Platform — Hesap & Ayarlar | `/settings` | `/auth/me`, `/auth/preferences` | 🟢 |
 | #1 AI Copilot | `/assistant` | `/assistant` | 🟢 |
 | #2 Bütçe Optimizatörü | `/optimizer` | `/optimizer` | 🟢 |
 | #3 Hedef & Forecasting | `/goals` | `/goals` | 🟢 |
@@ -46,9 +47,16 @@
 |---|---|---|
 | POST | `/api/v1/auth/signup` | Yeni kullanıcı + tenant oluştur |
 | POST | `/api/v1/auth/login` | Giriş → JWT |
-| GET | `/api/v1/auth/me` | Mevcut kullanıcı |
+| GET | `/api/v1/auth/me` | Mevcut kullanıcı (profil) |
+| PATCH | `/api/v1/auth/me` | Profili güncelle (ad/e-posta) |
+| POST | `/api/v1/auth/change-password` | Şifre değiştir (rate-limited) |
+| GET | `/api/v1/auth/preferences` | Bildirim/dil tercihleri |
+| PATCH | `/api/v1/auth/preferences` | Tercihleri güncelle |
 | POST | `/api/v1/auth/logout` | Çıkış (token iptali) |
 | GET | `/health` | Liveness probe (versiyonsuz) |
+
+**Hesap & Ayarlar sayfası:** `/settings` — Profil · Şifre Değiştir · Tercihler
+(dil `tr`/`en`, saat dilimi, `email_alerts`, `email_briefing`).
 
 ---
 

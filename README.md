@@ -79,10 +79,10 @@ AYAZ/
 │   │   ├── connectors/  # 10 platform konektörü + Connector SDK (base/registry)
 │   │   ├── security/    # Auth/RBAC, hardening yardımcıları
 │   │   └── tasks/       # Celery görevleri (sync, scheduler)
-│   ├── alembic/         # 12 migration
+│   ├── alembic/         # 13 migration
 │   ├── scripts/         # seed_demo.py (idempotent demo verisi)
-│   └── tests/           # ~1200 backend testi
-├── frontend/       # Next.js + React + TS web uygulaması (18 sayfa, PWA)
+│   └── tests/           # ~1230 backend testi
+├── frontend/       # Next.js + React + TS web uygulaması (19 sayfa, PWA)
 │   ├── src/app/        # Sayfalar (dashboard, ads, insights, assistant, billing, ...)
 │   ├── src/components/  # Paylaşılan bileşenler
 │   └── public/          # manifest.json + sw.js + ikonlar (PWA)
@@ -128,10 +128,10 @@ cd frontend && npm install && npm run dev
 
 | Ölçüt | Değer |
 |---|---|
-| Backend testleri | ~1200 (`pytest`, SQLite ile hermetik — DB gerekmez) |
-| API endpoint'leri | ~113 (18 v1 router + `/health`) |
-| Alembic migration | 12 |
-| Web sayfası | 18 (landing dahil) |
+| Backend testleri | ~1230 (`pytest`, SQLite ile hermetik — DB gerekmez) |
+| API endpoint'leri | ~117 (18 v1 router + `/health`) |
+| Alembic migration | 13 |
+| Web sayfası | 19 (landing + `/settings` dahil) |
 | Konektör | 10 platform (Google Ads, Meta, GA4, Search Console, TikTok, LinkedIn, Microsoft, Criteo, Pinterest, Meta CAPI) |
 | PWA | Evet (manifest + service worker → yüklenebilir mobil deneyim) |
 

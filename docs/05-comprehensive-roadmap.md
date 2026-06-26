@@ -45,6 +45,8 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 18 (tamamlandı):** Frontend↔Backend sözleşme denetimi (14 runtime bug düzeltildi).
 - **Dalga 19 (tamamlandı):** Backend doğruluk turu — kritik cross-tenant sızıntı + sağlamlaştırma.
 - **Dalga 20 (tamamlandı):** Dönem karşılaştırma + CSV export (dashboard/reklam/kreatif).
+- **Dalga 21 (tamamlandı):** Dokümantasyon tazeleme + Playwright E2E smoke suite + CI UUID düzeltmesi (taşınabilir `GUID` tipi).
+- **Dalga 22 (tamamlandı):** Hesap & Ayarlar — `/settings` (profil + şifre değiştir + bildirim/dil tercihleri) + ilgili `/auth` endpoint'leri.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

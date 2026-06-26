@@ -134,6 +134,7 @@ the unauthenticated rendering path is also exercised.
 | `/tracking` | Yes | `Ölçümleme` |
 | `/billing` | Yes | `Faturalama` |
 | `/workspaces` | Yes | `Çalışma Alanları` |
+| `/settings` | Yes | `Hesap` |
 
 ---
 
