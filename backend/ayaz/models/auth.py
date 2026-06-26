@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
+from ayaz.models.base import GUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ayaz.models.base import Base, uuid_pk

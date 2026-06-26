@@ -23,7 +23,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from ayaz.models.base import GUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import JSON
 

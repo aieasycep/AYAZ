@@ -39,7 +39,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import Index, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from ayaz.models.base import GUID as UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
