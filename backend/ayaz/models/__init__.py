@@ -52,6 +52,10 @@ from ayaz.models.billing import (  # noqa: F401
     BillingEvent,
     Subscription,
 )
+from ayaz.models.copilot import (  # noqa: F401
+    Conversation,
+    Message,
+)
 
 __all__ = [
     "Base",
@@ -86,4 +90,6 @@ __all__ = [
     "Subscription",
     "BillingEvent",
     "WorkspaceInvitation",
+    "Conversation",
+    "Message",
 ]
