@@ -33,7 +33,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 6 (tamamlandı):** Server-side/CAPI ölçümleme (M7) + KVKK rıza + UI.
 - **Dalga 7 (tamamlandı):** Abonelik & faturalama (M10) · CI + sağlamlaştırma · Faturalama UI.
 - **Dalga 8 (tamamlandı):** Çoklu hesap / Ajans / white-label (M8) — workspace yönetimi + üye davet + marka.
-- **Dalga 9 (şimdi):** Güvenlik denetimi + sağlamlaştırma (token/PII/multi-tenant/public endpoint).
+- **Dalga 9 (tamamlandı):** Güvenlik denetimi + güvenli sertleştirmeler (18 bulgu; 6 düzeltildi, 12 öneri → `08-security-review.md`).
 - **Dalga 10 (talebe bağlı):** Mobil uygulama — kullanıcı "ihtiyaç halinde" dediği için talep gelince.
 
 > **M1–M10 çekirdek modüllerin tamamı tamamlandı.** Kalan: güvenlik sertleştirme (Dalga 9) ve talebe bağlı mobil.

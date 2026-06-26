@@ -37,6 +37,15 @@ Her reklam/analitik platformunda bir geliştirici uygulaması açıp şunları v
 - KVKK aydınlatma metni & gizlilik politikası onayı.
 - Alt-işleyici (sub-processor) sözleşmeleri (platformlar, hosting).
 
+## 6. Canlıya geçiş öncesi güvenlik (Dalga 9 denetiminden)
+Detaylar: `08-security-review.md`. Bunlar **canlı kullanım/ödeme öncesi** şart, geliştirmeyi bloklamıyor:
+- **Faturalama webhook imza doğrulaması (Kritik):** canlı ödeme açılmadan önce Stripe-Signature / iyzico HMAC doğrulaması eklenmeli (şu an stub; gerçek para yok).
+- **Rate limiting:** `auth/login`, `tracking/collect`, `feeds/public`, `reports/public` için.
+- **JWT iptal/refresh:** sızan token'ı geçersiz kılma; üyelik değişince eski token.
+- **SSRF koruması:** feed `source_url` çekiminde iç ağ koruması.
+- **Postgres RLS:** tenant izolasyonunu uygulama + veritabanı katmanında ikiye katlama.
+- **Üretim env:** `JWT_SECRET`, `VAULT_KEY` güçlü değerlerle (kod artık production'da default'ları reddediyor), TR/EU bölgede barındırma.
+
 ---
 **Şimdilik senden hiçbir şey beklenmiyor.** Bu liste sen müsait olduğunda, sırasıyla
 ele alınacak; ekip bu sırada fixture/mock ile tüm modülleri geliştirmeye devam ediyor.
