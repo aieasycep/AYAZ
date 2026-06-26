@@ -14,6 +14,7 @@ import KpiCard from '@/components/KpiCard';
 import TimeSeriesChart from '@/components/TimeSeriesChart';
 import ChannelTable from '@/components/ChannelTable';
 import AppNav from '@/components/AppNav';
+import DashboardEmptyState from '@/components/DashboardEmptyState';
 import styles from './dashboard.module.css';
 
 // --- Date helpers ---
@@ -151,6 +152,15 @@ export default function DashboardPage() {
 
   const totals = summary?.totals;
 
+  // Detect "no connected accounts" state: data loaded successfully but
+  // all channels are empty and spend is exactly zero.
+  const hasNoData =
+    !summaryLoading &&
+    !summaryError &&
+    summary !== null &&
+    summary.by_channel.length === 0 &&
+    (totals?.spend ?? 0) === 0;
+
   const metricLabel =
     METRIC_OPTIONS.find((m) => m.value === metric)?.label ?? metric;
 
@@ -159,6 +169,9 @@ export default function DashboardPage() {
       <AppNav />
 
       <main className={styles.main}>
+        {/* Empty state — no connected accounts yet */}
+        {hasNoData && <DashboardEmptyState />}
+
         {/* Date range */}
         <section className={styles.dateBar}>
           <div className={styles.dateGroup}>
