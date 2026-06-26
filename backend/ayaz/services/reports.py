@@ -778,6 +778,21 @@ def send_scheduled_report(
         )
         return
 
+    # Tenant-isolation guard: this runs in a background job that processes
+    # schedules across all tenants, so re-validate the definition belongs to the
+    # schedule's tenant before rendering (defence-in-depth against a stale/forged
+    # FK leaking another tenant's metrics into this tenant's report).
+    if defn.tenant_id != schedule.tenant_id:
+        logger.error(
+            "[reports] ReportDefinition %s tenant=%s does not match schedule %s "
+            "tenant=%s — skipping to avoid cross-tenant leak",
+            defn.id,
+            defn.tenant_id,
+            schedule.id,
+            schedule.tenant_id,
+        )
+        return
+
     payload = build_report_payload(db, defn, date_from, date_to)
     html_content = render_report_html(payload, payload["branding"])
 

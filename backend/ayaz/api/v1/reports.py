@@ -675,6 +675,11 @@ def public_report(
             expires_dt = datetime.fromisoformat(
                 share.expires_at.replace("Z", "+00:00")
             )
+            # The field contract is "ISO-8601 UTC"; a naive value (no offset)
+            # is interpreted as UTC so the comparison below never raises a
+            # TypeError on aware-vs-naive operands.
+            if expires_dt.tzinfo is None:
+                expires_dt = expires_dt.replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) > expires_dt:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -696,7 +701,9 @@ def public_report(
 
     # Load definition (may have been deleted — guard gracefully)
     defn = db.get(ReportDefinition, share.report_definition_id)
-    if defn is None:
+    if defn is None or defn.tenant_id != share.tenant_id:
+        # Tenant-isolation guard: never render a definition that does not belong
+        # to the same tenant as the share (defence-in-depth against a stale FK).
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Rapor tanımı artık mevcut değil.",

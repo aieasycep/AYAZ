@@ -375,8 +375,6 @@ def compute_progress(
 
     # Clamp query end to period_end (don't pull data beyond the period)
     query_end = min(as_of_date, period_end)
-    # Clamp query start to period_start (future goals have days_elapsed=0)
-    query_start = max(period_start, period_start)
 
     if as_of_date < period_start:
         days_elapsed = 0

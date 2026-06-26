@@ -344,8 +344,12 @@ def _get_feed_channels(
 
     channels = []
     for ch in rows:
-        # Fetch the source to get last_synced_at and item_count
+        # Fetch the source to get last_synced_at and item_count.
+        # Tenant-isolation guard: ignore a source that does not belong to this
+        # tenant (defence-in-depth against a stale/cross-tenant FK).
         source = db.get(FeedSource, ch.feed_source_id) if ch.feed_source_id else None
+        if source is not None and source.tenant_id != tenant_id:
+            source = None
         channels.append({
             "id": str(ch.id),
             "name": ch.name,
