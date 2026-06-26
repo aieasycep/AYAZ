@@ -34,8 +34,19 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 7 (tamamlandı):** Abonelik & faturalama (M10) · CI + sağlamlaştırma · Faturalama UI.
 - **Dalga 8 (tamamlandı):** Çoklu hesap / Ajans / white-label (M8) — workspace yönetimi + üye davet + marka.
 - **Dalga 9 (tamamlandı):** Güvenlik denetimi + güvenli sertleştirmeler (18 bulgu; 6 düzeltildi, 12 öneri → `08-security-review.md`).
-- **Dalga 10 (talebe bağlı):** Mobil uygulama — kullanıcı "ihtiyaç halinde" dediği için talep gelince.
+- **Dalga 10 (şimdi) — Derinleştirme / Farklılaşma:** Rekabet hendeği stratejisi + **AYAZ AI Copilot** (Türkçe, veriye gömülü, tool-use'lu asistan) backend + UI.
+- **Mobil uygulama:** talebe bağlı (kullanıcı "ihtiyaç halinde" dedi).
 
-> **M1–M10 çekirdek modüllerin tamamı tamamlandı.** Kalan: güvenlik sertleştirme (Dalga 9) ve talebe bağlı mobil.
+> **M1–M10 çekirdek modüllerin tamamı + güvenlik denetimi tamamlandı.** Şimdi rakiplerden öne çıkmak için **derinleştirme/farklılaşma** fazı.
+
+## Farklılaşma Hedefleri (rakipleri geçmek için)
+Rakipler stack'in tek katmanını satıyor; AYAZ hepsini birleştirdi. Öne çıkış için:
+1. **AI Copilot** — birleşik veri üstünde Türkçe konuşan, sorgulayan + aksiyon öneren asistan (kimsede yok). *(Dalga 10)*
+2. **Cross-channel bütçe optimizasyonu** — kanal-üstü bütçe dağıtım önerisi + projeksiyon (Adin'i KOBİ'ye indir).
+3. **Hedef takibi + tahmin (forecasting/pacing)** — hedef koy, AI ulaşır mı tahmin etsin + ne değişmeli.
+4. **Atıf (attribution) / Marketing Mix (hafif)** — hangi kanal dönüşümü getiriyor.
+5. **Doğal dilde rapor/pano oluşturucu** — "Meta vs Google son 30 gün" → panoyu kursun.
+6. **Kreatif performans analizi** — hangi reklam/metin tutuyor + öneri.
+> Sıralama stratejist brifingiyle (`09-differentiation.md`) netleşecek; her biri sonraki dalgalarda.
 
 > Sıralama değer/risk'e göre ekip tarafından güncellenebilir. Her dalga: tasarla → uzman ajanlarla yap → entegre et → test/doğrula → commit + push.
