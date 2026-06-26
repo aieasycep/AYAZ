@@ -86,18 +86,40 @@ export interface BriefingSummary {
   headline: string;
 }
 
+// --- Normalisation ---
+// Backend returns performance_delta as {yesterday:{spend,roas,conversions},
+// prior_day:{...}, delta:{spend_pct,roas_pct,conversions_pct}}. The UI expects a
+// per-metric map {spend:{value,prev,pct}, ...}. Normalise here so the page stays simple.
+function normaliseBriefing(b: Briefing): Briefing {
+  const pd = (b?.body?.performance_delta ?? {}) as Record<string, unknown>;
+  if (pd && (pd.yesterday || pd.prior_day || pd.delta)) {
+    const y = (pd.yesterday ?? {}) as Record<string, number>;
+    const p = (pd.prior_day ?? {}) as Record<string, number>;
+    const d = (pd.delta ?? {}) as Record<string, number>;
+    const norm: Record<string, { value: number; prev: number; pct: number }> = {};
+    for (const m of ['spend', 'roas', 'conversions']) {
+      if (y[m] !== undefined || p[m] !== undefined) {
+        // backend delta is a fraction (1.0 = +100%); UI's fmtPct appends '%' without scaling
+        norm[m] = { value: y[m] ?? 0, prev: p[m] ?? 0, pct: (d[`${m}_pct`] ?? 0) * 100 };
+      }
+    }
+    b.body.performance_delta = norm as unknown as PerformanceDelta;
+  }
+  return b;
+}
+
 // --- API calls ---
 
-export function getLatestBriefing(): Promise<Briefing> {
-  return authFetch<Briefing>('/api/v1/briefings/latest');
+export async function getLatestBriefing(): Promise<Briefing> {
+  return normaliseBriefing(await authFetch<Briefing>('/api/v1/briefings/latest'));
 }
 
 export function getBriefings(): Promise<BriefingSummary[]> {
   return authFetch<BriefingSummary[]>('/api/v1/briefings');
 }
 
-export function generateBriefing(): Promise<Briefing> {
-  return authFetch<Briefing>('/api/v1/briefings/generate', {
-    method: 'POST',
-  });
+export async function generateBriefing(): Promise<Briefing> {
+  return normaliseBriefing(
+    await authFetch<Briefing>('/api/v1/briefings/generate', { method: 'POST' }),
+  );
 }
