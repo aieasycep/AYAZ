@@ -56,6 +56,9 @@ from ayaz.models.copilot import (  # noqa: F401
     Conversation,
     Message,
 )
+from ayaz.models.goals import (  # noqa: F401
+    Goal,
+)
 
 __all__ = [
     "Base",
@@ -92,4 +95,5 @@ __all__ = [
     "WorkspaceInvitation",
     "Conversation",
     "Message",
+    "Goal",
 ]

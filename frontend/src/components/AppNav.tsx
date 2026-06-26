@@ -14,6 +14,8 @@ const NAV_LINKS = [
   { href: '/feeds', label: 'Feed Yönetimi' },
   { href: '/reports', label: 'Raporlar' },
   { href: '/ads', label: 'Reklam' },
+  { href: '/optimizer', label: 'Optimizasyon' },
+  { href: '/goals', label: 'Hedefler' },
   { href: '/automation', label: 'Otomasyon' },
   { href: '/tracking', label: 'Ölçümleme' },
   { href: '/billing', label: 'Faturalama' },

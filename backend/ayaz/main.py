@@ -21,6 +21,8 @@ from ayaz.api.v1 import ads as ads_router
 from ayaz.api.v1 import automation as automation_router
 from ayaz.api.v1 import billing as billing_router
 from ayaz.api.v1 import copilot as copilot_router
+from ayaz.api.v1 import goals as goals_router
+from ayaz.api.v1 import optimizer as optimizer_router
 from ayaz.api.v1 import feeds as feeds_router
 from ayaz.api.v1 import insights as insights_router
 from ayaz.api.v1 import oauth as oauth_router
@@ -65,6 +67,8 @@ app.include_router(tracking_router.router, prefix=_PREFIX)
 app.include_router(billing_router.router, prefix=_PREFIX)
 app.include_router(workspaces_router.router, prefix=_PREFIX)
 app.include_router(copilot_router.router, prefix=_PREFIX)
+app.include_router(optimizer_router.router, prefix=_PREFIX)
+app.include_router(goals_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
