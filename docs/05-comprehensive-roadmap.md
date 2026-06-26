@@ -34,10 +34,21 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 7 (tamamlandı):** Abonelik & faturalama (M10) · CI + sağlamlaştırma · Faturalama UI.
 - **Dalga 8 (tamamlandı):** Çoklu hesap / Ajans / white-label (M8) — workspace yönetimi + üye davet + marka.
 - **Dalga 9 (tamamlandı):** Güvenlik denetimi + güvenli sertleştirmeler (18 bulgu; 6 düzeltildi, 12 öneri → `08-security-review.md`).
-- **Dalga 10 (şimdi) — Derinleştirme / Farklılaşma:** Rekabet hendeği stratejisi + **AYAZ AI Copilot** (Türkçe, veriye gömülü, tool-use'lu asistan) backend + UI.
-- **Mobil uygulama:** talebe bağlı (kullanıcı "ihtiyaç halinde" dedi).
+- **Dalga 10 (tamamlandı) — Farklılaşma başlangıcı:** Rekabet hendeği stratejisi + **AYAZ AI Copilot** (Türkçe, veriye gömülü, tool-use'lu asistan) backend + UI.
+- **Dalga 11 (tamamlandı):** Cross-channel bütçe optimizatörü (#2) + hedef takibi & forecasting/pacing (#3).
+- **Dalga 12 (tamamlandı):** Copilot v2 (aksiyon araçları) + alarm→kök-neden→tek-tık düzeltme döngüsü (#4).
+- **Dalga 13 (tamamlandı):** Doğal-dil rapor/pano oluşturucu (#5) + kreatif performans analizi (#6).
+- **Dalga 14 (tamamlandı):** Proaktif AI günlük brifing (#7) — 7 farklılaştırıcının tamamı canlı.
+- **Dalga 15 (tamamlandı):** Herkese açık pazarlama/landing sayfası + onboarding boş-durum.
+- **Dalga 16 (tamamlandı):** Üretim güvenlik sertleştirme (rate limiting + JWT iptal + webhook imzası).
+- **Dalga 17 (tamamlandı):** PWA + mobil-optimize deneyim (yüklenebilir "mobil uygulama").
+- **Dalga 18 (tamamlandı):** Frontend↔Backend sözleşme denetimi (14 runtime bug düzeltildi).
+- **Dalga 19 (tamamlandı):** Backend doğruluk turu — kritik cross-tenant sızıntı + sağlamlaştırma.
+- **Dalga 20 (tamamlandı):** Dönem karşılaştırma + CSV export (dashboard/reklam/kreatif).
+- **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
-> **M1–M10 çekirdek modüllerin tamamı + güvenlik denetimi tamamlandı.** Şimdi rakiplerden öne çıkmak için **derinleştirme/farklılaşma** fazı.
+> **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**
+> Tam yapım geçmişi: `CHANGELOG.md`. Özellik kataloğu (modül × endpoint × sayfa): `10-features.md`.
 
 ## Farklılaşma Hedefleri (rakipleri geçmek için)
 Rakipler stack'in tek katmanını satıyor; AYAZ hepsini birleştirdi. İlerleme:
