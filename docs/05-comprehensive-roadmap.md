@@ -45,11 +45,12 @@ Rakipler stack'in tek katmanını satıyor; AYAZ hepsini birleştirdi. İlerleme
 2. ✅ **Cross-channel bütçe optimizasyonu** — bütçe dağıtım önerisi + projeksiyon (Dalga 11).
 3. ✅ **Hedef takibi + forecasting/pacing** (Dalga 11).
 4. ✅ **Alarm→kök-neden→tek-tık düzeltme** döngüsü (Dalga 12).
-5. ⬜ **Doğal dilde rapor/pano oluşturucu** — "Meta vs Google son 30 gün" → panoyu kursun. *(sonraki)*
-6. ⬜ **Kreatif performans analizi** — hangi reklam/metin tutuyor + öneri. *(sonraki)*
-7. ⬜ **Atıf / Marketing Mix (hafif)** + benchmark/cohort — kritik kütle sonrası (stratejist ertelemesini öneriyor).
+5. ✅ **Doğal dilde rapor/pano oluşturucu** — "Meta vs Google son 30 gün" → panoyu kursun (Dalga 13).
+6. ✅ **Kreatif performans analizi** — hangi reklam tutuyor + AI yorumu (Dalga 13).
+7. ✅ **Proaktif AI günlük brifing** — dün ne oldu / neye dikkat / ne yap (Dalga 14).
+8. ⬜ **Atıf / Marketing Mix (hafif)** + benchmark/cohort — kritik kütle + gerçek veri sonrası (stratejist ertelemesi).
 
-> Stratejistin önerdiği 3 derinleştirme dalgası (Copilot, optimizer+goals, alarm→fix) **tamamlandı** (`09-differentiation.md`).
-> Kalan (5-7) talebe göre sonraki dalgalarda.
+> Otonom farklılaşma fazı **tamamlandı**: 7 farklılaştırıcı canlı. Kalan #8 gerçek müşteri verisi
+> gerektirir; geri kalan ilerleme artık kullanıcı girdisine bağlı (canlı kimlikler, mobil, öncelik).
 
 > Sıralama değer/risk'e göre ekip tarafından güncellenebilir. Her dalga: tasarla → uzman ajanlarla yap → entegre et → test/doğrula → commit + push.
