@@ -42,6 +42,11 @@ from ayaz.models.automation import (  # noqa: F401
     AutomationRule,
     AutomationRun,
 )
+from ayaz.models.tracking import (  # noqa: F401
+    ConversionEvent,
+    EventDestination,
+    TrackingSource,
+)
 
 __all__ = [
     "Base",
@@ -70,4 +75,7 @@ __all__ = [
     "SharedReport",
     "AutomationRule",
     "AutomationRun",
+    "TrackingSource",
+    "EventDestination",
+    "ConversionEvent",
 ]
