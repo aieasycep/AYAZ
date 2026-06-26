@@ -63,7 +63,8 @@ export interface SnippetInfo {
 
 export interface TrackingDestination {
   id: string;
-  source_id: string;
+  // Backend field is `tracking_source_id`; the list page does not dereference it.
+  tracking_source_id: string;
   platform: DestinationPlatform;
   config: Record<string, string>;
   consent_required: boolean;
@@ -128,14 +129,42 @@ export function deleteTrackingSource(id: string): Promise<void> {
 
 // --- Snippet ---
 
-export function getSourceSnippet(sourceId: string): Promise<SnippetInfo> {
-  return authFetch<SnippetInfo>(`/api/v1/tracking/sources/${sourceId}/snippet`);
+// Backend returns {collect_url, js_snippet}; the UI reads {collect_url, snippet}.
+export async function getSourceSnippet(sourceId: string): Promise<SnippetInfo> {
+  const raw = await authFetch<SnippetInfo & { js_snippet?: string }>(
+    `/api/v1/tracking/sources/${sourceId}/snippet`,
+  );
+  return {
+    collect_url: raw.collect_url,
+    snippet: raw.snippet ?? raw.js_snippet ?? '',
+  };
 }
 
 // --- Events ---
 
-export function getSourceEvents(sourceId: string): Promise<TrackingEvent[]> {
-  return authFetch<TrackingEvent[]>(`/api/v1/tracking/sources/${sourceId}/events`);
+// Backend stores statuses {received, forwarded, duplicate, skipped_no_consent,
+// failed}; the UI vocabulary is {received, forwarded, no_consent, error}.
+const EVENT_STATUS_MAP: Record<string, EventStatus> = {
+  received: 'received',
+  forwarded: 'forwarded',
+  no_consent: 'no_consent',
+  skipped_no_consent: 'no_consent',
+  error: 'error',
+  failed: 'error',
+};
+
+function normaliseEvent(e: TrackingEvent): TrackingEvent {
+  if (e && e.status) {
+    e.status = EVENT_STATUS_MAP[e.status as string] ?? e.status;
+  }
+  return e;
+}
+
+export async function getSourceEvents(sourceId: string): Promise<TrackingEvent[]> {
+  const events = await authFetch<TrackingEvent[]>(
+    `/api/v1/tracking/sources/${sourceId}/events`,
+  );
+  return events.map(normaliseEvent);
 }
 
 // --- Destinations ---

@@ -97,15 +97,19 @@ export interface CreateAutomationRulePayload {
 
 export type UpdateAutomationRulePayload = Partial<CreateAutomationRulePayload>;
 
+// Backend `detail` is a structured object (dict). The error path in the page
+// sets it to a string, so accept both.
+export type RunDetail = Record<string, unknown> | string;
+
 export interface RunResult {
   triggered: boolean;
-  detail: string;
+  detail: RunDetail;
 }
 
 export interface RuleRun {
   ran_at: string;
   triggered: boolean;
-  detail: string;
+  detail: RunDetail;
 }
 
 // --- API functions ---

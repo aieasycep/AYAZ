@@ -276,8 +276,14 @@ function MembersSection() {
     setBusyId(member.membership_id);
     try {
       const updated = await patchMember(member.membership_id, newRole);
+      // Backend returns {membership_id, user_id, tenant_id, role} without `email`;
+      // merge to preserve existing fields (email, etc.) for display.
       setMembers((prev) =>
-        prev.map((m) => (m.membership_id === updated.membership_id ? updated : m))
+        prev.map((m) =>
+          m.membership_id === updated.membership_id
+            ? { ...m, role: updated.role }
+            : m,
+        )
       );
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Rol değiştirilemedi');

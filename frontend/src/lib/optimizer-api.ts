@@ -56,12 +56,18 @@ export interface BudgetSuggestion {
   from_roas: number;
   to_roas: number;
   projected_conversion_value_delta: number;
+  projected_conversion_delta: number;
   rationale: string;
+  caveat: string;
 }
 
 export interface OptimizerSummary {
   total_shift: number;
-  projected_uplift: number;
+  projected_total_uplift: number;
+  projected_conversion_uplift: number;
+  channels_evaluated: number;
+  suggestions_count: number;
+  caveat: string;
 }
 
 export interface BudgetOptimizationResult {

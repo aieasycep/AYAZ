@@ -326,7 +326,7 @@ export default function AssistantPage() {
                   key={conv.id}
                   className={`${styles.convItem} ${activeConvId === conv.id ? styles.convItemActive : ''}`}
                   onClick={() => selectConversation(conv.id)}
-                  title={`${conv.title} — ${fmtConvDate(conv.updated_at)}`}
+                  title={`${conv.title || 'Yeni sohbet'} — ${fmtConvDate(conv.updated_at)}`}
                 >
                   {conv.title || 'Yeni sohbet'}
                 </button>

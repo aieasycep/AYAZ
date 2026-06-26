@@ -41,7 +41,7 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 // --- Types ---
 
-export type GoalStatus = 'on_track' | 'at_risk' | 'behind';
+export type GoalStatus = 'on_track' | 'at_risk' | 'off_track';
 
 export interface PerformanceDelta {
   spend?: { value: number; prev: number; pct: number };
@@ -105,6 +105,38 @@ function normaliseBriefing(b: Briefing): Briefing {
     }
     b.body.performance_delta = norm as unknown as PerformanceDelta;
   }
+
+  // Backend goals_status items are
+  // {goal_id, name, metric, target_value, current_value, pct_to_target,
+  //  forecast_value, status, recommendation}. The UI reads {name, status, forecast}.
+  // Map a readable `forecast` line (prefer the recommendation text).
+  const gs = b?.body?.goals_status as unknown;
+  if (Array.isArray(gs)) {
+    b.body.goals_status = gs.map((g) => {
+      const item = (g ?? {}) as Record<string, unknown>;
+      const forecast =
+        typeof item.forecast === 'string'
+          ? (item.forecast as string)
+          : typeof item.recommendation === 'string'
+            ? (item.recommendation as string)
+            : item.forecast_value != null
+              ? String(item.forecast_value)
+              : '';
+      return { ...item, forecast } as unknown as GoalStatusItem;
+    });
+  } else {
+    b.body.goals_status = [];
+  }
+
+  // Guard arrays the page calls `.length`/`.map` on.
+  if (!Array.isArray(b?.body?.top_insights)) {
+    b.body.top_insights = [];
+  }
+  // Guard the object the page passes to Object.entries().
+  if (b?.body && (b.body.performance_delta == null || typeof b.body.performance_delta !== 'object')) {
+    b.body.performance_delta = {} as PerformanceDelta;
+  }
+
   return b;
 }
 

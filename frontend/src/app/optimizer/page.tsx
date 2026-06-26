@@ -305,7 +305,7 @@ export default function OptimizerPage() {
                   <div className={styles.summaryItem}>
                     <span className={styles.summaryLabel}>Projeksiyon Artışı</span>
                     <span className={styles.summaryValue}>
-                      +{fmtCurrency(result.summary.projected_uplift, 0)}
+                      +{fmtCurrency(result.summary.projected_total_uplift, 0)}
                     </span>
                   </div>
                 </div>

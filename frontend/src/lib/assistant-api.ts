@@ -46,7 +46,7 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 export interface Conversation {
   id: string;
-  title: string;
+  title: string | null; // backend may return null until first message
   updated_at: string;
 }
 

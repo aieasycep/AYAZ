@@ -68,8 +68,31 @@ export interface AuthorizeResponse {
 
 // --- API functions ---
 
-export function getConnectedAccounts(): Promise<ConnectedAccount[]> {
-  return authFetch<ConnectedAccount[]>('/api/v1/connectors/accounts');
+// Backend SyncStatus enum is {idle, syncing, success, error, paused}; the UI
+// switches on {connected, syncing, error, pending}. Map to the UI vocabulary
+// so badges/labels render correctly.
+const SYNC_STATUS_MAP: Record<string, SyncStatus> = {
+  idle: 'pending',
+  syncing: 'syncing',
+  success: 'connected',
+  connected: 'connected',
+  error: 'error',
+  paused: 'pending',
+  pending: 'pending',
+};
+
+function normaliseAccount(a: ConnectedAccount): ConnectedAccount {
+  if (a && a.sync_status) {
+    a.sync_status = SYNC_STATUS_MAP[a.sync_status as string] ?? a.sync_status;
+  }
+  return a;
+}
+
+export async function getConnectedAccounts(): Promise<ConnectedAccount[]> {
+  const accounts = await authFetch<ConnectedAccount[]>(
+    '/api/v1/connectors/accounts',
+  );
+  return accounts.map(normaliseAccount);
 }
 
 export function getOAuthAuthorizeUrl(platform: Platform): Promise<AuthorizeResponse> {

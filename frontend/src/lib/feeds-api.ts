@@ -65,13 +65,15 @@ export interface FeedSource {
   source_type: SourceType;
   source_url: string | null;
   item_count: number | null;
-  last_synced: string | null; // ISO date
+  last_synced: string | null; // ISO date — normalised from backend `last_synced_at`
   created_at: string;
 }
 
 export interface FeedChannel {
   id: string;
-  source_id: string;
+  // Backend field is `feed_source_id`; kept here for the FK. The list page does
+  // not dereference this, so the rename is non-breaking.
+  feed_source_id: string;
   name: string;
   channel_type: ChannelType;
   output_format: OutputFormat;
@@ -89,10 +91,22 @@ export interface FeedRule {
   created_at: string;
 }
 
+// --- Normalisation ---
+// Backend returns `last_synced_at`; the UI reads `last_synced`. Map it here.
+function normaliseFeedSource(
+  s: FeedSource & { last_synced_at?: string | null },
+): FeedSource {
+  if (s && s.last_synced == null && s.last_synced_at !== undefined) {
+    s.last_synced = s.last_synced_at;
+  }
+  return s;
+}
+
 // --- Source API ---
 
-export function getFeedSources(): Promise<FeedSource[]> {
-  return authFetch<FeedSource[]>('/api/v1/feeds/sources');
+export async function getFeedSources(): Promise<FeedSource[]> {
+  const sources = await authFetch<FeedSource[]>('/api/v1/feeds/sources');
+  return sources.map(normaliseFeedSource);
 }
 
 export interface CreateSourcePayload {
@@ -101,17 +115,23 @@ export interface CreateSourcePayload {
   source_url: string;
 }
 
-export function createFeedSource(payload: CreateSourcePayload): Promise<FeedSource> {
-  return authFetch<FeedSource>('/api/v1/feeds/sources', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+export async function createFeedSource(
+  payload: CreateSourcePayload,
+): Promise<FeedSource> {
+  return normaliseFeedSource(
+    await authFetch<FeedSource>('/api/v1/feeds/sources', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  );
 }
 
-export function syncFeedSource(id: string): Promise<FeedSource> {
-  return authFetch<FeedSource>(`/api/v1/feeds/sources/${id}/sync`, {
-    method: 'POST',
-  });
+export async function syncFeedSource(id: string): Promise<FeedSource> {
+  return normaliseFeedSource(
+    await authFetch<FeedSource>(`/api/v1/feeds/sources/${id}/sync`, {
+      method: 'POST',
+    }),
+  );
 }
 
 // --- Channel API ---

@@ -81,7 +81,7 @@ function goalStatusLabel(s: GoalStatus): string {
   switch (s) {
     case 'on_track': return 'Yolunda';
     case 'at_risk': return 'Risk Altında';
-    case 'behind': return 'Geride';
+    case 'off_track': return 'Geride';
   }
 }
 
@@ -89,7 +89,7 @@ function goalStatusClass(s: GoalStatus): string {
   switch (s) {
     case 'on_track': return styles.badgeOnTrack;
     case 'at_risk': return styles.badgeAtRisk;
-    case 'behind': return styles.badgeBehind;
+    case 'off_track': return styles.badgeBehind;
   }
 }
 

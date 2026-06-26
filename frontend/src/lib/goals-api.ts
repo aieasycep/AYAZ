@@ -52,7 +52,7 @@ export interface Goal {
   period: string; // e.g. "ay"
   period_start: string; // ISO date
   period_end: string;   // ISO date
-  channel: string | null;
+  channel: string | null; // normalised from backend `channel_filter`
   created_at: string;
 }
 
@@ -88,28 +88,53 @@ export interface UpdateGoalPayload {
   channel?: string | null;
 }
 
+// --- Normalisation ---
+// Backend Goal uses `channel_filter`; the UI reads/writes `channel`. Translate
+// both directions so the page can keep using `channel`.
+function normaliseGoal(g: Goal & { channel_filter?: string | null }): Goal {
+  if (g && g.channel == null && g.channel_filter !== undefined) {
+    g.channel = g.channel_filter;
+  }
+  return g;
+}
+
+function goalPayloadToBackend<T extends { channel?: string | null }>(
+  payload: T,
+): Omit<T, 'channel'> & { channel_filter?: string | null } {
+  const { channel, ...rest } = payload;
+  return channel === undefined ? rest : { ...rest, channel_filter: channel };
+}
+
 // --- API functions ---
 
-export function getGoals(): Promise<Goal[]> {
-  return authFetch<Goal[]>('/api/v1/goals');
+export async function getGoals(): Promise<Goal[]> {
+  const goals = await authFetch<Goal[]>('/api/v1/goals');
+  return goals.map(normaliseGoal);
 }
 
-export function createGoal(payload: CreateGoalPayload): Promise<Goal> {
-  return authFetch<Goal>('/api/v1/goals', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+export async function createGoal(payload: CreateGoalPayload): Promise<Goal> {
+  return normaliseGoal(
+    await authFetch<Goal>('/api/v1/goals', {
+      method: 'POST',
+      body: JSON.stringify(goalPayloadToBackend(payload)),
+    }),
+  );
 }
 
-export function getGoal(id: string): Promise<Goal> {
-  return authFetch<Goal>(`/api/v1/goals/${id}`);
+export async function getGoal(id: string): Promise<Goal> {
+  return normaliseGoal(await authFetch<Goal>(`/api/v1/goals/${id}`));
 }
 
-export function patchGoal(id: string, payload: UpdateGoalPayload): Promise<Goal> {
-  return authFetch<Goal>(`/api/v1/goals/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  });
+export async function patchGoal(
+  id: string,
+  payload: UpdateGoalPayload,
+): Promise<Goal> {
+  return normaliseGoal(
+    await authFetch<Goal>(`/api/v1/goals/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(goalPayloadToBackend(payload)),
+    }),
+  );
 }
 
 export function deleteGoal(id: string): Promise<void> {

@@ -60,8 +60,13 @@ export interface Insight {
   created_at: string;
 }
 
+// Backend returns {as_of_date, new_info, new_warning, new_critical, skipped}.
 export interface GenerateResponse {
-  counts: Record<string, number>;
+  as_of_date?: string;
+  new_info?: number;
+  new_warning?: number;
+  new_critical?: number;
+  skipped?: number;
 }
 
 export type AlertComparator =
@@ -105,6 +110,23 @@ export interface UpdateAlertRulePayload {
   active?: boolean;
 }
 
+// --- Normalisation ---
+// Backend AlertRule uses `is_active`; the UI reads/writes `active`. Translate
+// both directions so the page can keep using `active`.
+function normaliseAlertRule(r: AlertRule & { is_active?: boolean }): AlertRule {
+  if (r && typeof r.is_active === 'boolean' && r.active === undefined) {
+    r.active = r.is_active;
+  }
+  return r;
+}
+
+function rulePayloadToBackend<T extends { active?: boolean }>(
+  payload: T,
+): Omit<T, 'active'> & { is_active?: boolean } {
+  const { active, ...rest } = payload;
+  return active === undefined ? rest : { ...rest, is_active: active };
+}
+
 // --- Insights API ---
 
 export function getInsights(params?: {
@@ -136,27 +158,32 @@ export function generateInsights(): Promise<GenerateResponse> {
 
 // --- Alert Rules API ---
 
-export function getAlertRules(): Promise<AlertRule[]> {
-  return authFetch<AlertRule[]>('/api/v1/insights/alert-rules');
+export async function getAlertRules(): Promise<AlertRule[]> {
+  const rules = await authFetch<AlertRule[]>('/api/v1/insights/alert-rules');
+  return rules.map(normaliseAlertRule);
 }
 
-export function createAlertRule(
+export async function createAlertRule(
   payload: CreateAlertRulePayload,
 ): Promise<AlertRule> {
-  return authFetch<AlertRule>('/api/v1/insights/alert-rules', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+  return normaliseAlertRule(
+    await authFetch<AlertRule>('/api/v1/insights/alert-rules', {
+      method: 'POST',
+      body: JSON.stringify(rulePayloadToBackend(payload)),
+    }),
+  );
 }
 
-export function patchAlertRule(
+export async function patchAlertRule(
   id: string,
   payload: UpdateAlertRulePayload,
 ): Promise<AlertRule> {
-  return authFetch<AlertRule>(`/api/v1/insights/alert-rules/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  });
+  return normaliseAlertRule(
+    await authFetch<AlertRule>(`/api/v1/insights/alert-rules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(rulePayloadToBackend(payload)),
+    }),
+  );
 }
 
 export function deleteAlertRule(id: string): Promise<void> {
@@ -184,9 +211,13 @@ export interface InsightFixes {
   fixes: FixAction[];
 }
 
+// Backend returns {action_type, success, message, entity_id?, entity_type?}.
 export interface ApplyFixResponse {
-  status: string;
-  created?: Record<string, unknown>;
+  action_type: string;
+  success: boolean;
+  message: string;
+  entity_id?: string | null;
+  entity_type?: string | null;
 }
 
 export function getInsightFixes(id: string): Promise<InsightFixes> {

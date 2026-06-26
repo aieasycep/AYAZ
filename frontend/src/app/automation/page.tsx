@@ -112,6 +112,24 @@ function fmtDateTime(iso: string | null): string {
   });
 }
 
+// Backend run `detail` is a structured object; the error path is a plain string.
+// Render a readable summary instead of crashing on an object child.
+function fmtRunDetail(detail: Record<string, unknown> | string | null | undefined): string {
+  if (detail == null) return '';
+  if (typeof detail === 'string') return detail;
+  const matched = detail['matched_entities'];
+  if (Array.isArray(matched)) {
+    return matched.length > 0
+      ? `${matched.length} öğe eşleşti`
+      : 'Eşleşen öğe yok';
+  }
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return '';
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Form state
 // ---------------------------------------------------------------------------
@@ -817,7 +835,7 @@ export default function AutomationPage() {
                             </span>
                             {ui.runResult.detail && (
                               <div className={styles.runDetail}>
-                                {ui.runResult.detail}
+                                {fmtRunDetail(ui.runResult.detail)}
                               </div>
                             )}
                           </div>
@@ -920,7 +938,7 @@ export default function AutomationPage() {
                                         : 'Tetiklenmedi'}
                                     </span>
                                   </td>
-                                  <td>{run.detail}</td>
+                                  <td>{fmtRunDetail(run.detail)}</td>
                                 </tr>
                               ))}
                             </tbody>
