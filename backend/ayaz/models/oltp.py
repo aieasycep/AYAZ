@@ -15,7 +15,9 @@ Multi-tenancy strategy
 import enum
 import uuid
 
+import sqlalchemy as sa
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum,
     ForeignKey,
@@ -133,6 +135,36 @@ class User(Base, TimestampMixin):
     )
     hashed_password: Mapped[str] = mapped_column(Text, nullable=False)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+
+    # User preferences — added in migration 0013
+    locale: Mapped[str] = mapped_column(
+        String(8),
+        nullable=False,
+        default="tr",
+        server_default="tr",
+        comment="UI locale: 'tr' or 'en'",
+    )
+    timezone: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="Europe/Istanbul",
+        server_default="Europe/Istanbul",
+        comment="IANA timezone identifier, e.g. 'Europe/Istanbul'",
+    )
+    email_alerts: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa.text("true"),
+        comment="Whether to send email alert notifications",
+    )
+    email_briefing: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa.text("true"),
+        comment="Whether to send the daily email briefing",
+    )
 
     # Relationships
     memberships: Mapped[list["Membership"]] = relationship(

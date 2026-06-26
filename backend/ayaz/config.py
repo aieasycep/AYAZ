@@ -103,6 +103,9 @@ class Settings(BaseSettings):
     # public collect / feed / report endpoints: max requests per IP per window
     rate_limit_public_limit: int = 120
     rate_limit_public_window: int = 60
+    # auth/change-password: max requests per IP per window
+    rate_limit_change_password_limit: int = 5
+    rate_limit_change_password_window: int = 60
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
