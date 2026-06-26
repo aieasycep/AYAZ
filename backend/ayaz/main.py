@@ -20,6 +20,7 @@ from ayaz.api.v1 import dashboard as dashboard_router
 from ayaz.api.v1 import ads as ads_router
 from ayaz.api.v1 import automation as automation_router
 from ayaz.api.v1 import billing as billing_router
+from ayaz.api.v1 import briefing as briefing_router
 from ayaz.api.v1 import copilot as copilot_router
 from ayaz.api.v1 import creatives as creatives_router
 from ayaz.api.v1 import goals as goals_router
@@ -73,6 +74,7 @@ app.include_router(optimizer_router.router, prefix=_PREFIX)
 app.include_router(goals_router.router, prefix=_PREFIX)
 app.include_router(report_builder_router.router, prefix=_PREFIX)
 app.include_router(creatives_router.router, prefix=_PREFIX)
+app.include_router(briefing_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
