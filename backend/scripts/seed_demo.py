@@ -548,6 +548,306 @@ def _seed_rich_facts(db, tenant: Tenant, accounts: dict[str, ConnectedAccount]) 
     return inserted, updated
 
 
+# ── Ad-level creative fact data ───────────────────────────────────────────────
+
+# Additional ads per campaign: 3 extra ads per campaign for the recent 14-day
+# window, alongside the existing per-campaign ad already created by _seed_rich_facts.
+# Performance intentionally varied so creatives analysis has clear winners/losers.
+#
+# Each entry:
+#   (ad_ext_id, ad_name, impressions_fraction, clicks_fraction,
+#    cost_fraction, conv_fraction, conv_value_fraction)
+# Fractions are relative to the parent campaign's base values.
+#
+# Campaigns chosen: one per channel (first campaign of each) so the demo surface
+# is representative without over-inflating the fact table.
+
+_AD_LEVEL_SPECS = [
+    # ── google_ads / Brand Search ──────────────────────────────────────────
+    {
+        "channel_key": "google_ads",
+        "camp_ext": "G-CAMP-BRAND",
+        "cost_ccy": "TRY",
+        "extra_ads": [
+            {
+                "ad_ext": "G-AD-BRAND-VID",
+                "ad_name": "Video — Indirim Kampanyasi",
+                # High ROAS winner: good conversions relative to spend
+                "imp_frac": Decimal("0.35"),
+                "clk_frac": Decimal("0.40"),
+                "cost_frac": Decimal("0.30"),
+                "conv_frac": Decimal("0.55"),   # strong performer
+                "cv_frac":   Decimal("0.60"),
+            },
+            {
+                "ad_ext": "G-AD-BRAND-STAT",
+                "ad_name": "Statik — Marka Gorseli",
+                # Moderate performer
+                "imp_frac": Decimal("0.30"),
+                "clk_frac": Decimal("0.28"),
+                "cost_frac": Decimal("0.28"),
+                "conv_frac": Decimal("0.25"),
+                "cv_frac":   Decimal("0.24"),
+            },
+            {
+                "ad_ext": "G-AD-BRAND-RESP",
+                "ad_name": "Responsive — Sezon Teklifi",
+                # Budget waster: spends but very few conversions
+                "imp_frac": Decimal("0.25"),
+                "clk_frac": Decimal("0.20"),
+                "cost_frac": Decimal("0.32"),   # over-spending
+                "conv_frac": Decimal("0.04"),   # near-zero conversions
+                "cv_frac":   Decimal("0.03"),
+            },
+        ],
+    },
+    # ── meta_ads / Retargeting — Sepet Terk ───────────────────────────────
+    {
+        "channel_key": "meta_ads",
+        "camp_ext": "M-CAMP-RETG",
+        "cost_ccy": "TRY",
+        "extra_ads": [
+            {
+                "ad_ext": "M-AD-RETG-VID",
+                "ad_name": "Video — Sepet Hatirlatma",
+                # High ROAS winner for meta
+                "imp_frac": Decimal("0.40"),
+                "clk_frac": Decimal("0.45"),
+                "cost_frac": Decimal("0.35"),
+                "conv_frac": Decimal("0.50"),
+                "cv_frac":   Decimal("0.55"),
+            },
+            {
+                "ad_ext": "M-AD-RETG-STAT",
+                "ad_name": "Statik — Indirim Afisi",
+                # Moderate
+                "imp_frac": Decimal("0.30"),
+                "clk_frac": Decimal("0.28"),
+                "cost_frac": Decimal("0.28"),
+                "conv_frac": Decimal("0.28"),
+                "cv_frac":   Decimal("0.26"),
+            },
+            {
+                "ad_ext": "M-AD-RETG-COLL",
+                "ad_name": "Koleksiyon — Tum Koleksiyon",
+                # Loser: spend but zero conversions
+                "imp_frac": Decimal("0.20"),
+                "clk_frac": Decimal("0.18"),
+                "cost_frac": Decimal("0.28"),   # meaningful spend
+                "conv_frac": Decimal("0.00"),   # zero conversions (budget waster)
+                "cv_frac":   Decimal("0.00"),
+            },
+        ],
+    },
+    # ── tiktok_ads / Viral Creative — Gen Z ───────────────────────────────
+    {
+        "channel_key": "tiktok_ads",
+        "camp_ext": "TT-CAMP-VIRAL",
+        "cost_ccy": "TRY",
+        "extra_ads": [
+            {
+                "ad_ext": "TT-AD-VIRAL-DUO",
+                "ad_name": "Duet — Urun Tanitim",
+                # Strong performer
+                "imp_frac": Decimal("0.38"),
+                "clk_frac": Decimal("0.40"),
+                "cost_frac": Decimal("0.30"),
+                "conv_frac": Decimal("0.50"),
+                "cv_frac":   Decimal("0.52"),
+            },
+            {
+                "ad_ext": "TT-AD-VIRAL-STC",
+                "ad_name": "Statik — Flash Indirim",
+                # Moderate
+                "imp_frac": Decimal("0.28"),
+                "clk_frac": Decimal("0.25"),
+                "cost_frac": Decimal("0.25"),
+                "conv_frac": Decimal("0.22"),
+                "cv_frac":   Decimal("0.20"),
+            },
+            {
+                "ad_ext": "TT-AD-VIRAL-WAS",
+                "ad_name": "Spark — Dusuk Performans",
+                # Worst: spend, near-zero conversions
+                "imp_frac": Decimal("0.24"),
+                "clk_frac": Decimal("0.20"),
+                "cost_frac": Decimal("0.35"),
+                "conv_frac": Decimal("0.02"),
+                "cv_frac":   Decimal("0.02"),
+            },
+        ],
+    },
+]
+
+# Recent window for ad-level fact rows: last 14 days of the rich window.
+_AD_LEVEL_START = _RICH_END_DATE - timedelta(days=13)  # 14 days inclusive
+_AD_LEVEL_END = _RICH_END_DATE
+
+
+def _seed_ad_level_facts(
+    db,
+    tenant: Tenant,
+    accounts: dict[str, ConnectedAccount],
+) -> tuple[int, int]:
+    """Seed ad-level FactDailyMetrics for the recent 14-day window.
+
+    Creates 3 extra DimAd rows per selected campaign (1 per channel) and writes
+    14 days of fact data with varied performance profiles:
+      - High-ROAS winner ads
+      - Moderate performers
+      - Budget-wasting losers (spending but near/zero conversions)
+
+    Uses get-or-create for dim rows and upserts facts on the 7-field grain.
+    Returns (inserted, updated) counts.
+
+    This data is additive — the existing campaign-level rows (from _seed_rich_facts)
+    are not touched.
+    """
+    inserted = 0
+    updated = 0
+    now_utc = datetime.now(timezone.utc)
+
+    date_range = [
+        _AD_LEVEL_START + timedelta(days=d)
+        for d in range(14)
+    ]
+
+    for spec in _AD_LEVEL_SPECS:
+        channel_key = spec["channel_key"]
+        cost_ccy = spec["cost_ccy"]
+        channel = _get_or_create_channel(db, channel_key)
+        account = accounts[channel_key]
+
+        # Look up the parent campaign
+        from sqlalchemy import select as _select
+        from ayaz.models.analytics import DimCampaign as _DimCampaign
+        campaign = db.scalar(
+            _select(_DimCampaign).where(
+                _DimCampaign.tenant_id == tenant.id,
+                _DimCampaign.external_id == spec["camp_ext"],
+            )
+        )
+        if campaign is None:
+            print(
+                f"  WARNING: campaign {spec['camp_ext']} not found "
+                f"— ad-level seed skipped for this campaign"
+            )
+            continue
+
+        # Find the adset already created for this campaign (first one)
+        from ayaz.models.analytics import DimAdSet as _DimAdSet
+        adset = db.scalar(
+            _select(_DimAdSet).where(
+                _DimAdSet.campaign_id == campaign.id,
+                _DimAdSet.tenant_id == tenant.id,
+            )
+        )
+        if adset is None:
+            print(f"  WARNING: no adset found for campaign {spec['camp_ext']} — skipping")
+            continue
+
+        # Base values come from the campaign spec we already defined in _CHANNEL_SPECS
+        # Re-derive by matching camp_ext in _CHANNEL_SPECS
+        base_camp = None
+        for ch_spec in _CHANNEL_SPECS:
+            if ch_spec["channel_key"] == channel_key:
+                for c in ch_spec["campaigns"]:
+                    if c["camp_ext"] == spec["camp_ext"]:
+                        base_camp = c
+                        break
+        if base_camp is None:
+            print(f"  WARNING: base campaign spec not found for {spec['camp_ext']}")
+            continue
+
+        for ad_idx, ad_spec in enumerate(spec["extra_ads"]):
+            ad = _get_or_create_ad(
+                db, tenant.id, adset,
+                external_id=ad_spec["ad_ext"],
+                name=ad_spec["ad_name"],
+            )
+
+            for day_idx, d in enumerate(date_range):
+                _ensure_dim_date(db, d)
+
+                # Scale base campaign metrics by per-ad fractions with noise
+                base_imp = Decimal(str(base_camp["impressions"])) * ad_spec["imp_frac"]
+                base_clk = Decimal(str(base_camp["clicks"])) * ad_spec["clk_frac"]
+                base_cost = base_camp["cost"] * ad_spec["cost_frac"]
+                base_conv = base_camp["conversions"] * ad_spec["conv_frac"]
+                base_cv = base_camp["conv_value"] * ad_spec["cv_frac"]
+
+                # Apply deterministic noise (slightly different seed per ad_idx)
+                impressions = max(1, int(_noise(base_imp, day_idx, ad_idx + 10)))
+                clicks = max(1, int(_noise(base_clk, day_idx, ad_idx + 11)))
+                cost = _noise(base_cost, day_idx, ad_idx + 12).quantize(Decimal("0.01"))
+                conversions = _noise(base_conv, day_idx, ad_idx + 13).quantize(Decimal("0.01"))
+                conv_value = _noise(base_cv, day_idx, ad_idx + 14).quantize(Decimal("0.01"))
+
+                # Clamp
+                clicks = min(clicks, impressions)
+                cost = max(Decimal("0.01"), cost)
+                conversions = max(Decimal("0"), conversions)
+                conv_value = max(Decimal("0"), conv_value)
+
+                # Hard-zero for designated waster ads (conv_frac == 0)
+                if ad_spec["conv_frac"] == Decimal("0.00"):
+                    conversions = Decimal("0")
+                    conv_value = Decimal("0")
+
+                # Upsert on the 7-field grain
+                existing = db.scalar(
+                    select(FactDailyMetrics).where(
+                        FactDailyMetrics.tenant_id == tenant.id,
+                        FactDailyMetrics.connected_account_id == account.id,
+                        FactDailyMetrics.channel_id == channel.id,
+                        FactDailyMetrics.campaign_id == campaign.id,
+                        FactDailyMetrics.adset_id == adset.id,
+                        FactDailyMetrics.ad_id == ad.id,
+                        FactDailyMetrics.date_key == d,
+                    )
+                )
+
+                if existing is None:
+                    fact = FactDailyMetrics(
+                        tenant_id=tenant.id,
+                        connected_account_id=account.id,
+                        channel_id=channel.id,
+                        campaign_id=campaign.id,
+                        adset_id=adset.id,
+                        ad_id=ad.id,
+                        date_key=d,
+                        impressions=impressions,
+                        clicks=clicks,
+                        cost_raw=cost,
+                        cost_ccy=cost_ccy,
+                        conversions=conversions,
+                        conversion_value_raw=conv_value,
+                        conversion_value_ccy=cost_ccy,
+                        cost_base_ccy=cost,
+                        conv_value_base_ccy=conv_value,
+                        ingested_at=now_utc,
+                    )
+                    db.add(fact)
+                    inserted += 1
+                else:
+                    existing.impressions = impressions
+                    existing.clicks = clicks
+                    existing.cost_raw = cost
+                    existing.cost_ccy = cost_ccy
+                    existing.conversions = conversions
+                    existing.conversion_value_raw = conv_value
+                    existing.conversion_value_ccy = cost_ccy
+                    existing.cost_base_ccy = cost
+                    existing.conv_value_base_ccy = conv_value
+                    existing.ingested_at = now_utc
+                    updated += 1
+
+        db.flush()
+
+    db.commit()
+    return inserted, updated
+
+
 # ── Feed seeding ───────────────────────────────────────────────────────────────
 
 # Stable tokens derived from a fixed prefix so they survive re-runs.
@@ -917,9 +1217,22 @@ def run_seed() -> None:
         )
         fact_inserted, fact_updated = _seed_rich_facts(db, tenant, channel_accounts)
         print(f"  Rich facts: inserted={fact_inserted}  updated={fact_updated}")
-        total_facts = fact_inserted + fact_updated
         summary["fact_inserted"] = fact_inserted
         summary["fact_updated"] = fact_updated
+
+        # ── Step 5b: Ad-level creative facts (3 extra ads per campaign x 3 channels) ──
+        print(
+            f"\n[5b/7] Seeding ad-level creative facts "
+            f"(3 extra ads per campaign, recent 14 days: {_AD_LEVEL_START} — {_AD_LEVEL_END})..."
+        )
+        ad_inserted, ad_updated = _seed_ad_level_facts(db, tenant, channel_accounts)
+        print(f"  Ad-level facts: inserted={ad_inserted}  updated={ad_updated}")
+        summary["ad_fact_inserted"] = ad_inserted
+        summary["ad_fact_updated"] = ad_updated
+        print("  Ad profiles seeded:")
+        print("    google_ads / Brand Search:      Video-Indirim(winner), Statik-Marka(mid), Responsive-Sezon(loser)")
+        print("    meta_ads   / Retargeting:       Video-Sepet(winner), Statik-Indirim(mid), Koleksiyon(loser, 0 conv)")
+        print("    tiktok_ads / Viral Creative:    Duet-Urun(winner), Statik-Flash(mid), Spark-Dusuk(loser)")
 
         # ── Step 6: Feeds ─────────────────────────────────────────────────────
         print("\n[6/7] Seeding product feed (FeedSource + 2 FeedChannels + rules)...")
@@ -965,6 +1278,10 @@ def run_seed() -> None:
     print("Fact rows (rich 45-day, 3 channels, 7 campaigns):")
     print(f"  Inserted : {summary.get('fact_inserted', 0)}")
     print(f"  Updated  : {summary.get('fact_updated', 0)}")
+    print()
+    print("Ad-level creative facts (3 extra ads x 3 campaigns, 14 days):")
+    print(f"  Inserted : {summary.get('ad_fact_inserted', 0)}")
+    print(f"  Updated  : {summary.get('ad_fact_updated', 0)}")
     print()
     print("Anomalies injected (last 7 days):")
     print("  google_ads / 'Brand Search'    — ROAS drop  (conv_value x 0.35)")
