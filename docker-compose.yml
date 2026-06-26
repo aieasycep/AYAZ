@@ -1,0 +1,47 @@
+version: "3.9"
+
+# Local development stack for AYAZ backend.
+# Starts Postgres 16 and Redis 7 — the two infrastructure services
+# the backend depends on.  The FastAPI app itself runs outside Docker
+# (see backend/README.md) so you get hot-reload without a volume-mount dance.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ayaz_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ayaz
+      POSTGRES_PASSWORD: ayaz
+      POSTGRES_DB: ayaz
+    ports:
+      - "5432:5432"
+    volumes:
+      - ayaz_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ayaz -d ayaz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: ayaz_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ayaz_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # TODO (Faz 1): add HashiCorp Vault (dev mode) container
+  # TODO (Faz 1): add Celery worker + beat scheduler containers
+  # TODO (Faz 1): add FastAPI container for production-like testing
+
+volumes:
+  ayaz_postgres_data:
+  ayaz_redis_data:

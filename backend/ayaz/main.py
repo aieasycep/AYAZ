@@ -1,0 +1,56 @@
+"""AYAZ FastAPI application entry point.
+
+Startup
+-------
+    cd backend
+    uvicorn ayaz.main:app --reload
+
+The app is versioned under ``/api/v1/``.  The root ``/health`` endpoint is
+intentionally unversioned for load-balancer / Kubernetes liveness probes.
+"""
+
+from __future__ import annotations
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from ayaz.api.v1 import auth as auth_router
+from ayaz.api.v1 import connectors as connectors_router
+from ayaz.config import settings
+
+app = FastAPI(
+    title="AYAZ API",
+    description=(
+        "AYAZ — unified digital-marketing platform API. "
+        "All endpoints are under /api/v1/ except /health."
+    ),
+    version="0.1.0",
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
+)
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Routers ───────────────────────────────────────────────────────────────────
+_PREFIX = "/api/v1"
+
+app.include_router(auth_router.router, prefix=_PREFIX)
+app.include_router(connectors_router.router, prefix=_PREFIX)
+
+# TODO (Faz 1): add routers for /metrics, /reports, /billing
+
+
+# ── Health ────────────────────────────────────────────────────────────────────
+
+
+@app.get("/health", tags=["infra"], summary="Liveness probe")
+def health() -> dict[str, str]:
+    """Return 200 OK — used by load balancers and Kubernetes liveness probes."""
+    return {"status": "ok", "version": app.version}

@@ -1,0 +1,43 @@
+"""SQLAlchemy ORM models for AYAZ.
+
+Import order matters for Alembic autogenerate — import all model modules here
+so they are registered on ``Base.metadata`` before migrations run.
+"""
+
+from ayaz.models.base import Base
+from ayaz.models.oltp import (  # noqa: F401
+    ConnectedAccount,
+    Membership,
+    MembershipRole,
+    Platform,
+    SyncStatus,
+    Tenant,
+    User,
+)
+from ayaz.models.analytics import (  # noqa: F401
+    DimAd,
+    DimAdSet,
+    DimCampaign,
+    DimChannel,
+    DimCurrencyRate,
+    DimDate,
+    FactDailyMetrics,
+)
+
+__all__ = [
+    "Base",
+    "Tenant",
+    "User",
+    "Membership",
+    "MembershipRole",
+    "ConnectedAccount",
+    "Platform",
+    "SyncStatus",
+    "DimChannel",
+    "DimCampaign",
+    "DimAdSet",
+    "DimAd",
+    "DimDate",
+    "DimCurrencyRate",
+    "FactDailyMetrics",
+]
