@@ -7,12 +7,11 @@
 
 ```mermaid
 graph TD
-    subgraph EXT["Dış Platformlar"]
+    subgraph EXT["Dış Platformlar (reklam + analitik)"]
         G[Google Ads / GA4 / Search Console]
         M[Meta Ads]
         T[TikTok Ads]
-        TR[Trendyol / Hepsiburada]
-        SH[Shopify / WooCommerce]
+        L[LinkedIn / Microsoft Ads]
     end
     subgraph CONN["Konektör Katmanı"]
         C1[Connector SDK: auth/fetch/normalize/sync]
@@ -81,7 +80,7 @@ Hedef: yeni platform eklemeyi "birkaç gün"e indirmek. Connector arabirimi:
 
 **Çapraz kesen altyapı (her konektörde ücretsiz):** Vault'ta şifreli token + proaktif yenileme; hesap başına sync cadence + watermark tabanlı artımlı çekim + ayrı backfill; per-konektör token-bucket + backoff + per-tenant fairness; geçici/kalıcı hata ayrımı + dead-letter + UI'da sync sağlığı; fixtures golden-file testleri.
 
-**İlk 15 konektör (TR-first öncelik):** 1) Google Ads 2) Meta Ads 3) GA4 4) Search Console 5) TikTok Ads 6) Google Merchant Center 7) Shopify 8) WooCommerce 9) **Trendyol** 10) **Hepsiburada** 11) Meta CAPI 12) Microsoft/Bing Ads 13) LinkedIn Ads 14) Criteo 15) Pinterest. **MVP dilimi:** 1-5 + 7/9.
+**İlk konektörler (öncelik — reklam/analitik platformları):** 1) Google Ads 2) Meta Ads 3) GA4 4) Search Console 5) TikTok Ads 6) LinkedIn Ads 7) Microsoft/Bing Ads 8) Criteo 9) Pinterest Ads 10) Meta CAPI (Faz 4). **MVP dilimi:** 1-5. (Sonraki dalga talebe göre 6-9.)
 
 ## 3. Birleşik Veri Modeli
 
@@ -99,7 +98,7 @@ fact_daily_metrics:
   -- türetilmişler (CTR/CPC/CPA/ROAS) Metric Layer'da tanımlanır, fact'te materyalize EDİLMEZ
 ```
 
-Her konektörün `normalize()`'ı kaynağa özgü alanları (`spend`/`cost_micros`/`harcama`) tek kanonik alana çevirir. Pazaryeri (Trendyol) "kampanya" yoksa null-dim'e bağlanır; siparişler `fact_orders`'a gider ama `dim_date`/`dim_channel` paylaşır. Tek geniş fact + ortak dim → kanallar arası blending (`GROUP BY date, channel`) trivial.
+Her konektörün `normalize()`'ı kaynağa özgü alanları (`spend`/`cost_micros`/`harcama`) tek kanonik alana çevirir. Tam kampanya hiyerarşisi olmayan kaynaklar (ör. GA4 organik trafik, Search Console) ilgili dim'lerde null-dim ("(not set)") satırına bağlanır. Tek geniş fact + ortak dim → kanallar arası blending (`GROUP BY date, channel`) trivial.
 
 ## 4. Yap-vs-Entegre Matrisi
 
@@ -111,7 +110,7 @@ Her konektörün `normalize()`'ı kaynağa özgü alanları (`spend`/`cost_micro
 | Otomatik İçgörü/Uyarı | Sıfırdan Yap | Ana farklılaştırıcı; kural+anomali+LLM-özet |
 | Server-side/CAPI | Sonraki Faz → Yap | Altyapı, KVKK consent/dedup; MVP sonrası |
 | Reklam Yönetimi/Optimizasyon | Sonraki Faz (Kademeli) | Write-API + MMM zoru (5); önce read |
-| Feed/Pazaryeri | Sonraki Faz (Kademeli) | Kanal genişliği zor; TR pazaryeriyle dar başla |
+| Feed/Creative Otomasyonu | Opsiyonel ileri faz | E-ticaret talebine bağlı feed→PPC/creative; pazaryeri satış kapsam dışı |
 | LLM (NL özet/asistan) | **Entegre Et** | Model eğitmek pratik değil; Anthropic Claude API |
 | Döviz kurları | Entegre Et | TCMB/ECB/ücretli API |
 | Faturalama | Entegre Et | iyzico (TR) + Stripe (global); PCI nedeniyle asla kendimiz |
@@ -142,10 +141,11 @@ Her konektörün `normalize()`'ı kaynağa özgü alanları (`spend`/`cost_micro
 - **Faz 0 — Temel iskelet:** multi-tenant auth+RBAC, OLTP şeması, Vault, Connector SDK + fixtures harness, kuyruk/scheduler, OAuth Broker, faturalama kancası.
 - **Faz 1 — MVP veri+dashboard:** ilk 5-7 konektör → artımlı sync → fact+dim → Metric Layer → kendi dashboard/raporlama, ₺/TZ normalizasyonu. *(Tek panel vaadi.)*
 - **Faz 2 — Farklılaştırıcı içgörü:** kural motoru + anomali tespiti + LLM(Claude) NL özet + e-posta/Slack uyarı + scheduled PDF/paylaşılabilir rapor.
-- **Faz 3 — Konektör genişleme + read-only reklam:** konektör 8-15; reklamda önce read + kural-bazlı öneri.
+- **Faz 3 — Konektör genişleme + ajans/white-label:** LinkedIn, Microsoft/Bing, Criteo, Pinterest; çoklu müşteri/white-label rapor.
 - **Faz 4 — Server-side/CAPI:** Meta CAPI + TikTok Events + Google + identity matching/dedup + KVKK consent.
-- **Faz 5 — Reklam yazma/optimizasyon + Feed/Pazaryeri:** write-API kampanya yönetimi, kural optimizer → forecasting/MMM; TR pazaryeri feed.
+- **Faz 5 — Reklam yazma/optimizasyon:** write-API kampanya yönetimi (önce Google/Meta), kural optimizer → forecasting/MMM.
 - **Faz 6 — Mobil uygulama.**
+- **Opsiyonel — Feed/Creative otomasyonu (Channable-tarzı):** yalnızca e-ticaret talebi olursa; pazaryeri satış kapsam dışı.
 
 > Not: Stratejist, otomatik içgörüyü (Faz 2) **kamanın parçası** sayar → ilk satılabilir sürüm = Faz 1 + Faz 2 birlikte.
 

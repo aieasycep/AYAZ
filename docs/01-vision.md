@@ -21,9 +21,9 @@ AYAZ, bu araçları **tek bir kokpitte** birleştirir:
 - Türkiye pazarına yerel uyum (KVKK, dil, yerel ödeme) — hedef pazara göre.
 
 ## Hedef Kitle (ICP)
-- **Birincil:** Çok-kanallı TR e-ticaret markasının dijital pazarlama yöneticisi
-  (Trendyol/Hepsiburada + Google + Meta'da eşzamanlı satış, 3-8 kişilik ekip,
-  aylık reklam ₺200K-2M, halen 5-10 panel arası gidip gelen).
+- **Birincil:** Bir şirketin dijital pazarlamasını yöneten kişi (her sektör) —
+  Google Ads + Meta + GA4 + (TikTok/LinkedIn/Search Console) gibi 5-10 ayrı panel
+  arasında gidip gelen, kanal-üstü performansı tek yerde göremeyen pazarlama yöneticisi.
 - **İkincil:** Dijital pazarlama ajansları (çok müşteri, white-label rapor ihtiyacı).
 
 ## Kazanma Kaması (Wedge)
@@ -41,5 +41,5 @@ AYAZ, bu araçları **tek bir kokpitte** birleştirir:
 - **Gelir:** dönüşüm, ARPU, churn, expansion (kaynak/spend eşiği aşımı).
 
 ## Açık Sorular
-- Trendyol/Hepsiburada reklam verisine programatik (okuma) erişim derinliği? (öncelikli)
+- İlk hedef müşterilerin en çok hangi platformları kullandığı (konektör önceliklendirmesi).
 - heyBooster public API kapsamı (entegre mi sıfırdan mı?).

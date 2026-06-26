@@ -30,5 +30,8 @@ Adin.ai, heyBooster) araştırıldı; strateji, mimari ve birleşik yol haritas�
 - **Çekirdek karar:** Konektör + birleşik veri + dashboard + içgörü sıfırdan; LLM/ödeme/kur entegre.
 - **İlk satılabilir sürüm:** Faz 1 (veri+dashboard) + Faz 2 (otomatik içgörü).
 
-**Sıradaki adım:** Trendyol/Hepsiburada reklam verisine programatik erişim derinliğinin
-doğrulanması, ardından Faz 1 altyapısının geliştirilmesine başlanması.
+**ICP:** Bir şirketin dijital pazarlamasını yöneten kişi (her sektör) — reklam/analitik/
+içgörü odağı. Konektörler reklam/analitik platformları (Google Ads, Meta, GA4, Search
+Console, TikTok); pazaryeri/feed satışı kapsam dışı.
+
+**Sıradaki adım:** Faz 1 altyapısının geliştirilmesine başlanması.

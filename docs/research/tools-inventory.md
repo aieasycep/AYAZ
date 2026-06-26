@@ -70,7 +70,7 @@
 - **Fiyatlandırma:** Modüler. Core ~$49-104/ay + eklentiler (Marketplaces ~$35, PPC ~$56-83, CSS ~$25). Konfigürasyona bağlı.
 - **API:** **Var ama dar** — `api.channable.com/v1`, Bearer token. Sadece **Orders/Shipments/Cancellations/Returns/Offers-Stock** (sipariş döngüsü). Feed/kural/listeleme yönetimi API'de YOK (UI + CSV/XML/Sheets).
 - **Sıfırdan zorluk: 5** — 2.500-3.000+ kanal/pazaryeri entegrasyonu ve sürekli bakımı; çift yönlü sipariş/stok/iade; reklam API'leri; performanslı kural motoru; milyonlarca SKU batch pipeline.
-- **🔴 TR boşluğu:** Kamuya açık listede **Trendyol/Hepsiburada YOK** — AYAZ için kritik farklılaşma fırsatı (doğrulanacak).
+- **Not (kapsam):** Channable bir feed/pazaryeri aracıdır; AYAZ'ın çekirdek kapsamı (reklam/analitik/içgörü kokpiti) dışındadır. Pazarlamaya bakan yanı (feed→PPC, dinamik creative) yalnızca ileride **opsiyonel** bir modül olarak değerlendirilebilir; pazaryeri listeleme/satış kapsam dışı. (Kamuya açık listede Trendyol/Hepsiburada görünmüyor — bu, kapsam dışı olduğu için AYAZ açısından öncelik değil.)
 
 ## 6. SignalSight — https://www.signalsight.io/  *(ZZG Tech, Londra)*
 - **Tek cümle:** Reklam platformlarına (Meta, TikTok, Google, Snapchat, Pinterest) web/app/CRM/offline kaynaklardan sunucu-taraflı (server-side) first-party dönüşüm sinyali gönderen ve lead'leri CRM'e akıtan "first-party data gateway / server-side tracking" platformu.
@@ -85,7 +85,7 @@
 ---
 
 ## Sahibi tarafından login ile doğrulanacak öncelikli sorular
-1. **Trendyol & Hepsiburada** reklam/performans verisine programatik (okuma) erişim derinliği — Partner API yeterli mi? *(v1 kamasının fizibilitesini belirler.)*
-2. **heyBooster public API** kapsamı/doküman/auth — entegre mi sıfırdan mı kararı için.
-3. **SignalSight & Channable** fiyat kademeleri ve gerçek yönetim API'lerinin varlığı.
-4. **Adin.ai** optimizasyon otomatik mi öneri mi + TR desteği.
+1. **heyBooster public API** kapsamı/doküman/auth — içgörü motoru için entegre mi sıfırdan mı kararına yardımcı (referans olarak).
+2. **SignalSight** fiyat kademeleri ve gerçek yönetim API'sinin varlığı (Faz 4 CAPI referansı).
+3. **Adin.ai** optimizasyon otomatik mi öneri mi + TR desteği (Faz 5 reklam yönetimi referansı).
+4. Reklam platformlarının (Google Ads, Meta) **yazma API** onay/erişim süreçleri (Faz 5 için erken araştırma).
