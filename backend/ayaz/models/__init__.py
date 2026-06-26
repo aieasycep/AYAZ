@@ -13,6 +13,7 @@ from ayaz.models.oltp import (  # noqa: F401
     SyncStatus,
     Tenant,
     User,
+    WorkspaceInvitation,
 )
 from ayaz.models.analytics import (  # noqa: F401
     DimAd,
@@ -84,4 +85,5 @@ __all__ = [
     "ConversionEvent",
     "Subscription",
     "BillingEvent",
+    "WorkspaceInvitation",
 ]

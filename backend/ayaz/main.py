@@ -25,6 +25,7 @@ from ayaz.api.v1 import insights as insights_router
 from ayaz.api.v1 import oauth as oauth_router
 from ayaz.api.v1 import reports as reports_router
 from ayaz.api.v1 import tracking as tracking_router
+from ayaz.api.v1 import workspaces as workspaces_router
 from ayaz.config import settings
 
 app = FastAPI(
@@ -61,6 +62,7 @@ app.include_router(reports_router.router, prefix=_PREFIX)
 app.include_router(automation_router.router, prefix=_PREFIX)
 app.include_router(tracking_router.router, prefix=_PREFIX)
 app.include_router(billing_router.router, prefix=_PREFIX)
+app.include_router(workspaces_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

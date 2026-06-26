@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { clearToken } from '@/lib/api';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 import styles from './AppNav.module.css';
 
 const NAV_LINKS = [
@@ -15,6 +16,7 @@ const NAV_LINKS = [
   { href: '/automation', label: 'Otomasyon' },
   { href: '/tracking', label: 'Ölçümleme' },
   { href: '/billing', label: 'Faturalama' },
+  { href: '/workspaces', label: 'Çalışma Alanları' },
 ];
 
 export default function AppNav() {
@@ -43,9 +45,12 @@ export default function AppNav() {
             ))}
           </nav>
         </div>
-        <button className={styles.logoutBtn} onClick={handleLogout}>
-          Oturumu Kapat
-        </button>
+        <div className={styles.right}>
+          <WorkspaceSwitcher />
+          <button className={styles.logoutBtn} onClick={handleLogout}>
+            Oturumu Kapat
+          </button>
+        </div>
       </div>
     </header>
   );

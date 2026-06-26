@@ -61,6 +61,13 @@
   color: #fff;
 }
 
+.right {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-shrink: 0;
+}
+
 .logoutBtn {
   background: transparent;
   border: 1.5px solid rgba(255, 255, 255, 0.25);

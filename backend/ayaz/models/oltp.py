@@ -16,6 +16,7 @@ import enum
 import uuid
 
 from sqlalchemy import (
+    DateTime,
     Enum,
     ForeignKey,
     String,
@@ -85,11 +86,31 @@ class Tenant(Base, TimestampMixin):
         comment="Data residency region for KVKK compliance",
     )
 
+    # White-label branding (M8)
+    brand_name: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="White-label display name override (M8)",
+    )
+    logo_url: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="URL of the workspace logo for white-labelling (M8)",
+    )
+    primary_color: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="CSS hex color for white-label branding, e.g. #3A7BFF (M8)",
+    )
+
     # Relationships
     memberships: Mapped[list["Membership"]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan"
     )
     connected_accounts: Mapped[list["ConnectedAccount"]] = relationship(
+        back_populates="tenant", cascade="all, delete-orphan"
+    )
+    workspace_invitations: Mapped[list["WorkspaceInvitation"]] = relationship(
         back_populates="tenant", cascade="all, delete-orphan"
     )
 
@@ -224,4 +245,68 @@ class ConnectedAccount(Base, TimestampMixin):
         return (
             f"<ConnectedAccount id={self.id} platform={self.platform}"
             f" tenant={self.tenant_id}>"
+        )
+
+
+class WorkspaceInvitation(Base, TimestampMixin):
+    """An email invitation for a user to join a workspace (tenant).
+
+    Lifecycle: pending → accepted (or revoked).
+    The ``token`` column holds a URL-safe random string for accept links.
+    Tenant isolation: ``tenant_id`` scopes every invitation to a single workspace.
+    """
+
+    __tablename__ = "workspace_invitations"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="RLS: filter by current_setting('app.tenant_id')",
+    )
+    email: Mapped[str] = mapped_column(
+        String(254),
+        nullable=False,
+        comment="Email address of the invitee",
+    )
+    role: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="member",
+        comment="admin | member — role to assign on acceptance",
+    )
+    token: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        unique=True,
+        index=True,
+        comment="URL-safe random token for the accept link",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        comment="pending | accepted | revoked",
+    )
+    invited_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User who sent the invitation",
+    )
+    accepted_at: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="ISO-8601 UTC datetime when the invitation was accepted",
+    )
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship(back_populates="workspace_invitations")
+
+    def __repr__(self) -> str:
+        return (
+            f"<WorkspaceInvitation id={self.id} email={self.email!r}"
+            f" tenant={self.tenant_id} status={self.status!r}>"
         )
