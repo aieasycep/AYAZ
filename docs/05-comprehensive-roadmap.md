@@ -40,13 +40,16 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 > **M1–M10 çekirdek modüllerin tamamı + güvenlik denetimi tamamlandı.** Şimdi rakiplerden öne çıkmak için **derinleştirme/farklılaşma** fazı.
 
 ## Farklılaşma Hedefleri (rakipleri geçmek için)
-Rakipler stack'in tek katmanını satıyor; AYAZ hepsini birleştirdi. Öne çıkış için:
-1. **AI Copilot** — birleşik veri üstünde Türkçe konuşan, sorgulayan + aksiyon öneren asistan (kimsede yok). *(Dalga 10)*
-2. **Cross-channel bütçe optimizasyonu** — kanal-üstü bütçe dağıtım önerisi + projeksiyon (Adin'i KOBİ'ye indir).
-3. **Hedef takibi + tahmin (forecasting/pacing)** — hedef koy, AI ulaşır mı tahmin etsin + ne değişmeli.
-4. **Atıf (attribution) / Marketing Mix (hafif)** — hangi kanal dönüşümü getiriyor.
-5. **Doğal dilde rapor/pano oluşturucu** — "Meta vs Google son 30 gün" → panoyu kursun.
-6. **Kreatif performans analizi** — hangi reklam/metin tutuyor + öneri.
-> Sıralama stratejist brifingiyle (`09-differentiation.md`) netleşecek; her biri sonraki dalgalarda.
+Rakipler stack'in tek katmanını satıyor; AYAZ hepsini birleştirdi. İlerleme:
+1. ✅ **AI Copilot** — birleşik veriye gömülü Türkçe asistan (Dalga 10) + **aksiyon araçları** (Dalga 12).
+2. ✅ **Cross-channel bütçe optimizasyonu** — bütçe dağıtım önerisi + projeksiyon (Dalga 11).
+3. ✅ **Hedef takibi + forecasting/pacing** (Dalga 11).
+4. ✅ **Alarm→kök-neden→tek-tık düzeltme** döngüsü (Dalga 12).
+5. ⬜ **Doğal dilde rapor/pano oluşturucu** — "Meta vs Google son 30 gün" → panoyu kursun. *(sonraki)*
+6. ⬜ **Kreatif performans analizi** — hangi reklam/metin tutuyor + öneri. *(sonraki)*
+7. ⬜ **Atıf / Marketing Mix (hafif)** + benchmark/cohort — kritik kütle sonrası (stratejist ertelemesini öneriyor).
+
+> Stratejistin önerdiği 3 derinleştirme dalgası (Copilot, optimizer+goals, alarm→fix) **tamamlandı** (`09-differentiation.md`).
+> Kalan (5-7) talebe göre sonraki dalgalarda.
 
 > Sıralama değer/risk'e göre ekip tarafından güncellenebilir. Her dalga: tasarla → uzman ajanlarla yap → entegre et → test/doğrula → commit + push.
