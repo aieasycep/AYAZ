@@ -271,6 +271,8 @@ def _stub_chat(
         text_lower,
         "ne yapmalı", "öneri", "optimize", "tavsiye", "öneriyor",
         "iyileştir", "aksiyon",
+        # root-cause / diagnosis phrasings ("ROAS neden düştü?", "sorun ne?")
+        "neden", "düşt", "düşüyor", "sebep", "sorun", "kötü", "azal",
     ):
         rec_result = dispatch(
             "get_recommendations",
