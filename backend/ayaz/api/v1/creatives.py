@@ -22,10 +22,13 @@ This module is NOT imported in main.py yet.  To activate:
 
 from __future__ import annotations
 
+import csv
+import io
 from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -127,4 +130,96 @@ def get_ad_performance(
         top=[AdMetrics(**a) for a in result["top"]],
         bottom=[AdMetrics(**a) for a in result["bottom"]],
         commentary=result["commentary"],
+    )
+
+
+# ── CSV export ────────────────────────────────────────────────────────────────
+
+# Turkish column headers for ad-level creative CSV.
+_CREATIVE_CSV_HEADERS = [
+    "Reklam ID",
+    "Reklam Adı",
+    "Kampanya ID",
+    "Kampanya Adı",
+    "Kanal",
+    "Harcama",
+    "Gösterim",
+    "Tıklama",
+    "Dönüşüm",
+    "Dönüşüm Değeri",
+    "ROAS",
+    "CTR",
+    "CPC",
+    "CPA",
+]
+
+
+def _ad_to_csv_row(a: dict) -> list:
+    return [
+        a["ad_id"],
+        a["ad_name"],
+        a["campaign_id"],
+        a["campaign_name"],
+        a["channel"],
+        round(a["spend"], 4),
+        round(a["impressions"], 4),
+        round(a["clicks"], 4),
+        round(a["conversions"], 4),
+        round(a["conversion_value"], 4),
+        round(a["roas"], 4),
+        round(a["ctr"], 4),
+        round(a["cpc"], 4),
+        round(a["cpa"], 4),
+    ]
+
+
+@router.get(
+    "/export",
+    summary="Export ad-level creative performance as CSV (Turkish headers, UTF-8 BOM)",
+    response_class=StreamingResponse,
+)
+def export_creatives(
+    date_from: Annotated[
+        date, Query(description="Inclusive start date (YYYY-MM-DD)")
+    ],
+    date_to: Annotated[
+        date, Query(description="Inclusive end date (YYYY-MM-DD)")
+    ],
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> StreamingResponse:
+    """Return a UTF-8 BOM CSV of all ad creatives for the date range.
+
+    Mirrors the columns from GET /api/v1/creatives/performance.
+    Content-Disposition filename: ``ayaz-creatives-<from>_<to>.csv``.
+    The BOM (\\ufeff) ensures Excel correctly decodes Turkish characters.
+    """
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail="date_from, date_to'dan büyük olamaz.",
+        )
+
+    result = ad_performance(
+        db,
+        membership.tenant_id,
+        date_from,
+        date_to,
+        sort="spend",
+    )
+
+    buf = io.StringIO()
+    buf.write("﻿")
+    writer = csv.writer(buf)
+    writer.writerow(_CREATIVE_CSV_HEADERS)
+    for a in result["ads"]:
+        writer.writerow(_ad_to_csv_row(a))
+
+    filename = f"ayaz-creatives-{date_from}_{date_to}.csv"
+    content = buf.getvalue()
+
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

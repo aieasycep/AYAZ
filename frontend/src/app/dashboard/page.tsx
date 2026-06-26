@@ -5,8 +5,12 @@ import { useRouter } from 'next/navigation';
 import {
   getToken,
   getDashboardSummary,
+  getDashboardSummaryWithCompare,
   getTimeseries,
+  downloadCsv,
   type DashboardSummary,
+  type DashboardSummaryWithCompare,
+  type Deltas,
   type TimeseriesResponse,
   type TimeseriesMetric,
 } from '@/lib/api';
@@ -67,9 +71,9 @@ function fmtRoas(n: number): string {
 
 const METRIC_OPTIONS: { value: TimeseriesMetric; label: string }[] = [
   { value: 'spend', label: 'Harcama' },
-  { value: 'impressions', label: 'Gösterim' },
-  { value: 'clicks', label: 'Tıklama' },
-  { value: 'conversions', label: 'Dönüşüm' },
+  { value: 'impressions', label: 'Gosterim' },
+  { value: 'clicks', label: 'Tiklama' },
+  { value: 'conversions', label: 'Donusum' },
   { value: 'roas', label: 'ROAS' },
 ];
 
@@ -91,7 +95,11 @@ export default function DashboardPage() {
   const [appliedFrom, setAppliedFrom] = useState(defaults.from);
   const [appliedTo, setAppliedTo] = useState(defaults.to);
 
+  // Compare toggle
+  const [compareOn, setCompareOn] = useState(false);
+
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [compareData, setCompareData] = useState<DashboardSummaryWithCompare | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
@@ -100,14 +108,25 @@ export default function DashboardPage() {
   const [tsLoading, setTsLoading] = useState(true);
   const [tsError, setTsError] = useState<string | null>(null);
 
-  const fetchSummary = useCallback(async (from: string, to: string) => {
+  // CSV export state
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
+
+  const fetchSummary = useCallback(async (from: string, to: string, compare: boolean) => {
     setSummaryLoading(true);
     setSummaryError(null);
     try {
-      const data = await getDashboardSummary(from, to);
-      setSummary(data);
+      if (compare) {
+        const data = await getDashboardSummaryWithCompare(from, to);
+        setSummary(data);
+        setCompareData(data);
+      } else {
+        const data = await getDashboardSummary(from, to);
+        setSummary(data);
+        setCompareData(null);
+      }
     } catch (err: unknown) {
-      setSummaryError(err instanceof Error ? err.message : 'Veri alınamadı');
+      setSummaryError(err instanceof Error ? err.message : 'Veri alinamadi');
     } finally {
       setSummaryLoading(false);
     }
@@ -121,7 +140,7 @@ export default function DashboardPage() {
         const data = await getTimeseries(from, to, m);
         setTimeseries(data);
       } catch (err: unknown) {
-        setTsError(err instanceof Error ? err.message : 'Veri alınamadı');
+        setTsError(err instanceof Error ? err.message : 'Veri alinamadi');
       } finally {
         setTsLoading(false);
       }
@@ -132,7 +151,7 @@ export default function DashboardPage() {
   // Initial load
   useEffect(() => {
     if (!getToken()) return;
-    fetchSummary(appliedFrom, appliedTo);
+    fetchSummary(appliedFrom, appliedTo, false);
     fetchTimeseries(appliedFrom, appliedTo, metric);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -146,11 +165,34 @@ export default function DashboardPage() {
   function applyDates() {
     setAppliedFrom(dateFrom);
     setAppliedTo(dateTo);
-    fetchSummary(dateFrom, dateTo);
+    fetchSummary(dateFrom, dateTo, compareOn);
     fetchTimeseries(dateFrom, dateTo, metric);
   }
 
+  function handleCompareToggle() {
+    const next = !compareOn;
+    setCompareOn(next);
+    fetchSummary(appliedFrom, appliedTo, next);
+  }
+
+  async function handleCsvExport() {
+    setCsvLoading(true);
+    setCsvError(null);
+    try {
+      await downloadCsv(
+        '/api/v1/dashboard/export',
+        { date_from: appliedFrom, date_to: appliedTo },
+        `dashboard-${appliedFrom}-${appliedTo}.csv`,
+      );
+    } catch (err: unknown) {
+      setCsvError(err instanceof Error ? err.message : 'Disa aktarma basarisiz');
+    } finally {
+      setCsvLoading(false);
+    }
+  }
+
   const totals = summary?.totals;
+  const deltas: Deltas | null = compareData?.deltas ?? null;
 
   // Detect "no connected accounts" state: data loaded successfully but
   // all channels are empty and spend is exactly zero.
@@ -169,14 +211,14 @@ export default function DashboardPage() {
       <AppNav />
 
       <main className={styles.main}>
-        {/* Empty state — no connected accounts yet */}
+        {/* Empty state -- no connected accounts yet */}
         {hasNoData && <DashboardEmptyState />}
 
-        {/* Date range */}
+        {/* Date range + compare toggle + CSV export */}
         <section className={styles.dateBar}>
           <div className={styles.dateGroup}>
             <label className={styles.dateLabel} htmlFor="date-from">
-              Başlangıç
+              Baslangic
             </label>
             <input
               id="date-from"
@@ -189,7 +231,7 @@ export default function DashboardPage() {
           </div>
           <div className={styles.dateGroup}>
             <label className={styles.dateLabel} htmlFor="date-to">
-              Bitiş
+              Bitis
             </label>
             <input
               id="date-to"
@@ -203,13 +245,38 @@ export default function DashboardPage() {
           <button className={styles.applyBtn} onClick={applyDates}>
             Uygula
           </button>
+
+          {/* Compare toggle */}
+          <label className={styles.compareToggle}>
+            <input
+              type="checkbox"
+              className={styles.compareCheckbox}
+              checked={compareOn}
+              onChange={handleCompareToggle}
+            />
+            <span className={styles.compareLabel}>Onceki donemle karsilastir</span>
+          </label>
+
+          {/* CSV export */}
+          <div className={styles.csvGroup}>
+            <button
+              className={styles.csvBtn}
+              onClick={handleCsvExport}
+              disabled={csvLoading}
+            >
+              {csvLoading ? 'Indiriliyor...' : 'CSV Indir'}
+            </button>
+            {csvError && (
+              <span className={styles.csvError}>{csvError}</span>
+            )}
+          </div>
         </section>
 
         {/* KPI cards */}
         <section className={styles.kpiGrid}>
           {summaryLoading ? (
             <div className={styles.kpiPlaceholder}>
-              <span className={styles.muted}>KPI verileri yükleniyor...</span>
+              <span className={styles.muted}>KPI verileri yukleniyor...</span>
             </div>
           ) : summaryError ? (
             <div className={styles.kpiPlaceholder}>
@@ -217,14 +284,49 @@ export default function DashboardPage() {
             </div>
           ) : totals ? (
             <>
-              <KpiCard label="Harcama" value={fmtCurrency(totals.spend)} />
-              <KpiCard label="Gösterim" value={fmtNum(totals.impressions)} />
-              <KpiCard label="Tıklama" value={fmtNum(totals.clicks)} />
-              <KpiCard label="Dönüşüm" value={fmtNum(totals.conversions)} />
-              <KpiCard label="ROAS" value={fmtRoas(totals.roas)} />
-              <KpiCard label="CPC" value={fmtCurrency(totals.cpc, 2)} />
-              <KpiCard label="CPA" value={fmtCurrency(totals.cpa, 2)} />
-              <KpiCard label="CTR" value={fmtPct(totals.ctr)} />
+              <KpiCard
+                label="Harcama"
+                value={fmtCurrency(totals.spend)}
+                delta={compareOn ? deltas?.spend : undefined}
+                invertDelta
+              />
+              <KpiCard
+                label="Gosterim"
+                value={fmtNum(totals.impressions)}
+                delta={compareOn ? deltas?.impressions : undefined}
+              />
+              <KpiCard
+                label="Tiklama"
+                value={fmtNum(totals.clicks)}
+                delta={compareOn ? deltas?.clicks : undefined}
+              />
+              <KpiCard
+                label="Donusum"
+                value={fmtNum(totals.conversions)}
+                delta={compareOn ? deltas?.conversions : undefined}
+              />
+              <KpiCard
+                label="ROAS"
+                value={fmtRoas(totals.roas)}
+                delta={compareOn ? deltas?.roas : undefined}
+              />
+              <KpiCard
+                label="CPC"
+                value={fmtCurrency(totals.cpc, 2)}
+                delta={compareOn ? deltas?.cpc : undefined}
+                invertDelta
+              />
+              <KpiCard
+                label="CPA"
+                value={fmtCurrency(totals.cpa, 2)}
+                delta={compareOn ? deltas?.cpa : undefined}
+                invertDelta
+              />
+              <KpiCard
+                label="CTR"
+                value={fmtPct(totals.ctr)}
+                delta={compareOn ? deltas?.ctr : undefined}
+              />
             </>
           ) : null}
         </section>

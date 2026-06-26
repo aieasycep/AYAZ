@@ -34,11 +34,14 @@ This module is NOT imported in main.py yet.  To activate:
 
 from __future__ import annotations
 
+import csv
+import io
 import uuid
 from datetime import date
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -195,6 +198,107 @@ def get_campaigns(
         sort_desc=not sort_asc,
     )
     return [CampaignMetrics(**r) for r in rows]
+
+
+# ── Campaign CSV export (declared BEFORE /{campaign_id} to avoid path conflict) ──
+
+# Turkish column headers for campaign CSV.
+_CAMPAIGN_CSV_HEADERS = [
+    "Kampanya ID",
+    "Kampanya Adı",
+    "Kanal",
+    "Durum",
+    "Harcama",
+    "Gösterim",
+    "Tıklama",
+    "Dönüşüm",
+    "Dönüşüm Değeri",
+    "CTR",
+    "CPC",
+    "CPA",
+    "ROAS",
+]
+
+
+def _campaign_to_csv_row(c: dict) -> list:
+    return [
+        c["campaign_id"],
+        c["campaign_name"],
+        c["channel"],
+        c["status"],
+        round(c["spend"], 4),
+        round(c["impressions"], 4),
+        round(c["clicks"], 4),
+        round(c["conversions"], 4),
+        round(c["conversion_value"], 4),
+        round(c["ctr"], 4),
+        round(c["cpc"], 4),
+        round(c["cpa"], 4),
+        round(c["roas"], 4),
+    ]
+
+
+@router.get(
+    "/campaigns/export",
+    summary="Export campaign list as CSV (Turkish headers, UTF-8 BOM)",
+    response_class=StreamingResponse,
+)
+def export_campaigns(
+    date_from: Annotated[
+        date, Query(description="Inclusive start date (YYYY-MM-DD)")
+    ],
+    date_to: Annotated[
+        date, Query(description="Inclusive end date (YYYY-MM-DD)")
+    ],
+    channel: Annotated[
+        str | None,
+        Query(description="Filter by channel key (e.g. 'google_ads', 'meta_ads')"),
+    ] = None,
+    campaign_status: Annotated[
+        str | None,
+        Query(alias="status", description="Filter by derived status: 'active' | 'paused'"),
+    ] = None,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> StreamingResponse:
+    """Return a UTF-8 BOM CSV of all campaigns matching the filters.
+
+    Mirrors the columns from GET /api/v1/ads/campaigns.
+    Content-Disposition filename: ``ayaz-campaigns-<from>_<to>.csv``.
+    The BOM (\\ufeff) ensures Excel correctly decodes Turkish characters.
+    """
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=422,
+            detail="date_from must be <= date_to",
+        )
+
+    rows = list_campaigns(
+        db,
+        membership.tenant_id,
+        date_from,
+        date_to,
+        channel=channel,
+        status=campaign_status,
+        sort="spend",
+        sort_desc=True,
+    )
+
+    buf = io.StringIO()
+    buf.write("﻿")
+    writer = csv.writer(buf)
+    writer.writerow(_CAMPAIGN_CSV_HEADERS)
+    for r in rows:
+        writer.writerow(_campaign_to_csv_row(r))
+
+    filename = f"ayaz-campaigns-{date_from}_{date_to}.csv"
+    content = buf.getvalue()
+
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get(

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken } from '@/lib/api';
+import { getToken, downloadCsv } from '@/lib/api';
 import {
   getCampaigns,
   getCampaignDetail,
@@ -261,6 +261,31 @@ export default function AdsPage() {
 
   const sortedCampaigns = sortCampaigns(campaigns, sortConfig);
 
+  // CSV export state
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
+
+  async function handleCsvExport() {
+    setCsvLoading(true);
+    setCsvError(null);
+    try {
+      await downloadCsv(
+        '/api/v1/ads/campaigns/export',
+        {
+          date_from: appliedFrom,
+          date_to: appliedTo,
+          channel: appliedChannel,
+          status: appliedStatus,
+        },
+        `kampanyalar-${appliedFrom}-${appliedTo}.csv`,
+      );
+    } catch (err: unknown) {
+      setCsvError(err instanceof Error ? err.message : 'Disa aktarma basarisiz');
+    } finally {
+      setCsvLoading(false);
+    }
+  }
+
   // "Coming soon" modal
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [comingSoonAction, setComingSoonAction] = useState('');
@@ -295,6 +320,18 @@ export default function AdsPage() {
               Kampanyalar
               {campaigns.length > 0 ? ` (${campaigns.length})` : ''}
             </h2>
+            <div className={styles.csvGroup}>
+              <button
+                className={styles.csvBtn}
+                onClick={handleCsvExport}
+                disabled={csvLoading}
+              >
+                {csvLoading ? 'Indiriliyor...' : 'CSV Indir'}
+              </button>
+              {csvError && (
+                <span className={styles.csvError}>{csvError}</span>
+              )}
+            </div>
           </div>
 
           {/* Toolbar */}

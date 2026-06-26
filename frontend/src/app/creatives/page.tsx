@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken } from '@/lib/api';
+import { getToken, downloadCsv } from '@/lib/api';
 import {
   getCreativesPerformance,
   type AdPerformance,
@@ -175,6 +175,26 @@ export default function CreativesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // CSV export state
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
+
+  async function handleCsvExport() {
+    setCsvLoading(true);
+    setCsvError(null);
+    try {
+      await downloadCsv(
+        '/api/v1/creatives/export',
+        { date_from: appliedFrom, date_to: appliedTo },
+        `kreatifler-${appliedFrom}-${appliedTo}.csv`,
+      );
+    } catch (err: unknown) {
+      setCsvError(err instanceof Error ? err.message : 'Disa aktarma basarisiz');
+    } finally {
+      setCsvLoading(false);
+    }
+  }
+
   const fetchData = useCallback(async (from: string, to: string, s: AdSortField) => {
     setLoading(true);
     setError(null);
@@ -257,6 +277,20 @@ export default function CreativesPage() {
           <button className={styles.applyBtn} onClick={applyDates}>
             Uygula
           </button>
+
+          {/* CSV export */}
+          <div className={styles.csvGroup}>
+            <button
+              className={styles.csvBtn}
+              onClick={handleCsvExport}
+              disabled={csvLoading}
+            >
+              {csvLoading ? 'Indiriliyor...' : 'CSV Indir'}
+            </button>
+            {csvError && (
+              <span className={styles.csvError}>{csvError}</span>
+            )}
+          </div>
         </section>
 
         {/* Loading */}

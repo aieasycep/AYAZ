@@ -116,6 +116,71 @@
   background: var(--color-primary-hover);
 }
 
+/* Compare toggle */
+
+.compareToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  align-self: flex-end;
+  margin-bottom: 1px; /* optical alignment with button baseline */
+}
+
+.compareCheckbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.compareLabel {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* CSV export */
+
+.csvGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.csvBtn {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  padding: 0.4375rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  height: 38px;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.csvBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.csvBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.csvError {
+  font-size: 0.75rem;
+  color: var(--color-danger);
+}
+
 /* KPI grid */
 
 .kpiGrid {

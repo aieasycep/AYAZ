@@ -124,6 +124,25 @@ export interface DashboardSummary {
   by_channel: ChannelRow[];
 }
 
+// Comparison response — previous period totals + fractional deltas (0.12 = +12%).
+// Fields may be null when the previous period value was 0 (division by zero guard).
+export interface Deltas {
+  spend: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  conversions: number | null;
+  conversion_value: number | null;
+  ctr: number | null;
+  cpc: number | null;
+  cpa: number | null;
+  roas: number | null;
+}
+
+export interface DashboardSummaryWithCompare extends DashboardSummary {
+  previous: Totals;
+  deltas: Deltas;
+}
+
 export function getDashboardSummary(
   date_from: string,
   date_to: string,
@@ -132,6 +151,70 @@ export function getDashboardSummary(
     date_from,
     date_to,
   });
+}
+
+export function getDashboardSummaryWithCompare(
+  date_from: string,
+  date_to: string,
+): Promise<DashboardSummaryWithCompare> {
+  return authFetch<DashboardSummaryWithCompare>('/api/v1/dashboard/summary', {
+    date_from,
+    date_to,
+    compare: 'true',
+  });
+}
+
+// --- CSV export (auth-aware) ---
+
+/**
+ * Download a CSV from an authenticated endpoint.
+ * Uses fetch + Authorization header, converts the response to a Blob,
+ * creates a temporary object URL, and triggers an <a download> click.
+ * The filename is taken from Content-Disposition when present,
+ * otherwise falls back to `fallbackName`.
+ */
+export async function downloadCsv(
+  path: string,
+  params: Record<string, string>,
+  fallbackName: string,
+): Promise<void> {
+  const token = getToken();
+  const url = new URL(`${API_BASE}${path}`);
+  Object.entries(params).forEach(([k, v]) => {
+    if (v) url.searchParams.set(k, v);
+  });
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token ?? ''}` },
+  });
+
+  if (res.status === 401) {
+    clearToken();
+    if (typeof window !== 'undefined') window.location.href = '/login';
+    throw new Error('Oturum süresi doldu');
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => 'Dışa aktarma başarısız');
+    throw new Error(detail || 'Dışa aktarma başarısız');
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  let filename = fallbackName;
+  const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
+  if (match) {
+    filename = match[1].replace(/['"]/g, '').trim() || fallbackName;
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 // --- Timeseries ---

@@ -2,15 +2,21 @@
 
 Endpoints
 ---------
-GET /api/v1/dashboard/summary?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+GET /api/v1/dashboard/summary?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD[&compare=true]
     Aggregate totals + breakdown by channel for the tenant and date range.
+    With compare=true adds ``previous`` (prior-period totals) and ``deltas``
+    (fractional change for each metric).
 
 GET /api/v1/dashboard/timeseries?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&metric=spend
     Daily time-series for one metric across all channels for the tenant.
 
+GET /api/v1/dashboard/export?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+    CSV export: one totals row + one row per channel.  Turkish headers.
+    Content-Type: text/csv; charset=utf-8-sig (BOM for Excel).
+
 Auth
 ----
-Both endpoints require a valid JWT (Bearer token).  Tenant context is resolved
+All endpoints require a valid JWT (Bearer token).  Tenant context is resolved
 via ``get_current_membership`` — every query explicitly filters by
 ``membership.tenant_id`` to enforce isolation until Postgres RLS is active.
 
@@ -24,11 +30,14 @@ client having to parse strings.
 
 from __future__ import annotations
 
-from datetime import date
+import csv
+import io
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -74,11 +83,32 @@ class SummaryTotals(BaseModel):
     roas: float
 
 
+class PeriodDeltas(BaseModel):
+    """Fractional change for each metric between current and previous period.
+
+    Values represent (current - previous) / previous.  For example, 0.12 means
+    +12%.  None is returned when the previous-period denominator is zero.
+    """
+
+    spend: float | None
+    impressions: float | None
+    clicks: float | None
+    conversions: float | None
+    conversion_value: float | None
+    ctr: float | None
+    cpc: float | None
+    cpa: float | None
+    roas: float | None
+
+
 class SummaryResponse(BaseModel):
     date_from: date
     date_to: date
     totals: SummaryTotals
     by_channel: list[ChannelMetrics]
+    # Optional comparison fields — present only when compare=true was requested.
+    previous: SummaryTotals | None = None
+    deltas: PeriodDeltas | None = None
 
 
 class TimeseriesPoint(BaseModel):
@@ -130,49 +160,15 @@ def _channel_row_to_metrics(channel_key: str, row: dict) -> ChannelMetrics:
     )
 
 
-# ── Endpoints ─────────────────────────────────────────────────────────────────
-
-
-@router.get(
-    "/summary",
-    response_model=SummaryResponse,
-    summary="Cross-channel summary for a date range",
-)
-def summary(
-    date_from: Annotated[date, Query(description="Inclusive start date (YYYY-MM-DD)")],
-    date_to: Annotated[date, Query(description="Inclusive end date (YYYY-MM-DD)")],
-    db: Session = Depends(get_db),
-    membership: Membership = Depends(get_current_membership),
-) -> SummaryResponse:
-    """Return aggregated totals and a per-channel breakdown.
-
-    Both ``date_from`` and ``date_to`` are inclusive UTC calendar dates.
-    All monetary values use ``cost_base_ccy`` when available; falls back to
-    ``cost_raw`` (i.e. the effective_spend rule from the metric layer).
-
-    The SQL aggregation uses a CASE expression to pick the correct spend column.
-    Derived metrics (CTR / CPC / CPA / ROAS) are computed in Python from the
-    aggregated sums via ``compute_derived_metrics``.
+def _aggregate_period(
+    db: Session,
+    tenant_id: object,
+    date_from: date,
+    date_to: date,
+) -> tuple[SummaryTotals, list[ChannelMetrics]]:
+    """Run the per-channel aggregation for [date_from, date_to] and return
+    (totals, by_channel).  Shared by summary and CSV export.
     """
-    if date_from > date_to:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="date_from must be <= date_to",
-        )
-
-    tenant_id = membership.tenant_id
-
-    # spend column: prefer cost_base_ccy when non-zero, else cost_raw
-    spend_col = func.sum(
-        func.coalesce(
-            # Use CASE: when cost_base_ccy > 0 use it, else use cost_raw
-            FactDailyMetrics.cost_base_ccy,
-            FactDailyMetrics.cost_raw,
-        )
-    )
-
-    # ── Per-channel aggregation ───────────────────────────────────────────
-
     channel_rows = db.execute(
         select(
             DimChannel.key.label("channel_key"),
@@ -209,8 +205,6 @@ def summary(
             )
         )
 
-    # ── Overall totals (sum of all channels) ─────────────────────────────
-
     total_impressions = sum(_d(c.impressions) for c in by_channel)
     total_clicks = sum(_d(c.clicks) for c in by_channel)
     total_spend = sum(_d(c.spend) for c in by_channel)
@@ -237,11 +231,101 @@ def summary(
         roas=float(total_derived["roas"]),
     )
 
+    return totals, by_channel
+
+
+def _fractional_delta(current: float, previous: float) -> float | None:
+    """Return (current - previous) / previous, or None when previous == 0."""
+    if previous == 0.0:
+        return None
+    return (current - previous) / previous
+
+
+def _compute_deltas(current: SummaryTotals, prev: SummaryTotals) -> PeriodDeltas:
+    """Build PeriodDeltas by comparing each field of current vs previous totals."""
+    return PeriodDeltas(
+        spend=_fractional_delta(current.spend, prev.spend),
+        impressions=_fractional_delta(current.impressions, prev.impressions),
+        clicks=_fractional_delta(current.clicks, prev.clicks),
+        conversions=_fractional_delta(current.conversions, prev.conversions),
+        conversion_value=_fractional_delta(current.conversion_value, prev.conversion_value),
+        ctr=_fractional_delta(current.ctr, prev.ctr),
+        cpc=_fractional_delta(current.cpc, prev.cpc),
+        cpa=_fractional_delta(current.cpa, prev.cpa),
+        roas=_fractional_delta(current.roas, prev.roas),
+    )
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/summary",
+    response_model=SummaryResponse,
+    summary="Cross-channel summary for a date range",
+)
+def summary(
+    date_from: Annotated[date, Query(description="Inclusive start date (YYYY-MM-DD)")],
+    date_to: Annotated[date, Query(description="Inclusive end date (YYYY-MM-DD)")],
+    compare: Annotated[
+        bool,
+        Query(
+            description=(
+                "When true, also compute the immediately-preceding period of equal "
+                "length and add ``previous`` (totals) and ``deltas`` (fractional "
+                "change per metric) to the response.  Default false — response is "
+                "byte-identical to the no-compare case."
+            )
+        ),
+    ] = False,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> SummaryResponse:
+    """Return aggregated totals and a per-channel breakdown.
+
+    Both ``date_from`` and ``date_to`` are inclusive UTC calendar dates.
+    All monetary values use ``cost_base_ccy`` when available; falls back to
+    ``cost_raw`` (i.e. the effective_spend rule from the metric layer).
+
+    Derived metrics (CTR / CPC / CPA / ROAS) are computed in Python from the
+    aggregated sums via ``compute_derived_metrics``.
+
+    When ``compare=true``, the response additionally includes:
+
+    - ``previous``: same ``SummaryTotals`` shape for the preceding period
+      [date_from - N, date_from - 1] where N = date_to - date_from + 1.
+    - ``deltas``: fractional change per metric vs the previous period
+      (0.12 = +12%).  None when the previous-period denominator is zero.
+    """
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="date_from must be <= date_to",
+        )
+
+    tenant_id = membership.tenant_id
+
+    # ── Current period ────────────────────────────────────────────────────
+    totals, by_channel = _aggregate_period(db, tenant_id, date_from, date_to)
+
+    # ── Optional prior period ─────────────────────────────────────────────
+    previous: SummaryTotals | None = None
+    deltas: PeriodDeltas | None = None
+
+    if compare:
+        period_len = (date_to - date_from).days + 1  # inclusive day count
+        prev_to = date_from - timedelta(days=1)
+        prev_from = prev_to - timedelta(days=period_len - 1)
+        previous, _ = _aggregate_period(db, tenant_id, prev_from, prev_to)
+        deltas = _compute_deltas(totals, previous)
+
     return SummaryResponse(
         date_from=date_from,
         date_to=date_to,
         totals=totals,
         by_channel=by_channel,
+        previous=previous,
+        deltas=deltas,
     )
 
 
@@ -337,3 +421,94 @@ def timeseries(
         points.append(TimeseriesPoint(date=d_key, value=value))
 
     return TimeseriesResponse(metric=metric, points=points)
+
+
+# ── CSV export ────────────────────────────────────────────────────────────────
+
+# Turkish column headers for the dashboard CSV.
+_CSV_HEADERS = [
+    "Kanal",
+    "Harcama",
+    "Gösterim",
+    "Tıklama",
+    "Dönüşüm",
+    "Dönüşüm Değeri",
+    "ROAS",
+    "CPC",
+    "CTR",
+]
+
+
+def _totals_to_csv_row(label: str, t: SummaryTotals) -> list:
+    return [
+        label,
+        round(t.spend, 4),
+        round(t.impressions, 4),
+        round(t.clicks, 4),
+        round(t.conversions, 4),
+        round(t.conversion_value, 4),
+        round(t.roas, 4),
+        round(t.cpc, 4),
+        round(t.ctr, 4),
+    ]
+
+
+def _channel_to_csv_row(ch: ChannelMetrics) -> list:
+    return [
+        ch.channel,
+        round(ch.spend, 4),
+        round(ch.impressions, 4),
+        round(ch.clicks, 4),
+        round(ch.conversions, 4),
+        round(ch.conversion_value, 4),
+        round(ch.roas, 4),
+        round(ch.cpc, 4),
+        round(ch.ctr, 4),
+    ]
+
+
+@router.get(
+    "/export",
+    summary="Export dashboard summary as CSV (Turkish headers, UTF-8 BOM)",
+    response_class=StreamingResponse,
+)
+def export_dashboard(
+    date_from: Annotated[date, Query(description="Inclusive start date (YYYY-MM-DD)")],
+    date_to: Annotated[date, Query(description="Inclusive end date (YYYY-MM-DD)")],
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> StreamingResponse:
+    """Return a UTF-8 BOM CSV with one totals row and one row per channel.
+
+    Headers (Turkish): Kanal, Harcama, Gösterim, Tıklama, Dönüşüm,
+    Dönüşüm Değeri, ROAS, CPC, CTR.
+
+    Content-Disposition filename: ``ayaz-dashboard-<from>_<to>.csv``.
+    The BOM (\\ufeff) ensures Excel correctly decodes Turkish characters.
+    """
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="date_from must be <= date_to",
+        )
+
+    tenant_id = membership.tenant_id
+    totals, by_channel = _aggregate_period(db, tenant_id, date_from, date_to)
+
+    buf = io.StringIO()
+    # Write UTF-8 BOM so Excel auto-detects the encoding.
+    buf.write("﻿")
+    writer = csv.writer(buf)
+    writer.writerow(_CSV_HEADERS)
+    writer.writerow(_totals_to_csv_row("Toplam", totals))
+    for ch in by_channel:
+        writer.writerow(_channel_to_csv_row(ch))
+
+    filename = f"ayaz-dashboard-{date_from}_{date_to}.csv"
+    content = buf.getvalue()
+
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
