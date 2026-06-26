@@ -34,7 +34,7 @@ celery_app = Celery(
     "ayaz",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["ayaz.tasks.sync_tasks"],
+    include=["ayaz.tasks.sync_tasks", "ayaz.tasks.automation_tasks"],
 )
 
 celery_app.conf.update(
@@ -60,6 +60,12 @@ celery_app.conf.beat_schedule = {
     "sync-all-active-accounts-hourly": {
         "task": "ayaz.tasks.sync_tasks.sync_all_active_accounts",
         "schedule": crontab(minute=0),  # top of every hour
+        "options": {"queue": "beat"},
+    },
+    # Evaluate all active automation rules once daily at 00:30 UTC.
+    "evaluate-automation-rules-daily": {
+        "task": "ayaz.tasks.automation_tasks.evaluate_automation_rules",
+        "schedule": crontab(minute=30, hour=0),
         "options": {"queue": "beat"},
     },
 }

@@ -38,6 +38,10 @@ from ayaz.models.reports import (  # noqa: F401
     ReportSchedule,
     SharedReport,
 )
+from ayaz.models.automation import (  # noqa: F401
+    AutomationRule,
+    AutomationRun,
+)
 
 __all__ = [
     "Base",
@@ -64,4 +68,6 @@ __all__ = [
     "ReportDefinition",
     "ReportSchedule",
     "SharedReport",
+    "AutomationRule",
+    "AutomationRun",
 ]
