@@ -47,6 +47,10 @@ from ayaz.models.tracking import (  # noqa: F401
     EventDestination,
     TrackingSource,
 )
+from ayaz.models.billing import (  # noqa: F401
+    BillingEvent,
+    Subscription,
+)
 
 __all__ = [
     "Base",
@@ -78,4 +82,6 @@ __all__ = [
     "TrackingSource",
     "EventDestination",
     "ConversionEvent",
+    "Subscription",
+    "BillingEvent",
 ]

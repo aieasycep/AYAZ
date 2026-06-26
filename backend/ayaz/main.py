@@ -19,6 +19,7 @@ from ayaz.api.v1 import connectors as connectors_router
 from ayaz.api.v1 import dashboard as dashboard_router
 from ayaz.api.v1 import ads as ads_router
 from ayaz.api.v1 import automation as automation_router
+from ayaz.api.v1 import billing as billing_router
 from ayaz.api.v1 import feeds as feeds_router
 from ayaz.api.v1 import insights as insights_router
 from ayaz.api.v1 import oauth as oauth_router
@@ -59,8 +60,7 @@ app.include_router(ads_router.router, prefix=_PREFIX)
 app.include_router(reports_router.router, prefix=_PREFIX)
 app.include_router(automation_router.router, prefix=_PREFIX)
 app.include_router(tracking_router.router, prefix=_PREFIX)
-
-# TODO: add routers for /billing
+app.include_router(billing_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

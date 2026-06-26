@@ -23,6 +23,12 @@ from ayaz.api.deps import get_current_membership, get_db
 from ayaz.connectors import ConnectorRegistry
 from ayaz.models.oltp import ConnectedAccount, Membership, Platform, SyncStatus
 
+# M10 Billing: plan-gating dependency
+# This import is intentionally deferred to a local import-style reference inside
+# the endpoint signature so that circular imports are avoided.  The dependency is
+# declared as a default parameter so FastAPI resolves it lazily at request time.
+from ayaz.services.billing import require_within_data_source_limit
+
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 
 
@@ -97,6 +103,10 @@ def create_account(
     body: CreateAccountRequest,
     db: Session = Depends(get_db),
     membership: Annotated[Membership, Depends(get_current_membership)] = ...,
+    # M10 Billing: enforce the plan's max_data_sources limit before creating.
+    # Returns 402 Payment Required with a Turkish message when the limit is reached.
+    # Agency plan is "unlimited" and always passes.
+    _plan_gate: None = Depends(require_within_data_source_limit),
 ) -> ConnectedAccount:
     """Create a ConnectedAccount row after the OAuth flow completes.
 

@@ -66,9 +66,13 @@ class Settings(BaseSettings):
     claude_narrator_model: str = "claude-opus-4-8"
 
     # ── Billing ───────────────────────────────────────────────────────────────
-    # TODO (Faz 1): iyzico + Stripe integration
+    # Provider selection: "none" (stub/free), "iyzico" (TR), "stripe" (global).
+    # Leave as "none" in development; set via BILLING_PROVIDER env var in production.
+    billing_provider: str = "none"
+    # iyzico credentials (TR market).  Leave empty in development / stub mode.
     iyzico_api_key: str = ""
     iyzico_secret_key: str = ""
+    # Stripe credentials (global market).  Leave empty in development / stub mode.
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
 

@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pip install -e \"./backend[dev]\" --quiet || true"
+          },
+          {
+            "type": "command",
+            "command": "cd frontend && npm install --silent || true"
+          },
+          {
+            "type": "command",
+            "command": "pg_ctlcluster 16 main start || true"
+          }
+        ]
+      }
+    ]
+  }
+}
