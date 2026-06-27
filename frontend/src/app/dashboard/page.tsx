@@ -21,6 +21,7 @@ import TopMovers from '@/components/TopMovers';
 import AppNav from '@/components/AppNav';
 import DashboardEmptyState from '@/components/DashboardEmptyState';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import GettingStarted from '@/components/GettingStarted';
 import { LoadingState, ErrorState } from '@/components/StateViews';
 import DateRangePresets, {
   detectPreset,
@@ -362,6 +363,11 @@ export default function DashboardPage() {
             )}
           </div>
         </section>
+
+        {/* Getting-started onboarding checklist — self-hides when complete or dismissed */}
+        <ErrorBoundary label="Başlangıç rehberi">
+          <GettingStarted />
+        </ErrorBoundary>
 
         {/* KPI cards */}
         <section className={styles.kpiGrid}>

@@ -166,6 +166,11 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 32 — Başlangıç Rehberi (Onboarding)
+- Dashboard'da kapatılabilir "Başlangıç" kontrol listesi: hesap bağla → hedef koy →
+  otomasyon kuralı → AI Asistan'ı dene. Tamamlanma mevcut endpoint'lerden türetilir;
+  ilerleme çubuğu + adım CTA'ları. Tümü bitince/gizlenince görünmez (localStorage).
+
 ## Dalga 31 — Yeni İçgörü Dedektörleri (M4 derinleştirme)
 - `detect_conversion_rate_drop` (dönüşüm oranı düşüşü) ve `detect_positive_movement`
   (olumlu "kazanım" içgörüsü — çoğu rakip yalnızca alarm verir; AYAZ kazanımları da
