@@ -10,6 +10,9 @@ GET /api/v1/dashboard/summary?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD[&compare=t
 GET /api/v1/dashboard/timeseries?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&metric=spend
     Daily time-series for one metric across all channels for the tenant.
 
+GET /api/v1/dashboard/top-movers
+    En çok değişen kanalları/kampanyaları döndürür (mutlak delta büyüklüğüne göre sıralı).
+
 GET /api/v1/dashboard/export?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
     CSV export: one totals row + one row per channel.  Turkish headers.
     Content-Type: text/csv; charset=utf-8-sig (BOM for Excel).
@@ -43,9 +46,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
-from ayaz.models.analytics import DimChannel, FactDailyMetrics
+from ayaz.models.analytics import DimCampaign, DimChannel, FactDailyMetrics
 from ayaz.models.oltp import Membership
-from ayaz.services.metrics import compute_derived_metrics, effective_spend
+from ayaz.services.metrics import compute_derived_metrics, effective_spend, roas as _roas_metric
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -119,6 +122,38 @@ class TimeseriesPoint(BaseModel):
 class TimeseriesResponse(BaseModel):
     metric: str
     points: list[TimeseriesPoint]
+
+
+class TopMoverItem(BaseModel):
+    """Tek bir kanal veya kampanya için dönem karşılaştırması.
+
+    ``delta_pct`` bir önceki dönem değeri sıfır olduğunda ``None`` döner
+    (sıfıra bölme koruması).
+    """
+
+    key: str
+    label: str
+    current: float
+    previous: float
+    delta: float
+    delta_pct: float | None
+    direction: str  # "up" | "down"
+
+
+class TopMoversResponse(BaseModel):
+    """En çok değişen kanal/kampanya listesi — mutlak delta büyüklüğüne göre sıralı.
+
+    ``previous_from`` / ``previous_to`` seçilen döneme hemen önceki eşit uzunluktaki
+    karşılaştırma döneminin tarih aralığıdır.
+    """
+
+    dimension: str
+    metric: str
+    date_from: date
+    date_to: date
+    previous_from: date
+    previous_to: date
+    movers: list[TopMoverItem]
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
@@ -254,6 +289,111 @@ def _compute_deltas(current: SummaryTotals, prev: SummaryTotals) -> PeriodDeltas
         cpa=_fractional_delta(current.cpa, prev.cpa),
         roas=_fractional_delta(current.roas, prev.roas),
     )
+
+
+# Desteklenen metrik isimleri — top-movers ve timeseries için.
+_TOP_MOVERS_METRICS = frozenset(
+    {"spend", "impressions", "clicks", "conversions", "conversion_value", "roas"}
+)
+
+
+def _aggregate_by_channel(
+    db: Session,
+    tenant_id: object,
+    date_from: date,
+    date_to: date,
+) -> dict[str, dict]:
+    """Kanal bazlı ham metrik toplamlarını döndürür.
+
+    Dönen sözlük: ``{channel_key: {"label": ..., "impressions": Decimal, ...}}``.
+    """
+    rows = db.execute(
+        select(
+            DimChannel.key.label("channel_key"),
+            DimChannel.label.label("channel_label"),
+            func.sum(FactDailyMetrics.impressions).label("impressions"),
+            func.sum(FactDailyMetrics.clicks).label("clicks"),
+            func.sum(
+                func.coalesce(FactDailyMetrics.cost_base_ccy, FactDailyMetrics.cost_raw)
+            ).label("spend"),
+            func.sum(FactDailyMetrics.conversions).label("conversions"),
+            func.sum(FactDailyMetrics.conversion_value_raw).label("conversion_value"),
+        )
+        .join(DimChannel, FactDailyMetrics.channel_id == DimChannel.id)
+        .where(
+            FactDailyMetrics.tenant_id == tenant_id,
+            FactDailyMetrics.date_key >= date_from,
+            FactDailyMetrics.date_key <= date_to,
+        )
+        .group_by(DimChannel.key, DimChannel.label)
+    ).mappings().all()
+
+    return {
+        str(row["channel_key"]): {
+            "label": str(row["channel_label"]),
+            "impressions": _d(row["impressions"]),
+            "clicks": _d(row["clicks"]),
+            "spend": _d(row["spend"]),
+            "conversions": _d(row["conversions"]),
+            "conversion_value": _d(row["conversion_value"]),
+        }
+        for row in rows
+    }
+
+
+def _aggregate_by_campaign(
+    db: Session,
+    tenant_id: object,
+    date_from: date,
+    date_to: date,
+) -> dict[str, dict]:
+    """Kampanya bazlı ham metrik toplamlarını döndürür.
+
+    Dönen sözlük: ``{str(campaign_id): {"label": campaign_name, ...}}``.
+    """
+    rows = db.execute(
+        select(
+            DimCampaign.id.label("campaign_id"),
+            DimCampaign.name.label("campaign_name"),
+            func.sum(FactDailyMetrics.impressions).label("impressions"),
+            func.sum(FactDailyMetrics.clicks).label("clicks"),
+            func.sum(
+                func.coalesce(FactDailyMetrics.cost_base_ccy, FactDailyMetrics.cost_raw)
+            ).label("spend"),
+            func.sum(FactDailyMetrics.conversions).label("conversions"),
+            func.sum(FactDailyMetrics.conversion_value_raw).label("conversion_value"),
+        )
+        .join(DimCampaign, FactDailyMetrics.campaign_id == DimCampaign.id)
+        .where(
+            FactDailyMetrics.tenant_id == tenant_id,
+            FactDailyMetrics.date_key >= date_from,
+            FactDailyMetrics.date_key <= date_to,
+        )
+        .group_by(DimCampaign.id, DimCampaign.name)
+    ).mappings().all()
+
+    return {
+        str(row["campaign_id"]): {
+            "label": str(row["campaign_name"]),
+            "impressions": _d(row["impressions"]),
+            "clicks": _d(row["clicks"]),
+            "spend": _d(row["spend"]),
+            "conversions": _d(row["conversions"]),
+            "conversion_value": _d(row["conversion_value"]),
+        }
+        for row in rows
+    }
+
+
+def _extract_metric_value(row: dict, metric: str) -> Decimal:
+    """Bir metrik toplamı sözlüğünden istenen metriğin değerini döndürür.
+
+    ``roas`` için ROAS = conversion_value / spend formülü uygulanır.
+    Diğer metrikler doğrudan toplanmış değer olarak döner.
+    """
+    if metric == "roas":
+        return _roas_metric(row["conversion_value"], row["spend"])
+    return row[metric]
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -421,6 +561,141 @@ def timeseries(
         points.append(TimeseriesPoint(date=d_key, value=value))
 
     return TimeseriesResponse(metric=metric, points=points)
+
+
+# ── Top movers endpoint ───────────────────────────────────────────────────────
+
+
+@router.get(
+    "/top-movers",
+    response_model=TopMoversResponse,
+    summary="En çok değişen kanallar/kampanyalar",
+)
+def top_movers(
+    date_from: Annotated[date, Query(description="Mevcut dönem başlangıç tarihi (YYYY-MM-DD)")],
+    date_to: Annotated[date, Query(description="Mevcut dönem bitiş tarihi (YYYY-MM-DD)")],
+    dimension: Annotated[
+        str,
+        Query(description="Gruplama boyutu: 'channel' (varsayılan) veya 'campaign'"),
+    ] = "channel",
+    metric: Annotated[
+        str,
+        Query(
+            description=(
+                "Karşılaştırılacak metrik. "
+                "spend | impressions | clicks | conversions | conversion_value | roas"
+            )
+        ),
+    ] = "spend",
+    limit: Annotated[
+        int,
+        Query(description="Döndürülecek maksimum kayıt sayısı (varsayılan 5, maksimum 20)", ge=1, le=20),
+    ] = 5,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> TopMoversResponse:
+    """Seçilen dönemde en çok değişen kanalları/kampanyaları döndürür.
+
+    Karşılaştırma dönemi, seçilen dönemle aynı uzunlukta olup ``date_from``'dan
+    hemen önceki güne kadar olan eşit uzunlukta dönemdir.  Bu, ``summary``
+    endpoint'indeki ``compare=true`` mantığıyla örtüşür.
+
+    Sıralama mutlak delta büyüklüğüne göre yapılır (hem kazananlar hem kaybedenler
+    dahil edilir).
+
+    ``roas`` için oran ortalaması alınmaz; dönem bazında toplam
+    ``conversion_value / spend`` hesaplanır.
+
+    ``delta_pct`` bir önceki dönem değeri sıfır olduğunda ``None`` döner.
+    """
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="date_from must be <= date_to",
+        )
+    if dimension not in ("channel", "campaign"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="dimension must be 'channel' or 'campaign'",
+        )
+    if metric not in _TOP_MOVERS_METRICS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Unsupported metric {metric!r}. "
+                f"Choose from: {sorted(_TOP_MOVERS_METRICS)}"
+            ),
+        )
+
+    tenant_id = membership.tenant_id
+
+    # Önceki dönem: seçilen dönemle aynı uzunluk, hemen öncesinde.
+    period_len = (date_to - date_from).days + 1
+    prev_to = date_from - timedelta(days=1)
+    prev_from = prev_to - timedelta(days=period_len - 1)
+
+    # Boyuta göre toplayıcı seç.
+    if dimension == "channel":
+        curr_data = _aggregate_by_channel(db, tenant_id, date_from, date_to)
+        prev_data = _aggregate_by_channel(db, tenant_id, prev_from, prev_to)
+    else:
+        curr_data = _aggregate_by_campaign(db, tenant_id, date_from, date_to)
+        prev_data = _aggregate_by_campaign(db, tenant_id, prev_from, prev_to)
+
+    # Her iki dönemde görünen tüm varlıkların birleşimini oluştur.
+    all_keys = set(curr_data) | set(prev_data)
+
+    _zero_row: dict = {
+        "label": "",
+        "impressions": Decimal(0),
+        "clicks": Decimal(0),
+        "spend": Decimal(0),
+        "conversions": Decimal(0),
+        "conversion_value": Decimal(0),
+    }
+
+    items: list[TopMoverItem] = []
+    for key in all_keys:
+        curr_row = curr_data.get(key, _zero_row)
+        prev_row = prev_data.get(key, _zero_row)
+
+        label = curr_row["label"] or prev_row["label"]
+
+        curr_val: Decimal = _extract_metric_value(curr_row, metric)
+        prev_val: Decimal = _extract_metric_value(prev_row, metric)
+
+        delta: Decimal = curr_val - prev_val
+
+        if prev_val == Decimal(0):
+            delta_pct: float | None = None
+        else:
+            delta_pct = float(delta / prev_val)
+
+        items.append(
+            TopMoverItem(
+                key=key,
+                label=label,
+                current=float(curr_val),
+                previous=float(prev_val),
+                delta=float(delta),
+                delta_pct=delta_pct,
+                direction="up" if delta >= Decimal(0) else "down",
+            )
+        )
+
+    # Mutlak delta büyüklüğüne göre azalan sırala; limit uygula.
+    items.sort(key=lambda x: abs(x.delta), reverse=True)
+    items = items[:limit]
+
+    return TopMoversResponse(
+        dimension=dimension,
+        metric=metric,
+        date_from=date_from,
+        date_to=date_to,
+        previous_from=prev_from,
+        previous_to=prev_to,
+        movers=items,
+    )
 
 
 # ── CSV export ────────────────────────────────────────────────────────────────

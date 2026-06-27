@@ -129,24 +129,6 @@
   widget'ları ErrorBoundary ile sarıldı (runtime-çökme sınıfına karşı sertleştirme).
 - Yerel/demo çalıştırma: SQLite-uyumlu DB engine (Postgres yolu değişmedi).
 
-## Dalga 27 — Komut Paleti (⌘K)
-- Global komut paleti: ⌘K/Ctrl+K ile aç, tüm sayfalara hızlı geçiş + komutlar
-  (tema değiştir, oturum kapat). Diakritik-duyarsız arama, tam klavye gezinme,
-  erişilebilir (dialog/listbox); açık/koyu tema. Yalnızca oturum-içi sayfalarda.
-
-## Dalga 26 — Bildirim Merkezi
-- Tenant-kapsamlı `Notification` modeli (migration 0014) + servis + router:
-  `GET /notifications`, `/unread-count`, `POST /{id}/read`, `/read-all`.
-  İçgörülerden `source_ref` ile tekilleştirerek tembel üretim. 20 test (suite 1251).
-- Nav'da bildirim zili + okunmamış rozeti; açılır panel (önem rengi, göreli zaman,
-  tıklayınca okundu işaretle + ilgili sayfaya git); açık/koyu temada çalışır.
-
-## Dalga 25 — Tarih Aralığı Ön-Ayarları
-- Paylaşılan `DateRangePresets` bileşeni: Son 7/30/90 gün, Bu ay, Geçen ay
-  (yerel saatle hesaplanır, aktif ön-ayar vurgulanır, erişilebilir).
-- Dashboard, reklam ve kreatif sayfalarına eklendi; tek tıkla seç+uygula.
-- Dashboard son aralığı `localStorage`'da hatırlar (`ayaz_dashboard_range`).
-
 ## Dalga 24 — Dark Mode + Tema
 - Koyu tema: `[data-theme="dark"]` token override'ları + `prefers-color-scheme`
   ile "Sistem" desteği; ThemeProvider (localStorage `ayaz_theme`) + FOUC önleyici
@@ -155,6 +137,32 @@
   (Açık/Koyu/Sistem).
 - ~30 modül CSS'inde sabit renkler semantik token'lara taşındı; açık tema
   görünümü birebir korundu (canlı demo ile doğrulandı).
+
+## Dalga 25 — Tarih Aralığı Ön-Ayarları
+- Paylaşılan `DateRangePresets` bileşeni: Son 7/30/90 gün, Bu ay, Geçen ay
+  (yerel saatle hesaplanır, aktif ön-ayar vurgulanır, erişilebilir).
+- Dashboard, reklam ve kreatif sayfalarına eklendi; tek tıkla seç+uygula.
+- Dashboard son aralığı `localStorage`'da hatırlar (`ayaz_dashboard_range`).
+
+## Dalga 26 — Bildirim Merkezi
+- Tenant-kapsamlı `Notification` modeli (migration 0014) + servis + router:
+  `GET /notifications`, `/unread-count`, `POST /{id}/read`, `/read-all`.
+  İçgörülerden `source_ref` ile tekilleştirerek tembel üretim. 20 test (suite 1251).
+- Nav'da bildirim zili + okunmamış rozeti; açılır panel (önem rengi, göreli zaman,
+  tıklayınca okundu işaretle + ilgili sayfaya git); açık/koyu temada çalışır.
+
+## Dalga 27 — Komut Paleti (⌘K)
+- Global komut paleti: ⌘K/Ctrl+K ile aç, tüm sayfalara hızlı geçiş + komutlar
+  (tema değiştir, oturum kapat). Diakritik-duyarsız arama, tam klavye gezinme,
+  erişilebilir (dialog/listbox); açık/koyu tema. Yalnızca oturum-içi sayfalarda.
+
+## Dalga 28 — En Çok Değişenler (Top Movers) + Test İzolasyonu
+- `GET /api/v1/dashboard/top-movers` — kanal/kampanya bazında, önceki döneme göre
+  en çok değişen metrikler (artan + azalan), mutlak değişime göre sıralı. Mevcut
+  dönem-karşılaştırma mantığı yeniden kullanıldı; Decimal para; şema değişmedi.
+- Test sağlamlığı: `conftest.py`'ye autouse `dependency_overrides` temizleyici
+  eklendi — modüller arası override sızıntısından kaynaklanan flaky (sıraya
+  bağlı) test hatası kökten giderildi. 41 yeni test (suite 1292, 3 kez stabil).
 
 ---
 

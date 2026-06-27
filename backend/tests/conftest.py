@@ -39,6 +39,26 @@ def _disable_rate_limiting_globally():
 
 
 @pytest.fixture(autouse=True)
+def _clear_dependency_overrides():
+    """Guarantee FastAPI dependency overrides never leak between tests.
+
+    Several modules install ``app.dependency_overrides`` in their TestClient
+    fixtures; not all of them clear the map on teardown. A leaked override —
+    often a ``get_db`` / ``get_current_membership`` closure bound to an
+    already-closed Session — makes unrelated later tests flaky depending on
+    collection/run order (e.g. an auth test that expects 401 instead sees the
+    leaked membership). Clearing before and after every test guarantees each
+    test starts and ends with a clean override map, making the whole suite
+    order-independent.
+    """
+    from ayaz.main import app
+
+    app.dependency_overrides.clear()
+    yield
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
 def _clear_rate_limit_store():
     """Reset the in-memory rate-limit counter store before every test.
 

@@ -52,6 +52,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 25 (tamamlandı):** Tarih aralığı ön-ayarları (Son 7/30/90 gün, Bu ay, Geçen ay) — dashboard/reklam/kreatif; dashboard aralığı hatırlanır.
 - **Dalga 26 (tamamlandı):** Uygulama-içi bildirim merkezi — `Notification` modeli + `/notifications` API + nav'da zil/rozet/panel (içgörülerden tembel üretim).
 - **Dalga 27 (tamamlandı):** Komut paleti (⌘K/Ctrl+K) — tüm sayfalara hızlı geçiş + komutlar; klavye-öncelikli, erişilebilir.
+- **Dalga 28 (tamamlandı):** En Çok Değişenler analizi (`/dashboard/top-movers`) + test-izolasyon düzeltmesi (autouse override temizleyici → flaky testler giderildi).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**
