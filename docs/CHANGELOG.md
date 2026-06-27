@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 30 — Copilot: En Çok Değişenler Aracı
+- Copilot'a `get_top_movers` aracı (salt-okunur) eklendi: "son 30 günde en çok ne
+  değişti?" gibi sorulara veriyle yanıt. Sıralama mantığı `metrics.compute_top_movers`
+  ortak yardımcısına çıkarıldı (dashboard endpoint'i + Copilot tek kaynağı kullanır).
+  23 yeni test (suite 1315).
+
 ## Dalga 29 — Türkçe Diakritik Tutarlılığı
 - Dashboard, reklam, kreatif, feed, içgörü, brifing, faturalama ve top-movers
   ekranlarındaki ASCII-leştirilmiş Türkçe metinler doğru diakritiklerle düzeltildi

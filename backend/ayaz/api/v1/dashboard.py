@@ -48,7 +48,12 @@ from sqlalchemy.orm import Session
 from ayaz.api.deps import get_current_membership, get_db
 from ayaz.models.analytics import DimCampaign, DimChannel, FactDailyMetrics
 from ayaz.models.oltp import Membership
-from ayaz.services.metrics import compute_derived_metrics, effective_spend, roas as _roas_metric
+from ayaz.services.metrics import (
+    compute_derived_metrics,
+    compute_top_movers,
+    effective_spend,
+    roas as _roas_metric,
+)
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -629,72 +634,45 @@ def top_movers(
 
     tenant_id = membership.tenant_id
 
-    # Önceki dönem: seçilen dönemle aynı uzunluk, hemen öncesinde.
-    period_len = (date_to - date_from).days + 1
-    prev_to = date_from - timedelta(days=1)
-    prev_from = prev_to - timedelta(days=period_len - 1)
-
-    # Boyuta göre toplayıcı seç.
-    if dimension == "channel":
-        curr_data = _aggregate_by_channel(db, tenant_id, date_from, date_to)
-        prev_data = _aggregate_by_channel(db, tenant_id, prev_from, prev_to)
-    else:
-        curr_data = _aggregate_by_campaign(db, tenant_id, date_from, date_to)
-        prev_data = _aggregate_by_campaign(db, tenant_id, prev_from, prev_to)
-
-    # Her iki dönemde görünen tüm varlıkların birleşimini oluştur.
-    all_keys = set(curr_data) | set(prev_data)
-
-    _zero_row: dict = {
-        "label": "",
-        "impressions": Decimal(0),
-        "clicks": Decimal(0),
-        "spend": Decimal(0),
-        "conversions": Decimal(0),
-        "conversion_value": Decimal(0),
-    }
-
-    items: list[TopMoverItem] = []
-    for key in all_keys:
-        curr_row = curr_data.get(key, _zero_row)
-        prev_row = prev_data.get(key, _zero_row)
-
-        label = curr_row["label"] or prev_row["label"]
-
-        curr_val: Decimal = _extract_metric_value(curr_row, metric)
-        prev_val: Decimal = _extract_metric_value(prev_row, metric)
-
-        delta: Decimal = curr_val - prev_val
-
-        if prev_val == Decimal(0):
-            delta_pct: float | None = None
-        else:
-            delta_pct = float(delta / prev_val)
-
-        items.append(
-            TopMoverItem(
-                key=key,
-                label=label,
-                current=float(curr_val),
-                previous=float(prev_val),
-                delta=float(delta),
-                delta_pct=delta_pct,
-                direction="up" if delta >= Decimal(0) else "down",
-            )
-        )
-
-    # Mutlak delta büyüklüğüne göre azalan sırala; limit uygula.
-    items.sort(key=lambda x: abs(x.delta), reverse=True)
-    items = items[:limit]
-
-    return TopMoversResponse(
-        dimension=dimension,
-        metric=metric,
+    # Delegate to the shared service-layer function so both the REST endpoint
+    # and the Copilot tool share exactly one implementation.
+    result = compute_top_movers(
+        db=db,
+        tenant_id=tenant_id,
         date_from=date_from,
         date_to=date_to,
-        previous_from=prev_from,
-        previous_to=prev_to,
-        movers=items,
+        dimension=dimension,
+        metric=metric,
+        limit=limit,
+    )
+
+    return TopMoversResponse(
+        dimension=result["dimension"],
+        metric=result["metric"],
+        date_from=date(
+            *[int(p) for p in result["date_from"].split("-")]
+        ),
+        date_to=date(
+            *[int(p) for p in result["date_to"].split("-")]
+        ),
+        previous_from=date(
+            *[int(p) for p in result["previous_from"].split("-")]
+        ),
+        previous_to=date(
+            *[int(p) for p in result["previous_to"].split("-")]
+        ),
+        movers=[
+            TopMoverItem(
+                key=m["key"],
+                label=m["label"],
+                current=m["current"],
+                previous=m["previous"],
+                delta=m["delta"],
+                delta_pct=m["delta_pct"],
+                direction=m["direction"],
+            )
+            for m in result["movers"]
+        ],
     )
 
 

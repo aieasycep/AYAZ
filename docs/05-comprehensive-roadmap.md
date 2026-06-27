@@ -54,6 +54,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 27 (tamamlandı):** Komut paleti (⌘K/Ctrl+K) — tüm sayfalara hızlı geçiş + komutlar; klavye-öncelikli, erişilebilir.
 - **Dalga 28 (tamamlandı):** En Çok Değişenler analizi (`/dashboard/top-movers`) + test-izolasyon düzeltmesi (autouse override temizleyici → flaky testler giderildi).
 - **Dalga 29 (tamamlandı):** Türkçe diakritik tutarlılığı — UI metinlerinde eksik Türkçe karakterler düzeltildi (TR-first kalite).
+- **Dalga 30 (tamamlandı):** Copilot `get_top_movers` aracı + sıralama mantığının ortak servise (`metrics.compute_top_movers`) çıkarılması.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

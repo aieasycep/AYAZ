@@ -59,7 +59,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ayaz.models.analytics import DimChannel, FactDailyMetrics
-from ayaz.services.metrics import compute_derived_metrics
+from ayaz.services.metrics import compute_derived_metrics, compute_top_movers
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -530,6 +530,69 @@ def _create_goal(
     }
 
 
+def _get_top_movers(
+    db: Session,
+    tenant_id: uuid.UUID,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    dimension: str = "channel",
+    metric: str = "spend",
+    limit: int = 5,
+) -> dict:
+    """Return the top movers ranked by absolute delta vs the prior period.
+
+    Defaults to the last 30 days when dates are omitted (same convention as
+    _get_performance_summary).  Delegates entirely to compute_top_movers which
+    is the single source of truth for this calculation.
+    """
+    from datetime import timedelta
+
+    today = date.today()
+    if date_to is None or date_to == "":
+        dt = today
+    else:
+        dt = _parse_date(date_to)
+
+    if date_from is None or date_from == "":
+        df = today - timedelta(days=29)
+    else:
+        df = _parse_date(date_from)
+
+    # Clamp limit to sensible bounds.
+    try:
+        limit = max(1, min(int(limit), 20))
+    except (TypeError, ValueError):
+        limit = 5
+
+    result = compute_top_movers(
+        db=db,
+        tenant_id=tenant_id,
+        date_from=df,
+        date_to=dt,
+        dimension=dimension,
+        metric=metric,
+        limit=limit,
+    )
+
+    return {
+        "dimension": result["dimension"],
+        "metric": result["metric"],
+        "period": f"{result['date_from']} / {result['date_to']}",
+        "previous_period": f"{result['previous_from']} / {result['previous_to']}",
+        "movers": [
+            {
+                "label": m["label"],
+                "current": m["current"],
+                "previous": m["previous"],
+                "delta": m["delta"],
+                "delta_pct": m["delta_pct"],
+                "direction": m["direction"],
+            }
+            for m in result["movers"]
+        ],
+    }
+
+
 def _get_subscription_status(
     db: Session,
     tenant_id: uuid.UUID,
@@ -566,6 +629,7 @@ _TOOLS: dict[str, Any] = {
     "get_insights": _get_insights,
     "get_feed_channels": _get_feed_channels,
     "draft_automation_rule": _draft_automation_rule,
+    "get_top_movers": _get_top_movers,
     "get_subscription_status": _get_subscription_status,
     # ── Action tools (v2) — real writes ─────────────────────────────────────
     "create_automation_rule": _create_automation_rule,
@@ -773,6 +837,51 @@ TOOL_SPECS: list[dict] = [
         "input_schema": {
             "type": "object",
             "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_top_movers",
+        "description": (
+            "Seçilen dönemde önceki döneme göre en çok değişen kanalları veya "
+            "kampanyaları döndürür (mutlak delta büyüklüğüne göre sıralı). "
+            "Hem kazananlar (direction='up') hem kaybedenler (direction='down') dahildir. "
+            "Karşılaştırma dönemi, seçilen dönemle aynı uzunluktadır ve hemen öncesindedir. "
+            "Tarihler belirtilmezse son 30 gün kullanılır."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date_from": {
+                    "type": "string",
+                    "description": "Dönem başlangıç tarihi (YYYY-MM-DD). Belirtilmezse 30 gün öncesi.",
+                },
+                "date_to": {
+                    "type": "string",
+                    "description": "Dönem bitiş tarihi (YYYY-MM-DD). Belirtilmezse bugün.",
+                },
+                "dimension": {
+                    "type": "string",
+                    "description": "Gruplama boyutu: 'channel' (varsayılan) veya 'campaign'.",
+                    "enum": ["channel", "campaign"],
+                },
+                "metric": {
+                    "type": "string",
+                    "description": (
+                        "Karşılaştırılacak metrik. "
+                        "spend | impressions | clicks | conversions | conversion_value | roas. "
+                        "Varsayılan: spend."
+                    ),
+                    "enum": [
+                        "spend", "impressions", "clicks",
+                        "conversions", "conversion_value", "roas",
+                    ],
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Döndürülecek maksimum kayıt sayısı (1-20). Varsayılan: 5.",
+                },
+            },
             "required": [],
         },
     },
