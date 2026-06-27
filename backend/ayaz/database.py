@@ -9,16 +9,29 @@ from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from ayaz.config import settings
 
-engine = create_engine(
-    settings.database_url,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    echo=settings.debug,
-)
+if settings.database_url.startswith("sqlite"):
+    # Local/demo/dev convenience: run without Postgres. A single shared
+    # connection (StaticPool + check_same_thread=False) keeps an in-memory or
+    # file-based SQLite consistent across FastAPI's threadpool. The Postgres
+    # production path below is unchanged.
+    engine = create_engine(
+        settings.database_url,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=settings.debug,
+    )
+else:
+    engine = create_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        echo=settings.debug,
+    )
 
 SessionLocal = sessionmaker(
     bind=engine,
