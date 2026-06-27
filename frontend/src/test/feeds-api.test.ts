@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type {
   FeedRule,
   RuleType,
@@ -6,6 +6,7 @@ import type {
   SimulateRuleResponse,
   LintIssue,
   LintResponse,
+  RuleFromTextResponse,
 } from '@/lib/feeds-api';
 
 // ---------------------------------------------------------------------------
@@ -260,5 +261,199 @@ describe('LintResponse type', () => {
 
   it('duplicate maps to correct Turkish text', () => {
     expect(LINT_CODE_LABELS['duplicate']).toBe('Yinelenen kural');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RuleFromTextResponse type contract
+// ---------------------------------------------------------------------------
+
+describe('RuleFromTextResponse type', () => {
+  it('carries rule_type, config, explanation, confidence=high', () => {
+    const resp: RuleFromTextResponse = {
+      rule_type: 'filter_exclude',
+      config: { condition_field: 'availability', condition_op: 'eq', condition_value: 'out of stock' },
+      explanation: 'Stokta olmayan ürünleri hariç tutar.',
+      confidence: 'high',
+    };
+    expect(resp.rule_type).toBe('filter_exclude');
+    expect(resp.confidence).toBe('high');
+    expect(resp.impact).toBeUndefined();
+  });
+
+  it('carries confidence=low', () => {
+    const resp: RuleFromTextResponse = {
+      rule_type: 'set_value',
+      config: { field: 'brand', value: 'Bilinmiyor' },
+      explanation: 'Marka alanını varsayılan bir değerle doldurur.',
+      confidence: 'low',
+    };
+    expect(resp.confidence).toBe('low');
+  });
+
+  it('carries optional impact when present', () => {
+    const resp: RuleFromTextResponse = {
+      rule_type: 'filter_exclude',
+      config: { condition_field: 'availability', condition_op: 'eq', condition_value: 'out of stock' },
+      explanation: 'Stokta olmayan ürünleri hariç tutar.',
+      confidence: 'high',
+      impact: { affected_count: 120, excluded_count: 45 },
+    };
+    expect(resp.impact?.affected_count).toBe(120);
+    expect(resp.impact?.excluded_count).toBe(45);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ruleFromText — fetch mock
+// ---------------------------------------------------------------------------
+
+describe('ruleFromText', () => {
+  beforeEach(() => {
+    // Provide localStorage stub in jsdom-less environment
+    if (typeof globalThis.localStorage === 'undefined') {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: { getItem: () => 'test-token', removeItem: vi.fn(), setItem: vi.fn() },
+        writable: true,
+      });
+    }
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls POST /api/v1/feeds/channels/{channelId}/rules/from-text and returns parsed response', async () => {
+    const mockResponse: RuleFromTextResponse = {
+      rule_type: 'filter_exclude',
+      config: { condition_field: 'availability', condition_op: 'eq', condition_value: 'out of stock' },
+      explanation: 'Stokta olmayan ürünleri çıkarır.',
+      confidence: 'high',
+      impact: { affected_count: 80, excluded_count: 30 },
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { ruleFromText } = await import('@/lib/feeds-api');
+    const result = await ruleFromText('channel-123', 'stokta olmayan ürünleri çıkar');
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/feeds/channels/channel-123/rules/from-text');
+    expect(options.method).toBe('POST');
+    expect(JSON.parse(options.body as string)).toEqual({ text: 'stokta olmayan ürünleri çıkar' });
+    expect(result.rule_type).toBe('filter_exclude');
+    expect(result.confidence).toBe('high');
+    expect(result.impact?.affected_count).toBe(80);
+  });
+
+  it('throws when the server returns a non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve('Sunucu hatası'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { ruleFromText: rft } = await import('@/lib/feeds-api');
+    await expect(rft('channel-123', 'test')).rejects.toThrow('Sunucu hatası');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// configToFormState — reverse-mapping (mirrored here for isolation tests)
+// ---------------------------------------------------------------------------
+
+interface RuleConfigStateFull {
+  sv_field: string; sv_value: string;
+  rf_from: string; rf_to: string;
+  fr_field: string; fr_pattern: string; fr_replacement: string; fr_use_regex: boolean;
+  fi_condition_field: string; fi_condition_op: string; fi_condition_value: string;
+  calc_field: string; calc_expression: string;
+}
+
+function configToFormState(type: RuleType, config: Record<string, unknown>): Partial<RuleConfigStateFull> {
+  switch (type) {
+    case 'set_value':
+      return { sv_field: String(config.field ?? ''), sv_value: String(config.value ?? '') };
+    case 'rename_field':
+      return { rf_from: String(config.from_field ?? config.from ?? ''), rf_to: String(config.to_field ?? config.to ?? '') };
+    case 'find_replace':
+      return {
+        fr_field: String(config.field ?? ''),
+        fr_pattern: String(config.pattern ?? config.find ?? ''),
+        fr_replacement: String(config.replacement ?? config.replace ?? ''),
+        fr_use_regex: Boolean(config.use_regex ?? false),
+      };
+    case 'filter_include':
+    case 'filter_exclude':
+      return {
+        fi_condition_field: String(config.condition_field ?? config.field ?? ''),
+        fi_condition_op: String(config.condition_op ?? config.operator ?? 'eq'),
+        fi_condition_value: String(config.condition_value ?? config.value ?? ''),
+      };
+    case 'calculated':
+      return { calc_field: String(config.field ?? ''), calc_expression: String(config.expression ?? '') };
+    default:
+      return {};
+  }
+}
+
+describe('configToFormState (NL reverse-mapping)', () => {
+  it('maps set_value config → sv_field / sv_value', () => {
+    const state = configToFormState('set_value', { field: 'brand', value: 'Acme' });
+    expect(state.sv_field).toBe('brand');
+    expect(state.sv_value).toBe('Acme');
+  });
+
+  it('maps rename_field config → rf_from / rf_to (from_field / to_field keys)', () => {
+    const state = configToFormState('rename_field', { from_field: 'g:id', to_field: 'id' });
+    expect(state.rf_from).toBe('g:id');
+    expect(state.rf_to).toBe('id');
+  });
+
+  it('maps find_replace config → fr_* fields', () => {
+    const state = configToFormState('find_replace', {
+      field: 'title', pattern: 'foo', replacement: 'bar', use_regex: true,
+    });
+    expect(state.fr_field).toBe('title');
+    expect(state.fr_pattern).toBe('foo');
+    expect(state.fr_replacement).toBe('bar');
+    expect(state.fr_use_regex).toBe(true);
+  });
+
+  it('maps filter_exclude config → fi_condition_* fields', () => {
+    const state = configToFormState('filter_exclude', {
+      condition_field: 'availability', condition_op: 'eq', condition_value: 'out of stock',
+    });
+    expect(state.fi_condition_field).toBe('availability');
+    expect(state.fi_condition_op).toBe('eq');
+    expect(state.fi_condition_value).toBe('out of stock');
+  });
+
+  it('maps filter_include config → fi_condition_* fields', () => {
+    const state = configToFormState('filter_include', {
+      condition_field: 'price', condition_op: 'gt', condition_value: '0',
+    });
+    expect(state.fi_condition_field).toBe('price');
+    expect(state.fi_condition_op).toBe('gt');
+  });
+
+  it('maps calculated config → calc_field / calc_expression', () => {
+    const state = configToFormState('calculated', { field: 'sale_price', expression: '{price} * 0.9' });
+    expect(state.calc_field).toBe('sale_price');
+    expect(state.calc_expression).toBe('{price} * 0.9');
+  });
+
+  it('falls back to alternate backend keys for rename_field (from/to)', () => {
+    const state = configToFormState('rename_field', { from: 'old', to: 'new' });
+    expect(state.rf_from).toBe('old');
+    expect(state.rf_to).toBe('new');
   });
 });

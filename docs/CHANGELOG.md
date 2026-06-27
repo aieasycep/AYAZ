@@ -170,6 +170,8 @@
 - `POST /feeds/channels/{id}/rules/from-text`: Türkçe cümleden taslak FeedRule üretir
   (kaydetmez) + açıklama + güven + canlı etki (simulate). Claude + deterministik
   Türkçe mock-parser (API anahtarsız da çalışır; report_builder deseni).
+  Frontend: kural formunda "Türkçe cümleyle yaz → Kural Üret" girişi (taslağı forma doldurur,
+  açıklama+güven+etki gösterir; düşük güvende uyarı). 12 yeni frontend testi (toplam 88).
 - Desenler: stok filtresi, fiyat eşiği, başlığa ekleme (calculated), set_value,
   find_replace, rename_field; alan eş-anlamlıları (fiyat/başlık/marka/stok…). 22 yeni test (suite 1481).
 

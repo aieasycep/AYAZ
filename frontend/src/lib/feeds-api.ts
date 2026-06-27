@@ -275,6 +275,29 @@ export function lintChannelRules(channelId: string): Promise<LintResponse> {
   );
 }
 
+// --- Rule from natural-language text ---
+
+export interface RuleFromTextResponse {
+  rule_type: RuleType;
+  config: Record<string, unknown>;
+  explanation: string;
+  confidence: 'high' | 'low';
+  impact?: {
+    affected_count: number;
+    excluded_count: number;
+  };
+}
+
+export function ruleFromText(
+  channelId: string,
+  text: string,
+): Promise<RuleFromTextResponse> {
+  return authFetch<RuleFromTextResponse>(
+    `/api/v1/feeds/channels/${channelId}/rules/from-text`,
+    { method: 'POST', body: JSON.stringify({ text }) },
+  );
+}
+
 // --- Public feed URL helper ---
 
 export function getPublicFeedUrl(publicToken: string): string {

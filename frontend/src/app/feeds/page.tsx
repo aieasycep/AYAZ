@@ -16,6 +16,7 @@ import {
   getRulesImpact,
   simulateRule,
   lintChannelRules,
+  ruleFromText,
   getPublicFeedUrl,
   type FeedSource,
   type FeedChannel,
@@ -27,6 +28,7 @@ import {
   type RulesImpactResponse,
   type SimulateRuleResponse,
   type LintIssue,
+  type RuleFromTextResponse,
 } from '@/lib/feeds-api';
 import AppNav from '@/components/AppNav';
 import styles from './feeds.module.css';
@@ -153,6 +155,43 @@ function buildRuleConfig(type: RuleType, cfg: RuleConfigState): Record<string, u
   }
 }
 
+// Reverse of buildRuleConfig: map backend config keys → RuleConfigState
+function configToFormState(type: RuleType, config: Record<string, unknown>): Partial<RuleConfigState> {
+  switch (type) {
+    case 'set_value':
+      return {
+        sv_field: String(config.field ?? ''),
+        sv_value: String(config.value ?? ''),
+      };
+    case 'rename_field':
+      return {
+        rf_from: String(config.from_field ?? config.from ?? ''),
+        rf_to: String(config.to_field ?? config.to ?? ''),
+      };
+    case 'find_replace':
+      return {
+        fr_field: String(config.field ?? ''),
+        fr_pattern: String(config.pattern ?? config.find ?? ''),
+        fr_replacement: String(config.replacement ?? config.replace ?? ''),
+        fr_use_regex: Boolean(config.use_regex ?? false),
+      };
+    case 'filter_include':
+    case 'filter_exclude':
+      return {
+        fi_condition_field: String(config.condition_field ?? config.field ?? ''),
+        fi_condition_op: String(config.condition_op ?? config.operator ?? 'eq'),
+        fi_condition_value: String(config.condition_value ?? config.value ?? ''),
+      };
+    case 'calculated':
+      return {
+        calc_field: String(config.field ?? ''),
+        calc_expression: String(config.expression ?? ''),
+      };
+    default:
+      return {};
+  }
+}
+
 // --- CopyButton ---
 
 function CopyButton({ text }: { text: string }) {
@@ -270,6 +309,12 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
   const [lintIssues, setLintIssues] = useState<LintIssue[]>([]);
   const [lintLoading, setLintLoading] = useState(false);
 
+  // NL rule generator
+  const [nlText, setNlText] = useState('');
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlError, setNlError] = useState<string | null>(null);
+  const [nlResult, setNlResult] = useState<RuleFromTextResponse | null>(null);
+
   // Delete confirm
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -305,6 +350,28 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
 
   function updateCfg(key: keyof RuleConfigState, value: string | boolean) {
     setRuleCfg((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // NL rule generation
+  async function handleNlGenerate() {
+    const trimmed = nlText.trim();
+    if (!trimmed) return;
+    setNlLoading(true);
+    setNlError(null);
+    setNlResult(null);
+    try {
+      const res = await ruleFromText(channel.id, trimmed);
+      // Apply generated rule_type and config to form state
+      setRuleType(res.rule_type);
+      setRuleCfg({ ...DEFAULT_RULE_CONFIG, ...configToFormState(res.rule_type, res.config) });
+      setSimResult(null);
+      setSimError(null);
+      setNlResult(res);
+    } catch (err: unknown) {
+      setNlError(err instanceof Error ? err.message : 'Kural üretilemedi');
+    } finally {
+      setNlLoading(false);
+    }
   }
 
   // Feature 1: Pause toggle
@@ -369,6 +436,9 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       setShowForm(false);
       setSimResult(null);
       setSimError(null);
+      setNlText('');
+      setNlResult(null);
+      setNlError(null);
       await fetchRules();
       await runLint();
       setImpact(null); // stale — user should re-run
@@ -567,6 +637,56 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
             <form className={styles.ruleForm} onSubmit={handleAddRule}>
               <div className={styles.ruleFormTitle}>Yeni Kural</div>
 
+              {/* NL rule generator */}
+              <div className={styles.nlRow}>
+                <input
+                  className={styles.input}
+                  type="text"
+                  placeholder='Örn: "stokta olmayan ürünleri çıkar" veya "başlığa marka ekle"'
+                  value={nlText}
+                  onChange={(e) => setNlText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleNlGenerate();
+                    }
+                  }}
+                  disabled={nlLoading}
+                  aria-label="Doğal dilde kural tanımı"
+                />
+                <button
+                  type="button"
+                  className={styles.primaryBtn}
+                  onClick={handleNlGenerate}
+                  disabled={nlLoading || !nlText.trim()}
+                >
+                  {nlLoading ? 'Üretiliyor...' : 'Kural Üret'}
+                </button>
+              </div>
+
+              {nlError && (
+                <span className={styles.formError}>{nlError}</span>
+              )}
+
+              {nlResult && (
+                <div className={`${styles.nlNote} ${nlResult.confidence === 'low' ? styles.nlNoteWarn : styles.nlNoteInfo}`}>
+                  {nlResult.confidence === 'low' && (
+                    <div className={styles.nlWarnMsg}>
+                      Emin değilim — lütfen üretilen kuralı kontrol edin
+                    </div>
+                  )}
+                  <div className={styles.nlExplanation}>{nlResult.explanation}</div>
+                  {nlResult.impact && (
+                    <div className={styles.nlImpact}>
+                      ~{nlResult.impact.affected_count.toLocaleString('tr-TR')} ürünü etkiler
+                      {nlResult.impact.excluded_count > 0 && (
+                        <>, {nlResult.impact.excluded_count.toLocaleString('tr-TR')} hariç</>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className={styles.formRow}>
                 <div className={styles.field}>
                   <label className={styles.label}>Kural Türü</label>
@@ -729,6 +849,9 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     setFormError(null);
                     setSimResult(null);
                     setSimError(null);
+                    setNlText('');
+                    setNlResult(null);
+                    setNlError(null);
                   }}
                   disabled={submitting}
                 >
