@@ -23,7 +23,7 @@ veri modeli) bir kez inşa edilir; tüm modüller aynı temizlenmiş veriyi tük
 | **M1 — Bağlantı Hub'ı** | Çok platformlu konektörler (10 platform), OAuth Broker, otomatik sync, sağlık izleme. |
 | **M2 — Birleşik Veri + Metrik Katmanı** | Normalize tek doğruluk kaynağı; CTR/CPC/CPA/ROAS tek tanımdan türetilir. |
 | **M3 — Dashboard & Raporlama** | Özelleştirilebilir panolar, zamanlı/paylaşılabilir white-label müşteri raporu. |
-| **M4 — AI İçgörü & Uyarı** | Anomali tespiti (6 dedektör) + Türkçe doğal-dil içgörü + e-posta/Slack uyarı kuralları. |
+| **M4 — AI İçgörü & Uyarı** | Anomali tespiti (8 dedektör; olumlu "kazanım" içgörüsü dahil) + Türkçe doğal-dil içgörü + e-posta/Slack uyarı + uygulama-içi bildirim merkezi. |
 | **M5 — Feed Yönetimi** | Tek feed → kurallarla kanal-özel çıktı + her kanal için ayrı public feed URL'i. |
 | **M6 — Reklam Yönetimi & Optimizasyon** | Kanal-üstü kampanya görünümü + optimizasyon önerisi (okuma + öneri; yazma faz 2). |
 | **M7 — Server-side Ölçümleme (CAPI)** | Meta CAPI + TikTok Events + GA4 MP iletimi, hash/consent/dedup ile KVKK rızası. |
@@ -73,15 +73,15 @@ Detaylı diyagram ve karar matrisi: [`docs/04-architecture.md`](docs/04-architec
 AYAZ/
 ├── backend/        # FastAPI uygulaması, modeller, servisler, konektörler, Alembic, testler
 │   ├── ayaz/
-│   │   ├── api/v1/      # 18 router (auth, dashboard, ads, insights, feeds, tracking, ...)
+│   │   ├── api/v1/      # 19 router (auth, dashboard, ads, insights, feeds, tracking, notifications, ...)
 │   │   ├── models/      # SQLAlchemy modelleri (OLTP + analytics fact/dim + modül tabloları)
 │   │   ├── services/    # İş mantığı (metrics, insights, ads, copilot, optimizer, ...)
 │   │   ├── connectors/  # 10 platform konektörü + Connector SDK (base/registry)
 │   │   ├── security/    # Auth/RBAC, hardening yardımcıları
 │   │   └── tasks/       # Celery görevleri (sync, scheduler)
-│   ├── alembic/         # 13 migration
+│   ├── alembic/         # 14 migration
 │   ├── scripts/         # seed_demo.py (idempotent demo verisi)
-│   └── tests/           # ~1230 backend testi
+│   └── tests/           # ~1350 backend testi
 ├── frontend/       # Next.js + React + TS web uygulaması (19 sayfa, PWA)
 │   ├── src/app/        # Sayfalar (dashboard, ads, insights, assistant, billing, ...)
 │   ├── src/components/  # Paylaşılan bileşenler
@@ -128,10 +128,12 @@ cd frontend && npm install && npm run dev
 
 | Ölçüt | Değer |
 |---|---|
-| Backend testleri | ~1230 (`pytest`, SQLite ile hermetik — DB gerekmez) |
-| API endpoint'leri | ~117 (18 v1 router + `/health`) |
-| Alembic migration | 13 |
+| Backend testleri | ~1350 (`pytest`, SQLite ile hermetik — DB gerekmez) |
+| API endpoint'leri | ~123 (19 v1 router + `/health`) |
+| Alembic migration | 14 |
 | Web sayfası | 19 (landing + `/settings` dahil) |
+| Tema | Açık + Koyu (Dark mode) + Sistem |
+| Hızlı erişim | Komut paleti (⌘K), bildirim merkezi, başlangıç rehberi |
 | Konektör | 10 platform (Google Ads, Meta, GA4, Search Console, TikTok, LinkedIn, Microsoft, Criteo, Pinterest, Meta CAPI) |
 | PWA | Evet (manifest + service worker → yüklenebilir mobil deneyim) |
 

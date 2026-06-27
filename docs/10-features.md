@@ -4,7 +4,7 @@
 > ilgili web sayfası (`frontend/src/app/`). Tüm v1 endpoint'leri `/api/v1` önekiyle servis
 > edilir (`backend/ayaz/main.py`). Sayfalar Next.js route segmentleridir.
 >
-> Toplam: **18 router · ~117 endpoint · 19 web sayfası · 10 konektör.**
+> Toplam: **19 router · ~123 endpoint · 19 web sayfası · 10 konektör.**
 > Durum etiketleri: 🟢 canlı (kod + fixture/mock) · 🟡 kısmi · ⏳ canlı kimlik bekler.
 
 ---
@@ -25,6 +25,8 @@
 | M10 Abonelik & Faturalama | `/billing` | `/billing` | 🟢 / ⏳ canlı ödeme |
 | Platform — Kimlik | `/login` | `/auth` | 🟢 |
 | Platform — Hesap & Ayarlar | `/settings` | `/auth/me`, `/auth/preferences` | 🟢 |
+| Bildirim Merkezi | (nav zili) | `/notifications` | 🟢 |
+| En Çok Değişenler | (dashboard) | `/dashboard/top-movers` | 🟢 |
 | #1 AI Copilot | `/assistant` | `/assistant` | 🟢 |
 | #2 Bütçe Optimizatörü | `/optimizer` | `/optimizer` | 🟢 |
 | #3 Hedef & Forecasting | `/goals` | `/goals` | 🟢 |
@@ -128,8 +130,11 @@ Raporlama (router öneki `/reports`):
 
 ## M4 — AI İçgörü & Uyarı
 
-**Ne:** 6 anomali dedektörü + Türkçe doğal-dil narrator + uyarı kuralları (e-posta/Slack).
-Ayrıca farklılaştırıcı #4 (alarm→kök-neden→tek-tık düzeltme) buradaki fix endpoint'leriyle akar.
+**Ne:** 8 anomali dedektörü (roas_drop, spend_spike, zero_conversions, ctr_drop,
+cpc_rise, anomaly + **cvr_drop**, **positive_movement** — olumlu "kazanım" içgörüsü)
++ Türkçe doğal-dil narrator + uyarı kuralları (e-posta/Slack) + uygulama-içi **bildirim
+merkezi** (`/notifications`: liste, okunmamış sayısı, okundu işaretle). Ayrıca
+farklılaştırıcı #4 (alarm→kök-neden→tek-tık düzeltme) buradaki fix endpoint'leriyle akar.
 
 **Sayfa:** `/insights` · **Servis:** `services/insights.py`, `services/narrator.py`, `services/fixes.py`, `services/notifications.py` · **Modeller:** `models/insights.py`
 
