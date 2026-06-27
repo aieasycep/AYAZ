@@ -166,6 +166,14 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 34 — E2E Regresyon Düzeltmeleri (hidrasyon)
+- E2E smoke suite canlı demo yığınına karşı çalıştırıldı; iki sorun yakalandı:
+  (1) `/dashboard` React hidrasyon hatası (#418/#422) — tarih aralığı/başlangıç
+  rehberi `localStorage`'ı ilk render'da okuyordu (SSR↔client uyuşmazlığı).
+  Düzeltildi: deterministik ilk durum + localStorage yalnızca mount sonrası.
+  (2) `/assistant` smoke işareti kırılgandı → her zaman görünen "Yeni sohbet"e çevrildi.
+  Artık 18/18 rota sağlıklı. (Unit test + build'in kaçırdığı runtime hatası.)
+
 ## Dalga 33 — Copilot: Bildirim & Hedef Araçları
 - Copilot'a iki salt-okunur araç daha: `get_notifications` (okunmamış/son bildirimler)
   ve `get_goal_progress` (hedeflere ilerleme/tahmin/durum). Mevcut servisler yeniden

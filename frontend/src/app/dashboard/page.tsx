@@ -140,30 +140,20 @@ export default function DashboardPage() {
   // Initialise from persisted range when available, falling back to the
   // 30-day default. All four values derive from the same lazy computation so
   // they stay in sync on the first render.
-  const [dateFrom, setDateFrom] = useState<string>(() => {
-    const p = loadPersistedRange();
-    return p?.from ?? getDefaultDates().from;
-  });
-  const [dateTo, setDateTo] = useState<string>(() => {
-    const p = loadPersistedRange();
-    return p?.to ?? getDefaultDates().to;
-  });
-  const [appliedFrom, setAppliedFrom] = useState<string>(() => {
-    const p = loadPersistedRange();
-    return p?.from ?? getDefaultDates().from;
-  });
-  const [appliedTo, setAppliedTo] = useState<string>(() => {
-    const p = loadPersistedRange();
-    return p?.to ?? getDefaultDates().to;
-  });
+  // Deterministic initial state — identical on the server and on the first
+  // client render — so hydration does not mismatch. The persisted range
+  // (localStorage, client-only) is applied after mount in the "Initial load"
+  // effect below.
+  const _def = getDefaultDates();
+  const [dateFrom, setDateFrom] = useState<string>(_def.from);
+  const [dateTo, setDateTo] = useState<string>(_def.to);
+  const [appliedFrom, setAppliedFrom] = useState<string>(_def.from);
+  const [appliedTo, setAppliedTo] = useState<string>(_def.to);
 
   // Track which preset is currently active (null = custom/no match)
-  const [activePreset, setActivePreset] = useState<PresetKey | null>(() => {
-    const p = loadPersistedRange();
-    const f = p?.from ?? getDefaultDates().from;
-    const t = p?.to ?? getDefaultDates().to;
-    return detectPreset(f, t);
-  });
+  const [activePreset, setActivePreset] = useState<PresetKey | null>(
+    detectPreset(_def.from, _def.to),
+  );
 
   // Compare toggle
   const [compareOn, setCompareOn] = useState(false);
@@ -218,11 +208,21 @@ export default function DashboardPage() {
     [],
   );
 
-  // Initial load
+  // Initial load — apply the persisted range (client-only) then fetch once.
   useEffect(() => {
     if (!getToken()) return;
-    fetchSummary(appliedFrom, appliedTo, false);
-    fetchTimeseries(appliedFrom, appliedTo, metric);
+    const p = loadPersistedRange();
+    const from = p?.from ?? appliedFrom;
+    const to = p?.to ?? appliedTo;
+    if (p) {
+      setDateFrom(from);
+      setDateTo(to);
+      setAppliedFrom(from);
+      setAppliedTo(to);
+      setActivePreset(detectPreset(from, to));
+    }
+    fetchSummary(from, to, false);
+    fetchTimeseries(from, to, metric);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -38,8 +38,15 @@ function writeLocalBool(key: string): void {
 // ---- Component ----------------------------------------------------------------
 
 export default function GettingStarted() {
+  const [mounted, setMounted] = useState<boolean>(false);
   const [dismissed, setDismissed] = useState<boolean>(false);
   const [status, setStatus] = useState<LoadStatus>('idle');
+
+  // Render nothing until mounted so the server HTML and the first client render
+  // match (this card depends on localStorage, which is client-only).
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [steps, setSteps] = useState<StepState>({
     hasAccount: false,
     hasGoal: false,
@@ -112,8 +119,8 @@ export default function GettingStarted() {
 
   // ---- Visibility guard -------------------------------------------------------
 
-  // During SSR / before hydration, render nothing to avoid flicker
-  if (typeof window === 'undefined') return null;
+  // During SSR / before hydration, render nothing (matches server output).
+  if (!mounted) return null;
   // Dismissed or all done — hide the card
   if (dismissed || allDone) return null;
   // All fetches failed — ancillary card; don't show broken UI

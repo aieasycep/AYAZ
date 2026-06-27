@@ -86,7 +86,7 @@ ROUTES = [
     # (path,               auth_required, expected_turkish_marker)
     ("/",                  False, "dijital pazarlamanız"),
     ("/dashboard",         True,  "Zaman Serisi"),
-    ("/assistant",         True,  "AYAZ Asistan"),
+    ("/assistant",         True,  "Yeni sohbet"),
     ("/briefing",          True,  "Günlük Brifing"),
     ("/insights",          True,  "İçgörüler"),
     ("/connections",       True,  "Bağlantılar"),
