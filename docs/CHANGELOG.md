@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 46 — İçgörü Geri-Bildirim Döngüsü (backend)
+- Adin'in 'Mark as Applied + 👍/👎' kartı ilhamı: `Insight`'a `applied_at` + `reaction`
+  (migration 0017). `POST /insights/{id}/apply` ({applied}) ve `/insights/{id}/react`
+  ({reaction: up|down|null}); liste filtreleri `applied` ve `reaction`. Kapalı geri-bildirim +
+  'uygulananlar' görünümü. 27 yeni test (suite 1508).
+
 ## Dalga 45 — Türkçe Doğal Dil → Feed Kuralı (backend)
 - `POST /feeds/channels/{id}/rules/from-text`: Türkçe cümleden taslak FeedRule üretir
   (kaydetmez) + açıklama + güven + canlı etki (simulate). Claude + deterministik

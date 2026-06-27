@@ -70,6 +70,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 43 (tamamlandı):** Feed Kural Stüdyosu backend — pause + etki önizleme + dry-run simülasyon + kural-linter (Channable panel ilhamı).
 - **Dalga 44 (tamamlandı):** Feed Kural Stüdyosu görsel editör — duraklat + 'Etkiyi Hesapla' barı + kaydetmeden Önizle + linter çipleri (panel kareleri referansıyla).
 - **Dalga 45 (tamamlandı):** Türkçe doğal dil → feed kuralı backend (`/rules/from-text`) — cümleden taslak kural + açıklama + etki (Claude+mock).
+- **Dalga 46 (tamamlandı):** İçgörü geri-bildirim döngüsü backend — 'Uygulandı' + 👍/👎 (Insight.applied_at/reaction, migration 0017) (Adin kartı ilhamı).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

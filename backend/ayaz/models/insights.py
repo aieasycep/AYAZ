@@ -31,6 +31,7 @@ from datetime import date, datetime
 from sqlalchemy import (
     Boolean,
     Date,
+    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -146,6 +147,22 @@ class Insight(Base, TimestampMixin):
         comment="Higher score = higher dashboard priority"
     )
 
+
+    # ── User feedback (closed feedback loop) ───────────────────────────────
+    # Set when the marketer clicks "Mark as Applied" on the recommendation card.
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+        comment="UTC timestamp when the user marked this recommendation as applied; null = not applied",
+    )
+    # Thumbs feedback: 'up' | 'down' | null
+    reaction: Mapped[str | None] = mapped_column(
+        String(8),
+        nullable=True,
+        default=None,
+        comment="User reaction: 'up' | 'down' | null",
+    )
     # ── Machine-readable details ──────────────────────────────────────────
     # Stores raw values, deltas, thresholds used by the detector.
     # Schema varies by category; consumers should treat it as opaque.

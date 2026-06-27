@@ -43,7 +43,7 @@ Numbers
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -127,6 +127,9 @@ class InsightOut(BaseModel):
     score: float
     data: dict[str, Any]
     created_at: Any  # datetime serialised as ISO string by Pydantic
+    # Feedback fields (closed feedback loop — Dalga 46)
+    applied_at: Any | None = None  # datetime or None
+    reaction: str | None = None    # "up" | "down" | null
 
     model_config = {"from_attributes": True}
 
@@ -207,6 +210,32 @@ class AlertRuleUpdate(BaseModel):
     is_active: bool | None = None
 
 
+
+class ApplyRecommendationRequest(BaseModel):
+    """Payload for POST /insights/{id}/apply."""
+
+    applied: bool = Field(
+        ...,
+        description="True to mark recommendation as applied (sets applied_at); False to clear it.",
+    )
+
+
+class ReactRequest(BaseModel):
+    """Payload for POST /insights/{id}/react."""
+
+    reaction: str | None = Field(
+        ...,
+        description="Thumbs feedback: 'up' | 'down' | null (null clears the reaction).",
+    )
+
+    model_config = {"from_attributes": True}
+
+    def validate_reaction(self) -> None:
+        """Raise ValueError if reaction is not a valid value."""
+        if self.reaction is not None and self.reaction not in ("up", "down"):
+            raise ValueError(f"Invalid reaction {self.reaction!r}; must be 'up', 'down', or null.")
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
@@ -270,6 +299,23 @@ def list_insights(
         str | None,
         Query(alias="status", description="Filter by status: new | seen | dismissed"),
     ] = None,
+    applied: Annotated[
+        bool | None,
+        Query(
+            description=(
+                "Filter by applied state: true = only applied recommendations "
+                "(applied_at IS NOT NULL); false = only unapplied."
+            )
+        ),
+    ] = None,
+    reaction_filter: Annotated[
+        str | None,
+        Query(
+            alias="reaction",
+            description="Filter by reaction: 'up' | 'down'",
+            pattern="^(up|down)$",
+        ),
+    ] = None,
     limit: Annotated[
         int,
         Query(description="Maximum number of results (1–200)", ge=1, le=200),
@@ -279,7 +325,9 @@ def list_insights(
 ) -> list[InsightOut]:
     """Return insights ordered by score descending (highest priority first).
 
-    Optionally filter by ``severity`` and/or ``status``.
+    Optionally filter by ``severity``, ``status``, ``applied``, and/or ``reaction``.
+    All filters are optional and backward compatible — omitting them returns all insights
+    as before.
     """
     stmt = (
         select(Insight)
@@ -291,6 +339,12 @@ def list_insights(
         stmt = stmt.where(Insight.severity == severity)
     if status_filter:
         stmt = stmt.where(Insight.status == status_filter)
+    if applied is True:
+        stmt = stmt.where(Insight.applied_at.isnot(None))
+    elif applied is False:
+        stmt = stmt.where(Insight.applied_at.is_(None))
+    if reaction_filter:
+        stmt = stmt.where(Insight.reaction == reaction_filter)
 
     rows = db.scalars(stmt).all()
     return [InsightOut.model_validate(r) for r in rows]
@@ -352,6 +406,64 @@ def trigger_generate(
         new_critical=counts.get("new_critical", 0),
         skipped=counts.get("skipped", 0),
     )
+
+
+
+@router.post(
+    "/{insight_id}/apply",
+    response_model=InsightOut,
+    summary="Mark or unmark a recommendation as applied",
+)
+def apply_recommendation(
+    insight_id: uuid.UUID,
+    body: ApplyRecommendationRequest,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> InsightOut:
+    """Mark a recommendation as applied (sets applied_at to utcnow) or
+    unmark it (clears applied_at to null).
+
+    Tenant isolation: the insight must belong to the caller's tenant — 404 otherwise.
+    """
+    insight = _get_insight_or_404(db, insight_id, membership.tenant_id)
+    if body.applied:
+        insight.applied_at = datetime.now(timezone.utc)
+    else:
+        insight.applied_at = None
+    db.flush()
+    db.refresh(insight)
+    db.commit()
+    return InsightOut.model_validate(insight)
+
+
+@router.post(
+    "/{insight_id}/react",
+    response_model=InsightOut,
+    summary="Set or clear the thumbs reaction on an insight",
+)
+def react_to_insight(
+    insight_id: uuid.UUID,
+    body: ReactRequest,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> InsightOut:
+    """Set the user's thumbs reaction ('up' | 'down') or clear it (null).
+
+    Tenant isolation: the insight must belong to the caller's tenant — 404 otherwise.
+    Validation: reaction must be 'up', 'down', or null — 422 for any other value.
+    """
+    # Validate reaction value
+    if body.reaction is not None and body.reaction not in ("up", "down"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Geçersiz reaksiyon: {body.reaction!r}. İzin verilenler: 'up', 'down' veya null.",
+        )
+    insight = _get_insight_or_404(db, insight_id, membership.tenant_id)
+    insight.reaction = body.reaction
+    db.flush()
+    db.refresh(insight)
+    db.commit()
+    return InsightOut.model_validate(insight)
 
 
 # ── AlertRule endpoints ───────────────────────────────────────────────────────
