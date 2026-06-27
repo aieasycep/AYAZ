@@ -129,6 +129,13 @@
   widget'ları ErrorBoundary ile sarıldı (runtime-çökme sınıfına karşı sertleştirme).
 - Yerel/demo çalıştırma: SQLite-uyumlu DB engine (Postgres yolu değişmedi).
 
+## Dalga 26 — Bildirim Merkezi
+- Tenant-kapsamlı `Notification` modeli (migration 0014) + servis + router:
+  `GET /notifications`, `/unread-count`, `POST /{id}/read`, `/read-all`.
+  İçgörülerden `source_ref` ile tekilleştirerek tembel üretim. 20 test (suite 1251).
+- Nav'da bildirim zili + okunmamış rozeti; açılır panel (önem rengi, göreli zaman,
+  tıklayınca okundu işaretle + ilgili sayfaya git); açık/koyu temada çalışır.
+
 ## Dalga 25 — Tarih Aralığı Ön-Ayarları
 - Paylaşılan `DateRangePresets` bileşeni: Son 7/30/90 gün, Bu ay, Geçen ay
   (yerel saatle hesaplanır, aktif ön-ayar vurgulanır, erişilebilir).

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { logout as logoutApi } from '@/lib/api';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import NotificationBell from './NotificationBell';
 import { useTheme } from './ThemeProvider';
 import styles from './AppNav.module.css';
 
@@ -138,11 +139,12 @@ export default function AppNav() {
             </nav>
           </div>
 
-          {/* Right: workspace switcher + theme toggle + logout (desktop) + hamburger (mobile) */}
+          {/* Right: workspace switcher + notification bell + theme toggle + logout (desktop) + hamburger (mobile) */}
           <div className={styles.right}>
             <div className={styles.desktopOnly}>
               <WorkspaceSwitcher />
             </div>
+            <NotificationBell />
             <ThemeToggle />
             <button className={`${styles.logoutBtn} ${styles.desktopOnly}`} onClick={handleLogout}>
               Oturumu Kapat
@@ -198,6 +200,7 @@ export default function AppNav() {
 
         <div className={styles.drawerFooter}>
           <div className={styles.drawerFooterTop}>
+            <NotificationBell />
             <ThemeToggle />
           </div>
           <button className={styles.drawerLogoutBtn} onClick={handleLogout}>
