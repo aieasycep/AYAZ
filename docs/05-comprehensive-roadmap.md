@@ -75,6 +75,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 48 (tamamlandı):** Feed Kalite Kapısı backend (`/feeds/.../quality`) — yayın-öncesi zorunlu alan doğrulama + kalite skoru (Channable boşluğu).
 - **Dalga 49 (tamamlandı, frontend dahil):** AI ürün-zenginleştirme — kaynakta öneri tablosu + onaylı uygulama.
 - **Dalga 50 (tamamlandı):** Omnipresent 'Veriye Sor' — nav + ⌘K'dan Copilot hızlı-sor modalı + asistan derin-link (Adin 'Ask your data' ilhamı, açık + TR).
+- **Dalga 51 (tamamlandı):** Deploy hazırlığı — prod Dockerfile'lar + docker-compose.prod + Render blueprint + deploy rehberi (canlı link için turnkey).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

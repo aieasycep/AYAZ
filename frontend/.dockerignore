@@ -1,0 +1,21 @@
+# Built output — rebuilt inside Docker
+.next/
+node_modules/
+
+# Secrets — never bake into image
+.env
+.env.*
+!.env.example
+
+# Dev tooling
+*.local
+.eslintcache
+
+# Editor / OS
+.idea/
+.vscode/
+*.DS_Store
+
+# Git
+.git/
+.gitignore

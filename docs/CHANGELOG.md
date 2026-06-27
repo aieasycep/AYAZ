@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 51 — Deploy Hazırlığı (canlı link için)
+- Turnkey deploy: `backend/Dockerfile` + `frontend/Dockerfile` (standalone) + `.dockerignore`'lar,
+  tek-VPS `docker-compose.prod.yml` (postgres+redis+migrate+backend+frontend), Render blueprint
+  (`render.yaml`), `.env.prod.example` ve `docs/12-deploy.md` (Render+Vercel / VPS / yerel — env tablosu).
+  next.config'e `output:'standalone'`. (Docker imajları bu ortamda build-test edilemedi — rehberde not.)
+
 ## Dalga 50 — Omnipresent "Veriye Sor" (Copilot hızlı erişim)
 - Adin'in her-yerde 'Ask your data' barı ilhamı (ama açık + Türkçe): nav'da ve komut
   paletinde (⌘K) 'Veriye Sor' → QuickAsk modalı → soruyu yaz → Copilot konuşması oluşturulur

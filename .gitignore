@@ -54,3 +54,8 @@ ios/Pods/
 # Local SQLite test/demo databases
 backend/*.db
 *.sqlite
+
+# Keep example env templates tracked
+!.env.prod.example
+!*.env.example
+!.env.example

@@ -1,0 +1,81 @@
+# ── AYAZ — Render Blueprint ────────────────────────────────────────────────────
+# Deploy via: https://dashboard.render.com/select-repo
+# Select this repo; Render detects render.yaml and provisions everything below.
+#
+# After the first deploy, set the env vars marked sync: false in the Render
+# dashboard (Environment tab of the ayaz-backend service):
+#   VAULT_KEY      — 32-byte URL-safe base64 string (generate locally, see docs)
+#   ALLOWED_ORIGINS — your Vercel frontend URL, e.g. https://ayaz.vercel.app
+
+databases:
+  - name: ayaz-db
+    plan: free
+    databaseName: ayaz
+    user: ayaz
+
+services:
+  - type: web
+    name: ayaz-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+
+    # Run Alembic migrations before the new version goes live.
+    # On Render this is the "Pre-deploy Command" (release phase).
+    preDeployCommand: alembic upgrade head
+
+    healthCheckPath: /health
+
+    envVars:
+      # Injected automatically from the managed Postgres above.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ayaz-db
+          property: connectionString
+
+      # Render appends ?sslmode=require to the connection string.
+      # psycopg v3 handles this natively; no extra flag needed.
+
+      # Auto-generated strong secret — Render rotates on redeploy if you want.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Set manually in the Render dashboard after first deploy.
+      - key: VAULT_KEY
+        sync: false
+
+      # Comma-separated list of allowed frontend origins (Vercel URL).
+      # Set in the Render dashboard.
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      - key: ENVIRONMENT
+        value: production
+
+      - key: DEBUG
+        value: "false"
+
+      # Redis — Render free plan does not include managed Redis.
+      # Option A: add a Redis service here (paid) and use fromService.
+      # Option B: use Upstash Redis free tier and paste the URL below.
+      # Option C: leave unset — the app boots without Redis (Celery tasks
+      #           will not work until a real Redis URL is provided).
+      - key: REDIS_URL
+        sync: false
+
+      # Optional — AI narrative insights
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # Optional — billing
+      - key: BILLING_PROVIDER
+        value: none
+      - key: IYZICO_API_KEY
+        sync: false
+      - key: IYZICO_SECRET_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

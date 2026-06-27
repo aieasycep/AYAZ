@@ -1,0 +1,125 @@
+version: "3.9"
+
+# ── AYAZ — single-VPS production stack ────────────────────────────────────────
+# Usage:
+#   cp .env.prod.example .env.prod
+#   # fill in every placeholder in .env.prod
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# First deploy — run migrations before starting the backend:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod \
+#     run --rm migrate
+#
+# Or use the one-shot migrate service defined below (it exits 0 when done).
+# Subsequent deploys: the migrate service is called automatically via depends_on.
+
+services:
+  # ── Infrastructure ───────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ayaz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-ayaz}
+    volumes:
+      - ayaz_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ayaz} -d ${POSTGRES_DB:-ayaz}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - ayaz_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── One-shot migration runner ─────────────────────────────────────────────────
+  # Run once per deploy to apply pending Alembic migrations.
+  # `docker compose ... run --rm migrate` or it is called automatically via
+  # depends_on condition from the backend service.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    working_dir: /app
+    command: ["sh", "-c", "alembic upgrade head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ayaz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ayaz}
+      JWT_SECRET: ${JWT_SECRET}
+      VAULT_KEY: ${VAULT_KEY}
+      ENVIRONMENT: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ── Application services ─────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ayaz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ayaz}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET}
+      VAULT_KEY: ${VAULT_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      ENVIRONMENT: production
+      DEBUG: "false"
+      # Optional — set if using AI narrative insights
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Optional billing
+      BILLING_PROVIDER: ${BILLING_PROVIDER:-none}
+      IYZICO_API_KEY: ${IYZICO_API_KEY:-}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_API_BASE is baked into the JS bundle at build time.
+        # Set this to the publicly reachable URL of the backend service
+        # (e.g. https://api.yourdomain.com or http://<VPS-IP>:8000).
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  ayaz_postgres_data:
+  ayaz_redis_data:
