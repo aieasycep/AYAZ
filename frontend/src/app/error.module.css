@@ -65,7 +65,7 @@
 
 .primaryBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: 8px;
   padding: 0.625rem 1.375rem;

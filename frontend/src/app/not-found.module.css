@@ -55,7 +55,7 @@
   display: inline-flex;
   align-items: center;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border-radius: 8px;
   padding: 0.625rem 1.375rem;
   font-size: 0.9375rem;

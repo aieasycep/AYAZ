@@ -7,8 +7,8 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: #1a1d2e;
-  color: #ffffff;
+  background: var(--color-nav-bg);
+  color: var(--color-on-primary);
   border-radius: 14px;
   padding: 0.875rem 1.125rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18);

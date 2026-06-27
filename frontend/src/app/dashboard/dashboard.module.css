@@ -8,8 +8,8 @@
 /* Top bar */
 
 .topbar {
-  background: #1a1d2e;
-  border-bottom: 1px solid #2d3561;
+  background: var(--color-nav-bg);
+  border-bottom: 1px solid var(--color-nav-border);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -28,7 +28,7 @@
 .brand {
   font-size: 1.375rem;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--color-on-primary);
   letter-spacing: -0.3px;
 }
 
@@ -101,7 +101,7 @@
 
 .applyBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1.25rem;
@@ -248,13 +248,13 @@
 .metricBtnActive {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .metricBtnActive:hover {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 /* States */

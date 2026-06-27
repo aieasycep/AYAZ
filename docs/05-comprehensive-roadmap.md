@@ -48,6 +48,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 21 (tamamlandı):** Dokümantasyon tazeleme + Playwright E2E smoke suite + CI UUID düzeltmesi (taşınabilir `GUID` tipi).
 - **Dalga 22 (tamamlandı):** Hesap & Ayarlar — `/settings` (profil + şifre değiştir + bildirim/dil tercihleri) + ilgili `/auth` endpoint'leri.
 - **Dalga 23 (tamamlandı):** Global hata sınırları + zarif yükleniyor/boş/hata durumları + 404; paylaşılan `ErrorBoundary`/`StateViews`; SQLite-uyumlu DB engine.
+- **Dalga 24 (tamamlandı):** Dark mode + tema değiştirici (Açık/Koyu/Sistem); CSS token tabanlı tema, FOUC önleyici; canlı demo ile doğrulandı.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

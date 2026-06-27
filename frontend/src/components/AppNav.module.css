@@ -3,8 +3,8 @@
    ============================================================ */
 
 .topbar {
-  background: #1a1d2e;
-  border-bottom: 1px solid #2d3561;
+  background: var(--color-nav-bg);
+  border-bottom: 1px solid var(--color-nav-border);
   position: sticky;
   top: 0;
   z-index: 200;
@@ -30,7 +30,7 @@
 .brand {
   font-size: 1.375rem;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--color-on-primary);
   letter-spacing: -0.3px;
   flex-shrink: 0;
 }
@@ -90,6 +90,30 @@
 .logoutBtn:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+/* ---- Theme toggle button ---- */
+
+.themeToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 8px;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.themeToggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.45);
   color: #fff;
 }
 
@@ -171,7 +195,7 @@
   bottom: 0;
   width: 300px;
   max-width: 85vw;
-  background: #1a1d2e;
+  background: var(--color-nav-bg);
   z-index: 199;
   display: flex;
   flex-direction: column;
@@ -191,14 +215,14 @@
   justify-content: space-between;
   padding: 0 1.25rem;
   height: 56px;
-  border-bottom: 1px solid #2d3561;
+  border-bottom: 1px solid var(--color-nav-border);
   flex-shrink: 0;
 }
 
 .drawerBrand {
   font-size: 1.375rem;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--color-on-primary);
   letter-spacing: -0.3px;
 }
 
@@ -244,9 +268,18 @@
 
 .drawerFooter {
   padding: 1rem 1.25rem;
-  border-top: 1px solid #2d3561;
+  border-top: 1px solid var(--color-nav-border);
   flex-shrink: 0;
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drawerFooterTop {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .drawerLogoutBtn {

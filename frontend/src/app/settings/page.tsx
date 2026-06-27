@@ -13,6 +13,7 @@ import {
   type UserPreferences,
 } from '@/lib/settings-api';
 import AppNav from '@/components/AppNav';
+import { useTheme, type ThemeValue } from '@/components/ThemeProvider';
 import styles from './settings.module.css';
 
 // --- Helpers ---
@@ -311,6 +312,9 @@ function PreferencesCard() {
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [emailBriefing, setEmailBriefing] = useState(false);
 
+  // Theme is local-only — reads/writes localStorage via ThemeProvider
+  const { theme, setTheme } = useTheme();
+
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -423,6 +427,30 @@ function PreferencesCard() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* ── Tema (localStorage only, no backend) ── */}
+          <div className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>Tema</span>
+            <div className={styles.themeSelector} role="group" aria-label="Tema seçimi">
+              {(
+                [
+                  { value: 'light', label: 'Açık' },
+                  { value: 'dark',  label: 'Koyu' },
+                  { value: 'system', label: 'Sistem' },
+                ] as { value: ThemeValue; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${styles.themeOption} ${theme === opt.value ? styles.themeOptionActive : ''}`}
+                  onClick={() => setTheme(opt.value)}
+                  aria-pressed={theme === opt.value}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 

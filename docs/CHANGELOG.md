@@ -129,6 +129,15 @@
   widget'ları ErrorBoundary ile sarıldı (runtime-çökme sınıfına karşı sertleştirme).
 - Yerel/demo çalıştırma: SQLite-uyumlu DB engine (Postgres yolu değişmedi).
 
+## Dalga 24 — Dark Mode + Tema
+- Koyu tema: `[data-theme="dark"]` token override'ları + `prefers-color-scheme`
+  ile "Sistem" desteği; ThemeProvider (localStorage `ayaz_theme`) + FOUC önleyici
+  inline script.
+- Nav'da tema değiştirici (güneş/ay) ve `/settings → Tercihler`'de Tema seçimi
+  (Açık/Koyu/Sistem).
+- ~30 modül CSS'inde sabit renkler semantik token'lara taşındı; açık tema
+  görünümü birebir korundu (canlı demo ile doğrulandı).
+
 ---
 
 > **Mevcut durum:** Çekirdek M1–M10 + 7 farklılaştırıcı + güvenlik sertleştirme + PWA tamam.

@@ -248,7 +248,7 @@
 }
 
 .campaignRow:hover {
-  background: #f8f9fe;
+  background: var(--color-surface-2);
 }
 
 .campaignRowExpanded {
@@ -343,7 +343,7 @@
 }
 
 .recoRow:hover {
-  background: #f8f9fe;
+  background: var(--color-surface-2);
 }
 
 .recoBadgeCol {
@@ -450,7 +450,7 @@
 
 .comingSoonClose {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1.5rem;

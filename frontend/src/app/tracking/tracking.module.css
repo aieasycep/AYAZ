@@ -90,7 +90,7 @@
 }
 
 .sourceItem:hover {
-  background: #f8f9fe;
+  background: var(--color-surface-2);
 }
 
 .sourceItemActive {
@@ -203,7 +203,7 @@
 
 .primaryBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1.25rem;
@@ -258,7 +258,7 @@
 
 .dangerBtn:hover:not(:disabled) {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .dangerBtn:disabled {
@@ -273,7 +273,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1.25rem;
-  background: #f8f9fe;
+  background: var(--color-surface-2);
   border-top: 1px solid var(--color-border);
   flex-wrap: wrap;
 }
@@ -324,7 +324,7 @@
 
 .snippetBlock {
   margin: 0.75rem 1.25rem;
-  background: #1a1d2e;
+  background: var(--color-nav-bg);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -479,7 +479,7 @@
   height: 14px;
   left: 3px;
   top: 3px;
-  background: #fff;
+  background: var(--color-toggle-knob);
   border-radius: 50%;
   transition: transform 0.2s;
 }
@@ -566,7 +566,7 @@
 }
 
 .table tr:hover td {
-  background: #f8f9fe;
+  background: var(--color-surface-2);
 }
 
 /* Status badges */

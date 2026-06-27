@@ -39,7 +39,7 @@
 
 .refreshBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1.25rem;
@@ -88,7 +88,7 @@
 /* Hero headline card */
 
 .heroCard {
-  background: linear-gradient(135deg, #1a1d2e 0%, #2d3561 100%);
+  background: linear-gradient(135deg, var(--color-nav-bg) 0%, #2d3561 100%);
   border: none;
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
@@ -458,8 +458,8 @@
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
-  background: #1a1d2e;
-  color: #fff;
+  background: var(--color-text);
+  color: var(--color-bg);
   border-radius: var(--radius);
   padding: 0.625rem 1.125rem;
   font-size: 0.875rem;

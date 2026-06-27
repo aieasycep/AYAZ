@@ -46,9 +46,9 @@
 }
 
 .error {
-  background: #fef9c3;
-  border: 1px solid #fbbf24;
-  color: #92400e;
+  background: var(--color-alert-bg);
+  border: 1px solid var(--color-alert-border);
+  color: var(--color-alert-text);
   border-radius: var(--radius);
   padding: 0.75rem 1rem;
   margin-bottom: 1rem;
@@ -88,7 +88,7 @@
 
 .input:focus {
   border-color: var(--color-primary);
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .input:disabled {
@@ -99,7 +99,7 @@
 .button {
   margin-top: 0.5rem;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.75rem 1rem;

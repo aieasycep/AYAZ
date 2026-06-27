@@ -47,7 +47,7 @@
 .newChatBtn {
   width: 100%;
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.45rem 0.875rem;
@@ -264,7 +264,7 @@
 
 .bubbleUser {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border-top-right-radius: 4px;
 }
 
@@ -412,7 +412,7 @@
 
 .sendBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0 1.125rem;

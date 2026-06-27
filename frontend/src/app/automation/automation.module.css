@@ -39,7 +39,7 @@
 
 .newRuleBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1.25rem;
@@ -464,7 +464,7 @@
 
 .submitBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1.5rem;

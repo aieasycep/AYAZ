@@ -39,7 +39,7 @@
 
 .refreshBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1.25rem;
@@ -122,13 +122,13 @@
 .filterBtnActive {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .filterBtnActive:hover {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .filterSep {
@@ -159,7 +159,7 @@
 }
 
 .insightCard:hover {
-  background: #f8f9fe;
+  background: var(--color-surface-2);
 }
 
 .insightCardDismissed {
@@ -467,7 +467,7 @@
 
 .submitBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1.25rem;
@@ -608,8 +608,8 @@
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
-  background: #1a1d2e;
-  color: #fff;
+  background: var(--color-text);
+  color: var(--color-bg);
   border-radius: var(--radius);
   padding: 0.625rem 1.125rem;
   font-size: 0.875rem;

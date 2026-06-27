@@ -40,7 +40,7 @@
 }
 
 .row:hover .td {
-  background: #f8f9fe;
+  background: var(--color-surface-2);
 }
 
 .state {

@@ -230,7 +230,7 @@
 }
 
 .planCardRecommended {
-  border-color: #7c3aed;
+  border-color: var(--color-purple);
 }
 
 .recommendedBadge {
@@ -238,8 +238,8 @@
   top: -11px;
   left: 50%;
   transform: translateX(-50%);
-  background: #7c3aed;
-  color: #fff;
+  background: var(--color-purple);
+  color: var(--color-on-primary);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -255,7 +255,7 @@
   left: 50%;
   transform: translateX(-50%);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -318,7 +318,7 @@
 
 .upgradeBtn {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
   padding: 0.5rem 1rem;
@@ -339,11 +339,11 @@
 }
 
 .upgradeBtnRecommended {
-  background: #7c3aed;
+  background: var(--color-purple);
 }
 
 .upgradeBtnRecommended:hover:not(:disabled) {
-  background: #6d28d9;
+  background: var(--color-purple-hover);
 }
 
 .currentPlanBtn {
@@ -479,7 +479,7 @@
 
 .dialogConfirmBtn {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: 7px;
   padding: 0.4375rem 1rem;

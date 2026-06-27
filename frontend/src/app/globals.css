@@ -6,9 +6,15 @@
   padding: 0;
 }
 
+/* ============================================================
+   Light theme (default)
+   ============================================================ */
+
 :root {
+  /* Core palette */
   --color-bg: #f5f6fa;
   --color-surface: #ffffff;
+  --color-surface-2: #f8f9fe;       /* subtle alt background — hovers, code rows */
   --color-border: #e2e5ef;
   --color-text: #1a1d2e;
   --color-text-muted: #6b7280;
@@ -17,10 +23,183 @@
   --color-accent: #f59e0b;
   --color-danger: #ef4444;
   --color-success: #10b981;
+
+  /* On-coloured-element whites — must stay white in BOTH themes */
+  --color-on-primary: #ffffff;
+
+  /* Nav bar — deliberately dark in both themes */
+  --color-nav-bg: #1a1d2e;
+  --color-nav-border: #2d3561;
+
+  /* Landing page dark sections (always dark) */
+  --color-landing-dark: #0f1629;
+
+  /* Tinted backgrounds for status badges */
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-success-text: #059669;
+  --color-danger-bg: rgba(239, 68, 68, 0.10);
+  --color-danger-text: #dc2626;
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-warning-text: #b45309;
+
+  /* Commentary / AI card background */
+  --color-ai-card-bg: linear-gradient(135deg, #eef2ff 0%, #f0fdf4 100%);
+  --color-ai-card-border: #c7d2fe;
+
+  /* Highlight badges */
+  --color-badge-top-bg: #d1fae5;
+  --color-badge-top-text: #065f46;
+  --color-badge-bottom-bg: #fee2e2;
+  --color-badge-bottom-text: #991b1b;
+  --color-badge-channel-bg: #ede9fe;
+  --color-badge-channel-text: #5b21b6;
+
+  /* Solution col */
+  --color-solution-bg: linear-gradient(135deg, #f0f4ff 0%, #e8efff 100%);
+
+  /* Warning/amber alert (login page) */
+  --color-alert-bg: #fef9c3;
+  --color-alert-border: #fbbf24;
+  --color-alert-text: #92400e;
+
+  /* Billing purple */
+  --color-purple: #7c3aed;
+  --color-purple-hover: #6d28d9;
+
+  /* Toggle knob (always white over coloured track) */
+  --color-toggle-knob: #ffffff;
+
+  /* Shadows */
   --radius: 10px;
   --shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ============================================================
+   Dark theme
+   ============================================================ */
+
+:root[data-theme="dark"] {
+  --color-bg: #0f1117;
+  --color-surface: #171a23;
+  --color-surface-2: #1d2133;
+  --color-border: #272b38;
+  --color-text: #e6e8ef;
+  --color-text-muted: #8b90a0;
+  --color-primary: #6b8cff;
+  --color-primary-hover: #5a7ef5;
+  --color-accent: #f59e0b;
+  --color-danger: #f87171;
+  --color-success: #34d399;
+
+  /* On-primary stays white — never flips */
+  --color-on-primary: #ffffff;
+
+  /* Nav stays dark — same as light (already dark enough, just slightly adapt border) */
+  --color-nav-bg: #0d0f18;
+  --color-nav-border: #1e2133;
+
+  /* Landing page dark sections (always dark) */
+  --color-landing-dark: #0f1629;
+
+  /* Status tints — darker base for dark mode */
+  --color-success-bg: rgba(52, 211, 153, 0.12);
+  --color-success-text: #34d399;
+  --color-danger-bg: rgba(248, 113, 113, 0.12);
+  --color-danger-text: #f87171;
+  --color-warning-bg: rgba(245, 158, 11, 0.14);
+  --color-warning-text: #fbbf24;
+
+  /* AI commentary card */
+  --color-ai-card-bg: linear-gradient(135deg, rgba(107, 140, 255, 0.08) 0%, rgba(52, 211, 153, 0.06) 100%);
+  --color-ai-card-border: rgba(107, 140, 255, 0.25);
+
+  /* Highlight badges */
+  --color-badge-top-bg: rgba(52, 211, 153, 0.15);
+  --color-badge-top-text: #34d399;
+  --color-badge-bottom-bg: rgba(248, 113, 113, 0.15);
+  --color-badge-bottom-text: #f87171;
+  --color-badge-channel-bg: rgba(167, 139, 250, 0.15);
+  --color-badge-channel-text: #a78bfa;
+
+  /* Solution col */
+  --color-solution-bg: linear-gradient(135deg, rgba(107, 140, 255, 0.1) 0%, rgba(107, 140, 255, 0.06) 100%);
+
+  /* Warning/amber alert */
+  --color-alert-bg: rgba(245, 158, 11, 0.12);
+  --color-alert-border: rgba(245, 158, 11, 0.35);
+  --color-alert-text: #fbbf24;
+
+  /* Billing purple */
+  --color-purple: #8b5cf6;
+  --color-purple-hover: #7c3aed;
+
+  /* Toggle knob stays white */
+  --color-toggle-knob: #ffffff;
+
+  /* Shadows — softer/dimmer in dark */
+  --shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+}
+
+/* ============================================================
+   System preference: apply dark tokens when OS is dark
+   and user has chosen "system" (or no preference stored yet)
+   ============================================================ */
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --color-bg: #0f1117;
+    --color-surface: #171a23;
+    --color-surface-2: #1d2133;
+    --color-border: #272b38;
+    --color-text: #e6e8ef;
+    --color-text-muted: #8b90a0;
+    --color-primary: #6b8cff;
+    --color-primary-hover: #5a7ef5;
+    --color-accent: #f59e0b;
+    --color-danger: #f87171;
+    --color-success: #34d399;
+
+    --color-on-primary: #ffffff;
+
+    --color-nav-bg: #0d0f18;
+    --color-nav-border: #1e2133;
+
+    --color-landing-dark: #0f1629;
+
+    --color-success-bg: rgba(52, 211, 153, 0.12);
+    --color-success-text: #34d399;
+    --color-danger-bg: rgba(248, 113, 113, 0.12);
+    --color-danger-text: #f87171;
+    --color-warning-bg: rgba(245, 158, 11, 0.14);
+    --color-warning-text: #fbbf24;
+
+    --color-ai-card-bg: linear-gradient(135deg, rgba(107, 140, 255, 0.08) 0%, rgba(52, 211, 153, 0.06) 100%);
+    --color-ai-card-border: rgba(107, 140, 255, 0.25);
+
+    --color-badge-top-bg: rgba(52, 211, 153, 0.15);
+    --color-badge-top-text: #34d399;
+    --color-badge-bottom-bg: rgba(248, 113, 113, 0.15);
+    --color-badge-bottom-text: #f87171;
+    --color-badge-channel-bg: rgba(167, 139, 250, 0.15);
+    --color-badge-channel-text: #a78bfa;
+
+    --color-solution-bg: linear-gradient(135deg, rgba(107, 140, 255, 0.1) 0%, rgba(107, 140, 255, 0.06) 100%);
+
+    --color-alert-bg: rgba(245, 158, 11, 0.12);
+    --color-alert-border: rgba(245, 158, 11, 0.35);
+    --color-alert-text: #fbbf24;
+
+    --color-purple: #8b5cf6;
+    --color-purple-hover: #7c3aed;
+
+    --color-toggle-knob: #ffffff;
+
+    --shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+  }
 }
 
 html,

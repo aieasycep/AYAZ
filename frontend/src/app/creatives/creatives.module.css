@@ -92,8 +92,8 @@
 /* AI commentary panel */
 
 .commentaryCard {
-  background: linear-gradient(135deg, #eef2ff 0%, #f0fdf4 100%);
-  border: 1px solid #c7d2fe;
+  background: var(--color-ai-card-bg);
+  border: 1px solid var(--color-ai-card-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 1.25rem 1.5rem;
@@ -162,8 +162,8 @@
 }
 
 .badgeTop {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--color-badge-top-bg);
+  color: var(--color-badge-top-text);
   font-size: 0.6875rem;
   font-weight: 700;
   padding: 0.15rem 0.5rem;
@@ -173,8 +173,8 @@
 }
 
 .badgeBottom {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--color-badge-bottom-bg);
+  color: var(--color-badge-bottom-text);
   font-size: 0.6875rem;
   font-weight: 700;
   padding: 0.15rem 0.5rem;
@@ -334,7 +334,7 @@
 }
 
 .row:hover {
-  background: #f9fafb;
+  background: var(--color-surface-2);
 }
 
 .adName {
@@ -356,8 +356,8 @@
 
 .channelBadge {
   display: inline-block;
-  background: #ede9fe;
-  color: #5b21b6;
+  background: var(--color-badge-channel-bg);
+  color: var(--color-badge-channel-text);
   font-size: 0.7rem;
   font-weight: 700;
   padding: 0.15rem 0.5rem;
