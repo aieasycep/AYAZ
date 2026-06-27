@@ -53,6 +53,20 @@ Detectors implemented
    Compares CPC in the last RECENT_DAYS days vs prior period.
    Fires when the percentage rise exceeds CPC_RISE_THRESHOLD (default 25 %).
    Severity: warning at ≥25 %, critical at ≥60 %.
+
+7. ``detect_conversion_rate_drop``
+   Compares CVR (conversions / clicks) in the last RECENT_DAYS days vs the prior
+   RECENT_DAYS period.  Fires when the percentage drop exceeds CVR_DROP_THRESHOLD
+   (default 25 %).  Severity: warning at ≥25 %, critical at ≥50 %.
+   Divide-by-zero guarded: channels with zero clicks in either window are skipped.
+
+8. ``detect_positive_movement``
+   Fires an "info" severity positive insight when ROAS or conversions improve by at
+   least POSITIVE_MOVEMENT_THRESHOLD (default 30 %) vs the prior period.  Noise
+   floors prevent tiny absolute numbers from triggering: minimum spend
+   POSITIVE_MOVEMENT_MIN_SPEND (default 50) for ROAS wins, minimum conversions
+   POSITIVE_MOVEMENT_MIN_CONVERSIONS (default 5) for conversion wins.
+   Severity: info.  Category: positive_movement.
 """
 
 from __future__ import annotations
@@ -115,6 +129,21 @@ CPC_RISE_THRESHOLD: float = 0.25
 
 CPC_RISE_CRITICAL: float = 0.60
 """Fractional CPC rise that escalates to critical."""
+
+CVR_DROP_THRESHOLD: float = 0.25
+"""Fractional CVR (conversion rate) decline that triggers a warning."""
+
+CVR_DROP_CRITICAL: float = 0.50
+"""Fractional CVR decline that escalates to critical."""
+
+POSITIVE_MOVEMENT_THRESHOLD: float = 0.30
+"""Fractional improvement (ROAS or conversions) that triggers a positive insight."""
+
+POSITIVE_MOVEMENT_MIN_SPEND: Decimal = Decimal("50")
+"""Minimum recent-period spend required before a positive ROAS signal is raised."""
+
+POSITIVE_MOVEMENT_MIN_CONVERSIONS: Decimal = Decimal("5")
+"""Minimum recent-period conversions required before a positive conversions signal fires."""
 
 # ── Data structures ───────────────────────────────────────────────────────────
 
@@ -655,6 +684,188 @@ def detect_cpc_rise(
     return results
 
 
+# ── Detector: conversion rate drop ───────────────────────────────────────────
+
+
+def detect_conversion_rate_drop(
+    by_channel: dict[str, list[DailyPoint]],
+    as_of_date: date,
+    recent_days: int = RECENT_DAYS,
+    threshold: float = CVR_DROP_THRESHOLD,
+    critical_threshold: float = CVR_DROP_CRITICAL,
+) -> list[DetectorResult]:
+    """Compare conversion rate (CVR) in the most recent N days vs the prior N days.
+
+    CVR = total conversions / total clicks for the aggregated period.
+    Fires when (prior_cvr - current_cvr) / prior_cvr >= threshold.
+
+    Guards:
+    - Prior period must have positive clicks (else CVR is undefined).
+    - Recent period must have positive clicks (skip channels with no traffic).
+    - Divide-by-zero on clicks == 0 is always guarded before division.
+
+    Severity: warning at >= threshold, critical at >= critical_threshold.
+    """
+    results: list[DetectorResult] = []
+
+    for channel_key, pts in by_channel.items():
+        sorted_pts = sorted(pts, key=lambda p: p.date_key)
+        if len(sorted_pts) < 2:
+            continue
+
+        recent = sorted_pts[-recent_days:]
+        prior = sorted_pts[-2 * recent_days:-recent_days]
+
+        if not prior:
+            continue
+
+        _, r_clk, _, r_conv, _ = _sum_period(recent)
+        _, p_clk, _, p_conv, _ = _sum_period(prior)
+
+        # Guard divide-by-zero: skip if either period has zero clicks
+        if p_clk == Decimal(0) or r_clk == Decimal(0):
+            continue
+
+        current_cvr = float(r_conv / r_clk)
+        prior_cvr = float(p_conv / p_clk)
+
+        if prior_cvr == 0.0:
+            continue
+
+        pct_drop = (prior_cvr - current_cvr) / prior_cvr
+        if pct_drop < threshold:
+            continue
+
+        severity = "critical" if pct_drop >= critical_threshold else "warning"
+        score = min(pct_drop * 150.0, 100.0)
+
+        results.append(
+            DetectorResult(
+                category="cvr_drop",
+                severity=severity,
+                metric="conversion_rate",
+                channel=channel_key,
+                period_start=recent[0].date_key,
+                period_end=recent[-1].date_key,
+                score=score,
+                data={
+                    "current_cvr": current_cvr,
+                    "prior_cvr": prior_cvr,
+                    "pct_drop": pct_drop,
+                    "current_clicks": float(r_clk),
+                    "current_conversions": float(r_conv),
+                },
+            )
+        )
+
+    return results
+
+
+# ── Detector: positive movement ───────────────────────────────────────────────
+
+
+def detect_positive_movement(
+    by_channel: dict[str, list[DailyPoint]],
+    as_of_date: date,
+    recent_days: int = RECENT_DAYS,
+    threshold: float = POSITIVE_MOVEMENT_THRESHOLD,
+    min_spend: Decimal = POSITIVE_MOVEMENT_MIN_SPEND,
+    min_conversions: Decimal = POSITIVE_MOVEMENT_MIN_CONVERSIONS,
+) -> list[DetectorResult]:
+    """Detect significant positive improvements in ROAS or conversions.
+
+    Fires an "info" severity insight when:
+    - ROAS improved by >= threshold vs prior period AND recent spend >= min_spend, OR
+    - Conversions improved by >= threshold vs prior period AND recent conversions >=
+      min_conversions.
+
+    Noise floors
+    ------------
+    - ``min_spend``: minimum spend in the recent period before a ROAS win is raised.
+      Prevents tiny absolute numbers (e.g. 1 click, 2 conversions) from producing
+      celebratory insights.
+    - ``min_conversions``: minimum conversions in the recent period before a
+      conversions win is raised.
+
+    Only one signal per channel is raised (ROAS takes precedence over conversions
+    if both conditions are met, to avoid two "positive" insights for the same channel
+    in the same window).
+
+    Severity is always "info" — positive wins are informational, not actionable alerts.
+    """
+    results: list[DetectorResult] = []
+
+    for channel_key, pts in by_channel.items():
+        sorted_pts = sorted(pts, key=lambda p: p.date_key)
+        if len(sorted_pts) < 2:
+            continue
+
+        recent = sorted_pts[-recent_days:]
+        prior = sorted_pts[-2 * recent_days:-recent_days]
+
+        if not prior:
+            continue
+
+        _, _, r_spend, r_conv, r_cv = _sum_period(recent)
+        _, _, p_spend, p_conv, p_cv = _sum_period(prior)
+
+        fired = False
+
+        # --- Check ROAS improvement ---
+        if r_spend >= min_spend and p_spend > Decimal(0):
+            current_roas = float(_roas(r_cv, r_spend))
+            prior_roas = float(_roas(p_cv, p_spend))
+
+            if prior_roas > 0.0:
+                pct_gain = (current_roas - prior_roas) / prior_roas
+                if pct_gain >= threshold:
+                    score = min(pct_gain * 100.0, 100.0)
+                    results.append(
+                        DetectorResult(
+                            category="positive_movement",
+                            severity="info",
+                            metric="roas",
+                            channel=channel_key,
+                            period_start=recent[0].date_key,
+                            period_end=recent[-1].date_key,
+                            score=score,
+                            data={
+                                "current_roas": current_roas,
+                                "prior_roas": prior_roas,
+                                "pct_gain": pct_gain,
+                                "current_spend": float(r_spend),
+                                "trigger": "roas",
+                            },
+                        )
+                    )
+                    fired = True
+
+        # --- Check conversions improvement (only if ROAS did not already fire) ---
+        if not fired and r_conv >= min_conversions and p_conv > Decimal(0):
+            pct_gain = float((r_conv - p_conv) / p_conv)
+            if pct_gain >= threshold:
+                score = min(pct_gain * 100.0, 100.0)
+                results.append(
+                    DetectorResult(
+                        category="positive_movement",
+                        severity="info",
+                        metric="conversions",
+                        channel=channel_key,
+                        period_start=recent[0].date_key,
+                        period_end=recent[-1].date_key,
+                        score=score,
+                        data={
+                            "current_conversions": float(r_conv),
+                            "prior_conversions": float(p_conv),
+                            "pct_gain": pct_gain,
+                            "trigger": "conversions",
+                        },
+                    )
+                )
+
+    return results
+
+
 # ── Deduplication ─────────────────────────────────────────────────────────────
 
 
@@ -782,6 +993,8 @@ def generate_insights(
     all_results.extend(detect_zero_conversions(by_channel, as_of_date))
     all_results.extend(detect_ctr_drop(by_channel, as_of_date))
     all_results.extend(detect_cpc_rise(by_channel, as_of_date))
+    all_results.extend(detect_conversion_rate_drop(by_channel, as_of_date))
+    all_results.extend(detect_positive_movement(by_channel, as_of_date))
 
     counts = {"new_info": 0, "new_warning": 0, "new_critical": 0, "skipped": 0}
 

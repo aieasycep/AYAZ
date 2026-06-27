@@ -194,6 +194,67 @@ class TemplateNarrator(InsightNarrator):
         )
         return title, body
 
+    def _narrate_cvr_drop(self, result: Any) -> tuple[str, str]:
+        channel = result.channel or "tüm kanallar"
+        data = result.data
+        current = _fmt_num(data.get("current_cvr", 0) * 100)
+        prior = _fmt_num(data.get("prior_cvr", 0) * 100)
+        pct = _fmt_pct(data.get("pct_drop", 0))
+        title = (
+            f"{channel.replace('_', ' ').title()} kanalında dönüşüm oranı "
+            f"{pct} geriledi"
+        )
+        body = (
+            f"{channel.replace('_', ' ').title()} kanalında dönüşüm oranı (CVR) "
+            f"önceki dönemin %{prior} seviyesinden %{current}'e geriledi ({pct} düşüş). "
+            f"Açılış sayfası deneyimi, teklif teklifleme stratejisi veya hedef kitle "
+            f"uyumsuzluğu bu düşüşün olası nedenleri arasındadır. "
+            f"Dönüşüm hunisinin her adımını inceleyiniz; özellikle tıklama sonrası "
+            f"sayfa yükleme süresi ve form/ödeme akışını kontrol ediniz. "
+            f"Yüksek tıklama alan ancak düşük dönüşüm sağlayan reklam gruplarını "
+            f"duraklatmayı değerlendiriniz."
+        )
+        return title, body
+
+    def _narrate_positive_movement(self, result: Any) -> tuple[str, str]:
+        channel = result.channel or "tüm kanallar"
+        data = result.data
+        trigger = data.get("trigger", "roas")
+        pct = _fmt_pct(data.get("pct_gain", 0))
+
+        if trigger == "roas":
+            current = _fmt_num(data.get("current_roas", 0))
+            prior = _fmt_num(data.get("prior_roas", 0))
+            title = (
+                f"\U0001f389 {channel.replace('_', ' ').title()} kanalinda ROAS "
+                f"{pct} yukseldi"
+            )
+            body = (
+                f"{channel.replace('_', ' ').title()} kanalinda reklam harcama getirisi "
+                f"(ROAS) onceki doneme kiyasla {pct} oraninda artti "
+                f"(onceki: {prior}x, guncel: {current}x). "
+                f"Bu olumlu gelisme; kampanya optimizasyonlarinin, hedef kitle "
+                f"iyilestirmelerinin veya sezon etkisinin sonucu olabilir. "
+                f"Basarili stratejileri diger kanallara veya kampanyalara tasimayi "
+                f"degerlendiriniz ve bu performansi surdurmek icin butce artisini gozden geciriniz."
+            )
+        else:
+            current = _fmt_num(data.get("current_conversions", 0), decimals=0)
+            prior = _fmt_num(data.get("prior_conversions", 0), decimals=0)
+            title = (
+                f"\U0001f389 {channel.replace('_', ' ').title()} kanalinda "
+                f"donusumler {pct} yukseldi"
+            )
+            body = (
+                f"{channel.replace('_', ' ').title()} kanalinda donusum sayisi "
+                f"onceki doneme kiyasla {pct} artti "
+                f"(onceki: {prior}, guncel: {current}). "
+                f"Bu hafta donusumler belirgin sekilde yukseldi — bu olumlu ivmeyi "
+                f"korumak icin yuksek performansli reklam gruplarinin butcesini "
+                f"artirmayi degerlendiriniz."
+            )
+        return title, body
+
     def _narrate_budget_pacing(self, result: Any) -> tuple[str, str]:
         channel = result.channel or "tüm kanallar"
         title = f"{channel.replace('_', ' ').title()} kanalında bütçe hızı sorunu tespit edildi"

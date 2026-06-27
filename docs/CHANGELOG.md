@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 31 — Yeni İçgörü Dedektörleri (M4 derinleştirme)
+- `detect_conversion_rate_drop` (dönüşüm oranı düşüşü) ve `detect_positive_movement`
+  (olumlu "kazanım" içgörüsü — çoğu rakip yalnızca alarm verir; AYAZ kazanımları da
+  kutlar, brifing tonunu dengeler). Narrator'a Türkçe metinler eklendi; dedup korunur.
+  36 yeni test (suite 1351). Bu içgörüler bildirim merkezi + günlük brifingi de besler.
+
 ## Dalga 30 — Copilot: En Çok Değişenler Aracı
 - Copilot'a `get_top_movers` aracı (salt-okunur) eklendi: "son 30 günde en çok ne
   değişti?" gibi sorulara veriyle yanıt. Sıralama mantığı `metrics.compute_top_movers`
