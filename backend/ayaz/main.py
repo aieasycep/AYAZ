@@ -11,8 +11,11 @@ intentionally unversioned for load-balancer / Kubernetes liveness probes.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from ayaz.api.v1 import auth as auth_router
 from ayaz.api.v1 import connectors as connectors_router
@@ -34,6 +37,14 @@ from ayaz.api.v1 import reports as reports_router
 from ayaz.api.v1 import tracking as tracking_router
 from ayaz.api.v1 import workspaces as workspaces_router
 from ayaz.config import settings
+from ayaz.observability import (
+    RequestIDMiddleware,
+    RequestLoggingMiddleware,
+    configure_logging,
+)
+
+# Configure logging once at import time — idempotent, safe under hot-reload.
+configure_logging(level=logging.DEBUG if settings.debug else logging.INFO)
 
 app = FastAPI(
     title="AYAZ API",
@@ -45,6 +56,20 @@ app = FastAPI(
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
 )
+
+# ── Observability middleware ───────────────────────────────────────────────────
+# Starlette executes middleware in *reverse* registration order on ingress.
+# We want: RequestID → RequestLogging → CORS → route handler.
+# So we register in the order: CORS last (added first below is outermost last),
+# but to be explicit we add them in this exact sequence:
+#   1. RequestLoggingMiddleware  (registered second → runs second on ingress)
+#   2. RequestIDMiddleware       (registered third  → runs first on ingress,
+#                                  sets request_id before logging reads it)
+# CORS is added last here so it remains the very first ASGI layer (handles
+# preflight OPTIONS before any of our middleware fires).
+
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
@@ -86,3 +111,28 @@ app.include_router(notifications_router.router, prefix=_PREFIX)
 def health() -> dict[str, str]:
     """Return 200 OK — used by load balancers and Kubernetes liveness probes."""
     return {"status": "ok", "version": app.version}
+
+
+@app.get("/health/ready", tags=["infra"], summary="Readiness probe")
+def health_ready() -> JSONResponse:
+    """Check DB connectivity and return 200 when the service is ready to serve traffic.
+
+    Executes a lightweight ``SELECT 1`` against the configured database.
+    Returns 503 Service Unavailable (body ``{"status": "not_ready"}``) if the
+    database is unreachable — without leaking any exception detail.
+    Used by Kubernetes readiness probes and load-balancer health checks.
+    """
+    from sqlalchemy import text
+
+    from ayaz.database import engine
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        logging.getLogger("ayaz.health").warning(
+            "Readiness probe: DB connectivity check failed"
+        )
+        return JSONResponse(status_code=503, content={"status": "not_ready"})
+
+    return JSONResponse(status_code=200, content={"status": "ready"})

@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 40 — Gözlemlenebilirlik & Hazırlık Probu
+- `X-Request-ID` middleware (gelen başlığı yansıtır/üretir) + yapılandırılmış istek
+  logu (method/path/status/süre/request_id; gövde/başlık/sır loglanmaz; /health DEBUG).
+- `GET /health/ready` DB bağlantısını (`SELECT 1`) kontrol eden hazırlık probu (200/503).
+  Mevcut `/health` liveness aynen korundu. 18 yeni test (suite 1418).
+
 ## Dalga 39 — Frontend Birim Testleri
 - Vitest + React Testing Library + jsdom kuruldu (önceden frontend birim testi yoktu).
   49 test: api normalize yardımcıları (briefing/goals), tarih ön-ayar matematiği,

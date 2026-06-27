@@ -81,7 +81,7 @@ AYAZ/
 │   │   └── tasks/       # Celery görevleri (sync, scheduler)
 │   ├── alembic/         # 15 migration
 │   ├── scripts/         # seed_demo.py (idempotent demo verisi)
-│   └── tests/           # ~1400 backend testi
+│   └── tests/           # ~1420 backend testi
 ├── frontend/       # Next.js + React + TS web uygulaması (19 sayfa, PWA)
 │   ├── src/app/        # Sayfalar (dashboard, ads, insights, assistant, billing, ...)
 │   ├── src/components/  # Paylaşılan bileşenler
@@ -128,7 +128,7 @@ cd frontend && npm install && npm run dev
 
 | Ölçüt | Değer |
 |---|---|
-| Backend testleri | ~1400 (`pytest`, SQLite ile hermetik — DB gerekmez) |
+| Backend testleri | ~1420 (`pytest`, SQLite ile hermetik — DB gerekmez) |
 | Frontend testleri | 49 (Vitest + Testing Library) + E2E smoke (Playwright, 19 rota) |
 | API endpoint'leri | ~123 (19 v1 router + `/health`) |
 | Alembic migration | 15 |

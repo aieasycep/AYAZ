@@ -64,6 +64,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 37 (tamamlandı):** Şifre değişiminde otomatik yeniden giriş UX'i (Dalga 36 tamamlayıcısı).
 - **Dalga 38 (tamamlandı):** Erişilebilirlik — global focus-visible + prefers-reduced-motion.
 - **Dalga 39 (tamamlandı):** Frontend birim test altyapısı (Vitest+RTL, 49 test) + CI işi.
+- **Dalga 40 (tamamlandı):** Gözlemlenebilirlik — request-ID + yapılandırılmış istek logu + `/health/ready` DB hazırlık probu.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**
