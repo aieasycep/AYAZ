@@ -7,6 +7,8 @@ import type {
   LintIssue,
   LintResponse,
   RuleFromTextResponse,
+  FeedQualityResponse,
+  QualityIssue,
 } from '@/lib/feeds-api';
 
 // ---------------------------------------------------------------------------
@@ -455,5 +457,169 @@ describe('configToFormState (NL reverse-mapping)', () => {
     const state = configToFormState('rename_field', { from: 'old', to: 'new' });
     expect(state.rf_from).toBe('old');
     expect(state.rf_to).toBe('new');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FeedQualityResponse type contract
+// ---------------------------------------------------------------------------
+
+describe('FeedQualityResponse type', () => {
+  it('carries score, total, valid, sampled, and issues', () => {
+    const resp: FeedQualityResponse = {
+      score: 85,
+      total: 1000,
+      valid: 950,
+      sampled: false,
+      issues: [
+        {
+          code: 'missing_recommended_field',
+          severity: 'warning',
+          field: 'description',
+          message: 'Açıklama alanı eksik',
+          affected_count: 50,
+          sample_ids: ['id1', 'id2'],
+        },
+      ],
+    };
+    expect(resp.score).toBe(85);
+    expect(resp.total).toBe(1000);
+    expect(resp.valid).toBe(950);
+    expect(resp.issues).toHaveLength(1);
+    expect(resp.issues[0].severity).toBe('warning');
+  });
+
+  it('sampled is optional and may be omitted', () => {
+    const resp: FeedQualityResponse = {
+      score: 42,
+      total: 200,
+      valid: 84,
+      issues: [],
+    };
+    expect(resp.sampled).toBeUndefined();
+    expect(resp.issues).toHaveLength(0);
+  });
+
+  it('QualityIssue carries all six known codes', () => {
+    const codes = [
+      'missing_required_field',
+      'missing_recommended_field',
+      'duplicate_id',
+      'invalid_price',
+      'title_too_long',
+      'missing_image',
+    ];
+    for (const code of codes) {
+      const issue: QualityIssue = {
+        code,
+        severity: 'error',
+        field: 'test_field',
+        message: 'Test mesajı',
+        affected_count: 1,
+        sample_ids: [],
+      };
+      expect(issue.code).toBe(code);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getChannelQuality — fetch mock
+// ---------------------------------------------------------------------------
+
+describe('getChannelQuality', () => {
+  beforeEach(() => {
+    if (typeof globalThis.localStorage === 'undefined') {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: { getItem: () => 'test-token', removeItem: vi.fn(), setItem: vi.fn() },
+        writable: true,
+      });
+    }
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls GET /api/v1/feeds/channels/{channelId}/quality and returns parsed response', async () => {
+    const mockResponse: FeedQualityResponse = {
+      score: 74,
+      total: 500,
+      valid: 370,
+      sampled: true,
+      issues: [
+        {
+          code: 'missing_required_field',
+          severity: 'error',
+          field: 'g:id',
+          message: 'Zorunlu alan eksik: g:id',
+          affected_count: 80,
+          sample_ids: ['prod-001', 'prod-002'],
+        },
+        {
+          code: 'invalid_price',
+          severity: 'error',
+          field: 'price',
+          message: 'Geçersiz fiyat değeri',
+          affected_count: 50,
+          sample_ids: ['prod-010'],
+        },
+      ],
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getChannelQuality } = await import('@/lib/feeds-api');
+    const result = await getChannelQuality('channel-abc');
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/feeds/channels/channel-abc/quality');
+    // quality endpoint is GET — no method override
+    expect((options?.method ?? 'GET').toUpperCase()).toBe('GET');
+    expect(result.score).toBe(74);
+    expect(result.total).toBe(500);
+    expect(result.valid).toBe(370);
+    expect(result.sampled).toBe(true);
+    expect(result.issues).toHaveLength(2);
+    expect(result.issues[0].code).toBe('missing_required_field');
+    expect(result.issues[1].code).toBe('invalid_price');
+  });
+
+  it('throws when the server returns a non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: () => Promise.resolve('Servis kullanılamıyor'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getChannelQuality: gq } = await import('@/lib/feeds-api');
+    await expect(gq('channel-abc')).rejects.toThrow('Servis kullanılamıyor');
+  });
+
+  it('redirects to /login on 401', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: () => Promise.resolve('Unauthorized'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    // Stub window.location so the redirect does not crash in test env
+    const locationStub = { href: '' };
+    Object.defineProperty(globalThis, 'window', {
+      value: { location: locationStub, localStorage: globalThis.localStorage },
+      writable: true,
+    });
+
+    const { getChannelQuality: gq } = await import('@/lib/feeds-api');
+    await expect(gq('channel-xyz')).rejects.toThrow('Oturum süresi doldu');
   });
 });

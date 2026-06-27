@@ -171,6 +171,7 @@
   çıktıyı kanal türünün zorunlu/önerilen alanlarına göre denetler → kalite skoru + sorun listesi
   (missing_required_field, duplicate_id, invalid_price, title_too_long, missing_image…).
   Saf `compute_feed_quality`; Channable 'reddedilen ürün = kayıp satış' boşluğunu kapatır.
+  Frontend: kural stüdyosunda 'Kalite Kontrolü' — skor (iyi/orta/zayıf renkli) + '{valid}/{total} geçerli' + sorun listesi (önem çipli). 38 yeni frontend testi (121).
 
 ## Dalga 47 — Performans Skorlama Katmanı (backend)
 - Adin gösterge ilhamı ama ŞEFFAF: `GET /dashboard/scores` — Genel Etkinlik + Verimlilik/

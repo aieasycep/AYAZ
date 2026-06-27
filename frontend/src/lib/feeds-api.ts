@@ -303,3 +303,28 @@ export function ruleFromText(
 export function getPublicFeedUrl(publicToken: string): string {
   return `${API_BASE}/api/v1/feeds/public/${publicToken}`;
 }
+
+// --- Feed Quality ---
+
+export interface QualityIssue {
+  code: string; // missing_required_field | missing_recommended_field | duplicate_id | invalid_price | title_too_long | missing_image
+  severity: 'error' | 'warning';
+  field: string;
+  message: string; // Turkish
+  affected_count: number;
+  sample_ids: string[];
+}
+
+export interface FeedQualityResponse {
+  score: number; // 0–100
+  total: number;
+  valid: number;
+  sampled?: boolean;
+  issues: QualityIssue[];
+}
+
+export function getChannelQuality(channelId: string): Promise<FeedQualityResponse> {
+  return authFetch<FeedQualityResponse>(
+    `/api/v1/feeds/channels/${channelId}/quality`,
+  );
+}

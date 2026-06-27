@@ -17,6 +17,7 @@ import {
   simulateRule,
   lintChannelRules,
   ruleFromText,
+  getChannelQuality,
   getPublicFeedUrl,
   type FeedSource,
   type FeedChannel,
@@ -29,6 +30,8 @@ import {
   type SimulateRuleResponse,
   type LintIssue,
   type RuleFromTextResponse,
+  type FeedQualityResponse,
+  type QualityIssue,
 } from '@/lib/feeds-api';
 import AppNav from '@/components/AppNav';
 import styles from './feeds.module.css';
@@ -281,6 +284,35 @@ function SampleDiff({
   );
 }
 
+// --- Quality score rating helper ---
+
+function qualityRating(score: number): { label: string; mod: 'good' | 'mid' | 'bad' } {
+  if (score >= 90) return { label: 'iyi', mod: 'good' };
+  if (score >= 70) return { label: 'orta', mod: 'mid' };
+  return { label: 'zayıf', mod: 'bad' };
+}
+
+// --- Quality issue row ---
+
+function QualityIssueRow({ issue }: { issue: QualityIssue }) {
+  const chipClass =
+    issue.severity === 'error' ? styles.lintChipError : styles.lintChipWarn;
+  return (
+    <div className={styles.qualityIssueRow}>
+      <span className={`${styles.lintChip} ${chipClass}`}>
+        {issue.severity === 'error' ? 'hata' : 'uyarı'}
+      </span>
+      <div className={styles.qualityIssueMain}>
+        <span className={styles.qualityIssueMsg}>{issue.message}</span>
+        <span className={styles.qualityIssueMeta}>
+          <span className={styles.qualityIssueField}>{issue.field}</span>
+          <span className={styles.muted}>&middot; {issue.affected_count.toLocaleString('tr-TR')} ürün</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // --- Rule editor for a channel ---
 
 function RuleEditor({ channel }: { channel: FeedChannel }) {
@@ -308,6 +340,11 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
   // Feature 4: Linter
   const [lintIssues, setLintIssues] = useState<LintIssue[]>([]);
   const [lintLoading, setLintLoading] = useState(false);
+
+  // Feature 5: Feed Quality
+  const [quality, setQuality] = useState<FeedQualityResponse | null>(null);
+  const [qualityLoading, setQualityLoading] = useState(false);
+  const [qualityError, setQualityError] = useState<string | null>(null);
 
   // NL rule generator
   const [nlText, setNlText] = useState('');
@@ -403,6 +440,20 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       setImpactError(err instanceof Error ? err.message : 'Etki hesaplanamadı');
     } finally {
       setImpactLoading(false);
+    }
+  }
+
+  // Feature 5: Fetch quality
+  async function handleFetchQuality() {
+    setQualityLoading(true);
+    setQualityError(null);
+    try {
+      const res = await getChannelQuality(channel.id);
+      setQuality(res);
+    } catch (err: unknown) {
+      setQualityError(err instanceof Error ? err.message : 'Kalite verisi alınamadı');
+    } finally {
+      setQualityLoading(false);
     }
   }
 
@@ -547,6 +598,52 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                   disabled={impactLoading}
                 >
                   {impactLoading ? 'Hesaplanıyor...' : 'Etkiyi Hesapla'}
+                </button>
+              </div>
+
+              {/* Feature 5: Quality section */}
+              <div className={styles.qualityBar}>
+                {quality && (() => {
+                  const { label, mod } = qualityRating(quality.score);
+                  return (
+                    <div className={styles.qualityContent}>
+                      <div className={styles.qualityScoreRow}>
+                        <span className={`${styles.qualityScore} ${styles[`qualityScore_${mod}`]}`}>
+                          {quality.score}
+                        </span>
+                        <div className={styles.qualityScoreInfo}>
+                          <span className={`${styles.qualityRatingLabel} ${styles[`qualityRatingLabel_${mod}`]}`}>
+                            {label}
+                          </span>
+                          <span className={styles.qualityValidCount}>
+                            {quality.valid.toLocaleString('tr-TR')}/{quality.total.toLocaleString('tr-TR')} ürün geçerli
+                          </span>
+                          {quality.sampled && (
+                            <span className={styles.qualitySampled}>Örneklem üzerinde hesaplandı</span>
+                          )}
+                        </div>
+                      </div>
+                      {quality.issues.length === 0 ? (
+                        <div className={styles.qualityEmpty}>
+                          Tüm ürünler kanal gereksinimlerini karşılıyor
+                        </div>
+                      ) : (
+                        <div className={styles.qualityIssueList}>
+                          {quality.issues.map((issue, idx) => (
+                            <QualityIssueRow key={idx} issue={issue} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                {qualityError && <span className={styles.formError}>{qualityError}</span>}
+                <button
+                  className={styles.secondaryBtn}
+                  onClick={handleFetchQuality}
+                  disabled={qualityLoading}
+                >
+                  {qualityLoading ? 'Kontrol ediliyor...' : 'Kalite Kontrolü'}
                 </button>
               </div>
 
