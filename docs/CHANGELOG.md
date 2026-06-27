@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 49 — AI Ürün-Zenginleştirme (backend)
+- Channable 'Optimize' ilhamı, insan-onaylı: `POST /feeds/sources/{id}/enrich` eksik
+  alanları (renk/marka/kategori/materyal/başlık) kaynak metinden ÖNERİR (kaydetmez);
+  `.../enrich/apply` yalnızca onaylanan değerleri `FeedProduct.data`'ya yazar.
+  LLM + deterministik mock-fallback (anahtarsız çalışır). 55 yeni test (suite 1686).
+
 ## Dalga 48 — Feed Kalite Kapısı (backend)
 - Yayından önce kanal-bazlı doğrulama: `GET /feeds/channels/{id}/quality` — kural-uygulanmış
   çıktıyı kanal türünün zorunlu/önerilen alanlarına göre denetler → kalite skoru + sorun listesi

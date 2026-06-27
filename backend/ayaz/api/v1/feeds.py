@@ -67,6 +67,7 @@ from ayaz.services.feeds import (
     simulate_rule,
 )
 from ayaz.services.feed_rule_nlp import parse_rule_from_text
+from ayaz.services.feed_enrichment import ENRICHABLE_FIELDS, suggest_enrichment
 
 router = APIRouter(prefix="/feeds", tags=["feeds"])
 
@@ -1180,3 +1181,242 @@ def public_feed(
 
     content, content_type = generate_channel_feed(db, channel)
     return Response(content=content, media_type=content_type)
+
+
+# ── AI Product Enrichment (Dalga 49) ──────────────────────────────────────────
+
+# Sample cap for enrichment: we analyse up to this many products per call.
+_ENRICH_SAMPLE_LIMIT = 200
+
+
+class EnrichmentSuggestion(BaseModel):
+    """One AI / heuristic suggestion for a missing product attribute."""
+
+    product_id: str
+    field: str
+    current: str
+    suggested: str
+    confidence: str  # "high" | "low"
+    source: str  # "ai" | "heuristic"
+
+
+class EnrichBody(BaseModel):
+    """Request body for the suggest-enrichment endpoint."""
+
+    fields: list[str]
+    product_ids: list[str] | None = None
+    limit: int | None = None
+
+    @field_validator("fields")
+    @classmethod
+    def validate_fields(cls, v: list[str]) -> list[str]:
+        invalid = [f for f in v if f not in ENRICHABLE_FIELDS]
+        if invalid:
+            raise ValueError(
+                f"Unknown enrichable fields: {invalid}. "
+                f"Allowed: {sorted(ENRICHABLE_FIELDS)}"
+            )
+        if not v:
+            raise ValueError("fields must not be empty")
+        return v
+
+    @field_validator("limit")
+    @classmethod
+    def validate_limit(cls, v: int | None) -> int | None:
+        if v is not None and v <= 0:
+            raise ValueError("limit must be a positive integer")
+        return v
+
+
+class EnrichResponse(BaseModel):
+    """Suggestions returned by the enrichment engine (nothing is persisted)."""
+
+    suggestions: list[EnrichmentSuggestion]
+    sampled: bool
+    sampled_total: int | None
+
+
+class EnrichApproval(BaseModel):
+    """One approved (product_id, field, value) triple from the human reviewer."""
+
+    product_id: str
+    field: str
+    value: str
+
+
+class EnrichApplyBody(BaseModel):
+    """Request body for the apply-approvals endpoint."""
+
+    approvals: list[EnrichApproval]
+
+
+class EnrichApplyResponse(BaseModel):
+    """Result of applying approved enrichment values."""
+
+    applied_count: int
+
+
+def _load_source_products(
+    source: FeedSource, db: Session, limit: int = _ENRICH_SAMPLE_LIMIT
+) -> tuple[list[FeedProduct], int]:
+    """Load FeedProduct ORM rows for a source (tenant-scoped), capped at limit.
+
+    Returns (rows, total_count).
+    """
+    total_count: int = db.scalar(
+        select(sa_func.count(FeedProduct.id)).where(
+            FeedProduct.feed_source_id == source.id,
+            FeedProduct.tenant_id == source.tenant_id,
+        )
+    ) or 0
+
+    rows = list(
+        db.scalars(
+            select(FeedProduct)
+            .where(
+                FeedProduct.feed_source_id == source.id,
+                FeedProduct.tenant_id == source.tenant_id,
+            )
+            .limit(limit)
+        )
+    )
+    return rows, total_count
+
+
+@router.post(
+    "/sources/{source_id}/enrich",
+    response_model=EnrichResponse,
+    summary="Suggest missing product attribute values using AI/heuristics (nothing is persisted)",
+)
+def suggest_source_enrichment(
+    source_id: uuid.UUID,
+    body: EnrichBody,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> EnrichResponse:
+    """Generate AI / heuristic suggestions for missing product attributes.
+
+    This endpoint is read-only — it persists nothing.  The caller must review
+    suggestions and POST to ``/sources/{source_id}/enrich/apply`` to write them.
+
+    Enrichable fields
+    -----------------
+    color     — Turkish + English color words scanned from title/description
+    brand     — leading capitalised word of title when brand is empty (low confidence)
+    category  — keyword-to-category mapping from title/description
+    material  — material keywords scanned from title/description
+    title     — collapsed whitespace, trimmed; suggested only if it differs
+
+    A suggestion is only generated when the field is currently absent or empty.
+
+    Sampling
+    --------
+    Products are capped at 200 (or body.limit if smaller).  ``sampled=True``
+    and ``sampled_total`` are set when the source has more products than the cap.
+
+    Tenant isolation: 404 if source_id is not in the authenticated tenant.
+    """
+    src = _require_source(source_id, membership.tenant_id, db)
+
+    effective_limit = min(
+        body.limit if body.limit is not None else _ENRICH_SAMPLE_LIMIT,
+        _ENRICH_SAMPLE_LIMIT,
+    )
+
+    product_rows, total_count = _load_source_products(src, db, limit=effective_limit)
+    sampled = total_count > effective_limit
+
+    # Filter by product_ids if specified
+    if body.product_ids is not None:
+        pid_set = set(body.product_ids)
+        product_rows = [r for r in product_rows if str(r.id) in pid_set]
+
+    products = [r.data for r in product_rows]
+    product_ids = [str(r.id) for r in product_rows]
+
+    result = suggest_enrichment(products, body.fields, product_ids=product_ids)
+
+    return EnrichResponse(
+        suggestions=[EnrichmentSuggestion(**s) for s in result["suggestions"]],
+        sampled=sampled,
+        sampled_total=total_count if sampled else None,
+    )
+
+
+@router.post(
+    "/sources/{source_id}/enrich/apply",
+    response_model=EnrichApplyResponse,
+    summary="Apply human-approved enrichment values to products (writes approved values only)",
+)
+def apply_source_enrichment(
+    source_id: uuid.UUID,
+    body: EnrichApplyBody,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> EnrichApplyResponse:
+    """Write explicitly approved enrichment values into each product's data dict.
+
+    Only the approved (product_id, field, value) triples are written — no other
+    field is touched.  This is the human-in-the-loop apply step.
+
+    Approved values are merged into FeedProduct.data (the JSON attribute store).
+    The field name used as the key is the canonical enrichment field name
+    (color, brand, category, material, title).
+
+    Tenant isolation: 404 if source_id is not in the authenticated tenant.
+
+    Returns
+    -------
+    { "applied_count": int }  — number of (product, field) pairs written.
+    """
+    src = _require_source(source_id, membership.tenant_id, db)
+
+    if not body.approvals:
+        return EnrichApplyResponse(applied_count=0)
+
+    # Build a lookup: product_id (str of UUID) → FeedProduct row
+    product_id_strs = [a.product_id for a in body.approvals]
+    # Convert strings to UUIDs, skipping any that are not valid
+    product_uuids: list[uuid.UUID] = []
+    for pid_str in product_id_strs:
+        try:
+            product_uuids.append(uuid.UUID(pid_str))
+        except (ValueError, AttributeError):
+            pass
+
+    if not product_uuids:
+        return EnrichApplyResponse(applied_count=0)
+
+    rows = list(
+        db.scalars(
+            select(FeedProduct).where(
+                FeedProduct.id.in_(product_uuids),
+                FeedProduct.feed_source_id == src.id,
+                FeedProduct.tenant_id == membership.tenant_id,
+            )
+        )
+    )
+
+    # Index by str(id) for O(1) lookup
+    row_by_id: dict[str, FeedProduct] = {str(r.id): r for r in rows}
+
+    applied_count = 0
+    for approval in body.approvals:
+        row = row_by_id.get(approval.product_id)
+        if row is None:
+            # Product not found or not in this tenant's source — skip silently
+            continue
+        # Only accept enrichable fields
+        if approval.field not in ENRICHABLE_FIELDS:
+            continue
+        # Merge the approved value into the product's data dict (copy to avoid
+        # mutating the mapped dict in-place which may not mark it dirty in SA)
+        new_data = dict(row.data)
+        new_data[approval.field] = approval.value
+        row.data = new_data
+        db.add(row)
+        applied_count += 1
+
+    db.commit()
+
+    return EnrichApplyResponse(applied_count=applied_count)
