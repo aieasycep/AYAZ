@@ -72,6 +72,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 45 (tamamlandı):** Türkçe doğal dil → feed kuralı backend (`/rules/from-text`) — cümleden taslak kural + açıklama + etki (Claude+mock).
 - **Dalga 46 (tamamlandı):** İçgörü geri-bildirim döngüsü backend — 'Uygulandı' + 👍/👎 (Insight.applied_at/reaction, migration 0017) (Adin kartı ilhamı).
 - **Dalga 47 (tamamlandı):** Performans skorlama katmanı backend (`/dashboard/scores`) — şeffaf, kendi-geçmişine-göre 0–100 skorlar (Adin gösterge ilhamı).
+- **Dalga 48 (tamamlandı):** Feed Kalite Kapısı backend (`/feeds/.../quality`) — yayın-öncesi zorunlu alan doğrulama + kalite skoru (Channable boşluğu).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

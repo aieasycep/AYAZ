@@ -57,6 +57,9 @@ from ayaz.services.feeds import (
     VALID_RULE_TYPES,
     VALID_SOURCE_TYPES,
     _IMPACT_SAMPLE_LIMIT,
+    _QUALITY_SAMPLE_LIMIT,
+    apply_rules,
+    compute_feed_quality,
     compute_rules_impact,
     generate_channel_feed,
     ingest_feed_source,
@@ -1007,6 +1010,129 @@ def rule_from_text(
         explanation=parsed.explanation,
         confidence=parsed.confidence,
         impact=impact,
+    )
+
+
+# ── Feed Quality Gate (Dalga 48) ─────────────────────────────────────────────
+
+
+class QualityIssue(BaseModel):
+    """One quality issue detected in the feed output."""
+
+    code: str
+    """Machine-readable issue code.
+
+    Possible values:
+    - missing_required_field  — a channel-required field is absent/empty (error)
+    - missing_recommended_field — a recommended field is absent/empty (warning)
+    - missing_image           — image_link is absent/empty (error, specific code)
+    - duplicate_id            — the same product id appears more than once (error)
+    - invalid_price           — price is non-numeric, zero, or negative (error)
+    - title_too_long          — title exceeds the channel's character limit (warning)
+    - empty_feed              — no products remain after rules (info)
+    """
+    severity: str
+    """Severity level: "error" | "warning" | "info"."""
+    field: str | None
+    """The product field the issue relates to, or None for structural issues."""
+    message: str
+    """Turkish human-readable description of the issue."""
+    affected_count: int
+    """Number of products in the sample affected by this issue."""
+    sample_ids: list[str]
+    """Up to 3 product IDs that exhibit this issue (for actionable display)."""
+
+
+class FeedQualityResponse(BaseModel):
+    """Result of the feed quality gate check for a channel."""
+
+    score: int
+    """Quality score 0–100.  round(100 * valid / total).  0 when feed is empty."""
+    total: int
+    """Total products evaluated (may be a sample — see sampled)."""
+    valid: int
+    """Products with no error-severity issues."""
+    sampled: bool
+    """True when the channel has more products than the sample cap (1000)."""
+    sampled_total: int | None
+    """Actual total product count when sampled=True, else None."""
+    issues: list[QualityIssue]
+    """List of detected quality issues sorted by severity (errors first)."""
+
+
+@router.get(
+    "/channels/{channel_id}/quality",
+    response_model=FeedQualityResponse,
+    summary="Feed quality gate — validate channel output before publishing",
+)
+def feed_quality(
+    channel_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> FeedQualityResponse:
+    """Run the quality gate on a channel's rule-applied product output.
+
+    Loads the channel's products (capped at 1000 for performance), applies all
+    non-paused rules in position order, then validates the output against the
+    channel's required and recommended fields.
+
+    Returns a score (0–100), valid/total counts, and a list of actionable
+    issues with ``affected_count`` and up to 3 sample product IDs per issue.
+
+    A score of 100 means every product passes all error-level checks.
+    Warnings (missing recommended fields, long titles) do not reduce the score.
+
+    Issue codes
+    -----------
+    missing_required_field   error   — required field absent or empty
+    missing_image            error   — image_link absent or empty
+    duplicate_id             error   — same id value on multiple products
+    invalid_price            error   — price non-numeric, zero, or negative
+    missing_recommended_field warning — recommended field absent or empty
+    title_too_long           warning — title exceeds channel character limit
+    empty_feed               info    — no products remain after rules
+
+    Tenant isolation: returns 404 if the channel does not belong to the
+    authenticated tenant.
+    """
+    ch = _require_channel(channel_id, membership.tenant_id, db)
+
+    # Load products (sample cap mirrors the impact endpoint)
+    products, total_count = _load_channel_products(ch, db, limit=_QUALITY_SAMPLE_LIMIT)
+    sampled = total_count > _QUALITY_SAMPLE_LIMIT
+
+    # Load non-paused rules in position order
+    rules = list(
+        db.scalars(
+            select(FeedRule)
+            .where(
+                FeedRule.feed_channel_id == channel_id,
+                FeedRule.tenant_id == membership.tenant_id,
+            )
+            .order_by(FeedRule.position)
+        )
+    )
+
+    # Apply all non-paused rules (apply_rules skips is_paused=True rules internally)
+    products_after_rules = apply_rules(products, rules)
+
+    # Run the pure quality check
+    result = compute_feed_quality(products_after_rules, ch.channel_type)
+
+    # Sort issues: errors first, then warnings, then info
+    _severity_order = {"error": 0, "warning": 1, "info": 2}
+    sorted_issues = sorted(
+        result["issues"],
+        key=lambda i: _severity_order.get(i["severity"], 99),
+    )
+
+    return FeedQualityResponse(
+        score=result["score"],
+        total=result["total"],
+        valid=result["valid"],
+        sampled=sampled,
+        sampled_total=total_count if sampled else None,
+        issues=[QualityIssue(**issue) for issue in sorted_issues],
     )
 
 

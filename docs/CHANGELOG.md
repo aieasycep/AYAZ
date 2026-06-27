@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 48 — Feed Kalite Kapısı (backend)
+- Yayından önce kanal-bazlı doğrulama: `GET /feeds/channels/{id}/quality` — kural-uygulanmış
+  çıktıyı kanal türünün zorunlu/önerilen alanlarına göre denetler → kalite skoru + sorun listesi
+  (missing_required_field, duplicate_id, invalid_price, title_too_long, missing_image…).
+  Saf `compute_feed_quality`; Channable 'reddedilen ürün = kayıp satış' boşluğunu kapatır.
+
 ## Dalga 47 — Performans Skorlama Katmanı (backend)
 - Adin gösterge ilhamı ama ŞEFFAF: `GET /dashboard/scores` — Genel Etkinlik + Verimlilik/
   Etkileşim/Dönüşüm 0–100 skorları, **kendi geçmiş döneme göre** (sahte benchmark yok).

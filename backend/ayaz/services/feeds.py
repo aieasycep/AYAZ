@@ -735,6 +735,363 @@ def lint_rules(
     return issues
 
 
+# ── Feed Quality Gate ─────────────────────────────────────────────────────────
+#
+# Per-channel-kind field specifications.
+#
+# Each spec contains:
+#   required  — fields that MUST be non-empty; absence is an "error"
+#   recommended — fields that SHOULD be present; absence is a "warning"
+#   title_max_len — maximum character length for the "title" field (or None)
+#
+# Field names here are the NORMALISED canonical keys that _normalise() produces
+# (after applying _FIELD_ALIASES).  The product data stored in FeedProduct.data
+# typically uses these canonical names directly (the ingestion helpers normalise
+# on the way in), but to be robust the quality checker also normalises each
+# product through the same alias map before validating.
+#
+# google_shopping — Google Merchant Center RSS 2.0 spec.
+#   Required:    id, title, description, link, image_link, availability, price
+#   Recommended: brand, condition; at least one of gtin or mpn
+#   Title limit: 150 characters (GMC policy)
+#
+# meta_catalog — Meta (Facebook/Instagram) Product Catalog CSV spec.
+#   Required:    id, title, description, availability, condition, price,
+#                link, image_link
+#   Recommended: brand
+#   Title limit: None (Meta has no enforced hard limit in the feed spec itself)
+#
+# tiktok_catalog — TikTok Shop Catalog CSV spec.
+#   The TikTok export uses "sku_id" in the rendered CSV but the internal
+#   canonical field is still "id" (the renderer maps id→sku_id at render time).
+#   Required:    id, title, description, price, availability, image_link, link
+#   Recommended: brand, condition
+#   Title limit: None
+#
+# generic/fallback (all other channel_type values, including "custom").
+#   Required:    id, title, link
+#   Recommended: (none)
+#   Title limit: None
+
+_CHANNEL_QUALITY_SPECS: dict[str, dict] = {
+    "google_shopping": {
+        "required": ["id", "title", "description", "link", "image_link", "availability", "price"],
+        "recommended": ["brand", "condition"],
+        # gtin and mpn are treated specially: at least one should be present (checked separately)
+        "gtin_or_mpn": True,
+        "title_max_len": 150,
+    },
+    "meta_catalog": {
+        "required": ["id", "title", "description", "availability", "condition", "price", "link", "image_link"],
+        "recommended": ["brand"],
+        "gtin_or_mpn": False,
+        "title_max_len": None,
+    },
+    "tiktok_catalog": {
+        "required": ["id", "title", "description", "price", "availability", "image_link", "link"],
+        "recommended": ["brand", "condition"],
+        "gtin_or_mpn": False,
+        "title_max_len": None,
+    },
+}
+
+_GENERIC_QUALITY_SPEC: dict = {
+    "required": ["id", "title", "link"],
+    "recommended": [],
+    "gtin_or_mpn": False,
+    "title_max_len": None,
+}
+
+# Maximum sample size for the quality gate (mirrors _IMPACT_SAMPLE_LIMIT)
+_QUALITY_SAMPLE_LIMIT = 1000
+
+# Decimal / price pattern: optional sign, digits, optional decimal part
+_PRICE_RE = re.compile(r"^-?\d+(\.\d+)?(\s+[A-Z]{3})?$")
+
+
+def _is_valid_price(value: str) -> bool:
+    """Return True iff value represents a positive numeric price.
+
+    Accepts plain numbers ("9.99") and GMC-style amounts with ISO currency
+    code ("9.99 USD").  Rejects zero, negative, and non-numeric strings.
+    """
+    stripped = value.strip()
+    if not stripped:
+        return False
+    # Strip trailing currency code if present (e.g. "9.99 USD")
+    parts = stripped.split()
+    numeric_part = parts[0]
+    try:
+        val = float(numeric_part)
+        return val > 0
+    except (ValueError, TypeError):
+        return False
+
+
+def compute_feed_quality(
+    products_after_rules: list[dict],
+    channel_kind: str,
+) -> dict:
+    """Validate rule-applied product dicts against the channel's field spec.
+
+    This is a PURE, deterministic function — no DB access, no side effects,
+    no external dependencies.
+
+    Parameters
+    ----------
+    products_after_rules:
+        Product dicts already processed by apply_rules().  May be a sample
+        (caller is responsible for noting ``sampled=True`` in the response).
+    channel_kind:
+        The FeedChannel.channel_type string.  Determines which field spec is
+        applied.  Unknown values fall back to the generic spec.
+
+    Returns
+    -------
+    {
+        "score": int,           # 0-100 — round(100 * valid / total); 0 when total == 0
+        "total": int,           # number of products evaluated
+        "valid": int,           # products with NO error-severity issues
+        "issues": [
+            {
+                "code": str,            # machine-readable issue code
+                "severity": str,        # "error" | "warning" | "info"
+                "field": str | None,    # affected field, or None for structural issues
+                "message": str,         # Turkish human-readable description
+                "affected_count": int,  # how many products have this issue
+                "sample_ids": list[str] # up to 3 product ids exhibiting the issue
+            }
+        ]
+    }
+
+    Issue codes
+    -----------
+    missing_required_field   error   — required field is absent or empty
+    missing_recommended_field warning — recommended field is absent or empty
+    duplicate_id             error   — the same "id" value appears more than once
+    invalid_price            error   — "price" is non-numeric, zero, or negative
+    title_too_long           warning — title exceeds the channel's character limit
+    missing_image            error   — image_link is absent or empty (alias for
+                                       missing_required_field on image_link; kept
+                                       as a distinct code for actionability)
+    empty_feed               info    — no products in the feed after rules
+    """
+    spec = _CHANNEL_QUALITY_SPECS.get(channel_kind, _GENERIC_QUALITY_SPEC)
+    required_fields: list[str] = spec["required"]
+    recommended_fields: list[str] = spec.get("recommended", [])
+    gtin_or_mpn: bool = spec.get("gtin_or_mpn", False)
+    title_max_len: int | None = spec.get("title_max_len")
+
+    issues: list[dict] = []
+    total = len(products_after_rules)
+
+    # --- Edge case: empty feed ---
+    if total == 0:
+        return {
+            "score": 0,
+            "total": 0,
+            "valid": 0,
+            "issues": [
+                {
+                    "code": "empty_feed",
+                    "severity": "info",
+                    "field": None,
+                    "message": (
+                        "Kural uygulandıktan sonra beslemede hiç ürün kalmadı. "
+                        "Filtre kurallarınızı kontrol edin."
+                    ),
+                    "affected_count": 0,
+                    "sample_ids": [],
+                }
+            ],
+        }
+
+    # Normalise all products through the alias map for robust field lookup.
+    # We keep the original "id" value for sample_ids before normalisation.
+    normalised: list[dict] = [_normalise(p) for p in products_after_rules]
+
+    # Helper: collect (count, sample_ids) for products matching a predicate.
+    def _collect(pred) -> tuple[int, list[str]]:
+        count = 0
+        samples: list[str] = []
+        for p in normalised:
+            if pred(p):
+                count += 1
+                if len(samples) < 3:
+                    samples.append(str(p.get("id", "")))
+        return count, samples
+
+    # Track per-product error count for valid-item calculation.
+    # A product is "valid" if it has zero error-severity issues.
+    product_error_flags: list[bool] = [False] * total  # index matches normalised
+
+    def _flag_errors(pred) -> None:
+        for i, p in enumerate(normalised):
+            if pred(p):
+                product_error_flags[i] = True
+
+    # --- Required fields ---
+    for field in required_fields:
+        # image_link uses a specific code for better actionability
+        code = "missing_image" if field == "image_link" else "missing_required_field"
+        severity = "error"
+
+        def _missing(p: dict, f: str = field) -> bool:
+            val = p.get(f, "")
+            return not val or not str(val).strip()
+
+        count, samples = _collect(_missing)
+        if count > 0:
+            issues.append(
+                {
+                    "code": code,
+                    "severity": severity,
+                    "field": field,
+                    "message": (
+                        f"'{field}' alanı zorunludur ancak {count} üründe "
+                        "boş veya eksik."
+                    ),
+                    "affected_count": count,
+                    "sample_ids": samples,
+                }
+            )
+            _flag_errors(_missing)
+
+    # --- Recommended fields ---
+    for field in recommended_fields:
+        def _missing_rec(p: dict, f: str = field) -> bool:
+            val = p.get(f, "")
+            return not val or not str(val).strip()
+
+        count, samples = _collect(_missing_rec)
+        if count > 0:
+            issues.append(
+                {
+                    "code": "missing_recommended_field",
+                    "severity": "warning",
+                    "field": field,
+                    "message": (
+                        f"'{field}' alanı önerilmektedir ancak {count} üründe "
+                        "boş veya eksik. Bu alan eksik olduğunda kanal reddedebilir."
+                    ),
+                    "affected_count": count,
+                    "sample_ids": samples,
+                }
+            )
+
+    # --- gtin or mpn (Google Shopping only) ---
+    if gtin_or_mpn:
+        def _missing_gtin_mpn(p: dict) -> bool:
+            gtin_val = str(p.get("gtin", "")).strip()
+            mpn_val = str(p.get("mpn", "")).strip()
+            return not gtin_val and not mpn_val
+
+        count, samples = _collect(_missing_gtin_mpn)
+        if count > 0:
+            issues.append(
+                {
+                    "code": "missing_recommended_field",
+                    "severity": "warning",
+                    "field": "gtin|mpn",
+                    "message": (
+                        f"'gtin' veya 'mpn' alanlarından en az biri önerilmektedir. "
+                        f"{count} üründe her ikisi de boş. Google bu ürünleri "
+                        "reddedebilir."
+                    ),
+                    "affected_count": count,
+                    "sample_ids": samples,
+                }
+            )
+
+    # --- Duplicate IDs ---
+    seen_ids: dict[str, list[int]] = {}
+    for i, p in enumerate(normalised):
+        pid = str(p.get("id", "")).strip()
+        if pid:
+            seen_ids.setdefault(pid, []).append(i)
+
+    dup_ids = {pid: idxs for pid, idxs in seen_ids.items() if len(idxs) > 1}
+    if dup_ids:
+        dup_count = sum(len(idxs) for idxs in dup_ids.values())
+        sample_ids = list(dup_ids.keys())[:3]
+        issues.append(
+            {
+                "code": "duplicate_id",
+                "severity": "error",
+                "field": "id",
+                "message": (
+                    f"{len(dup_ids)} benzersiz 'id' değeri birden fazla üründe "
+                    f"tekrarlanıyor ({dup_count} ürün etkileniyor). "
+                    "Kanallar yinelenen kimlikleri reddeder."
+                ),
+                "affected_count": dup_count,
+                "sample_ids": sample_ids,
+            }
+        )
+        for idxs in dup_ids.values():
+            for i in idxs:
+                product_error_flags[i] = True
+
+    # --- Invalid price ---
+    if "price" in required_fields or "price" in recommended_fields:
+        def _bad_price(p: dict) -> bool:
+            val = str(p.get("price", "")).strip()
+            if not val:
+                return False  # already caught by missing_required_field
+            return not _is_valid_price(val)
+
+        count, samples = _collect(_bad_price)
+        if count > 0:
+            issues.append(
+                {
+                    "code": "invalid_price",
+                    "severity": "error",
+                    "field": "price",
+                    "message": (
+                        f"{count} üründe 'price' alanı sayısal değil, sıfır veya "
+                        "negatif. Geçerli format: '9.99' veya '9.99 TRY'."
+                    ),
+                    "affected_count": count,
+                    "sample_ids": samples,
+                }
+            )
+            _flag_errors(_bad_price)
+
+    # --- Title too long ---
+    if title_max_len is not None:
+        def _long_title(p: dict, limit: int = title_max_len) -> bool:
+            val = str(p.get("title", ""))
+            return len(val) > limit
+
+        count, samples = _collect(_long_title)
+        if count > 0:
+            issues.append(
+                {
+                    "code": "title_too_long",
+                    "severity": "warning",
+                    "field": "title",
+                    "message": (
+                        f"{count} üründe 'title' alanı {title_max_len} karakteri "
+                        "aşıyor. Google Merchant Center bu başlıkları kısaltabilir."
+                    ),
+                    "affected_count": count,
+                    "sample_ids": samples,
+                }
+            )
+
+    # --- Compute score ---
+    # A product is "valid" if it has no error-severity issue.
+    valid = product_error_flags.count(False)
+    score = round(100 * valid / total) if total > 0 else 0
+
+    return {
+        "score": score,
+        "total": total,
+        "valid": valid,
+        "issues": issues,
+    }
+
+
 # ── Feed rendering ────────────────────────────────────────────────────────────
 
 # Normalised field names that the ingestion layer tries to standardise to,
