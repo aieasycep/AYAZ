@@ -166,6 +166,11 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 47 — Performans Skorlama Katmanı (backend)
+- Adin gösterge ilhamı ama ŞEFFAF: `GET /dashboard/scores` — Genel Etkinlik + Verimlilik/
+  Etkileşim/Dönüşüm 0–100 skorları, **kendi geçmiş döneme göre** (sahte benchmark yok).
+  Her skorda 'basis' açıklaması (neden bu skor). Saf `compute_scores` fonksiyonu. 72 yeni test (suite 1580).
+
 ## Dalga 46 — İçgörü Geri-Bildirim Döngüsü (backend)
 - Adin'in 'Mark as Applied + 👍/👎' kartı ilhamı: `Insight`'a `applied_at` + `reaction`
   (migration 0017). `POST /insights/{id}/apply` ({applied}) ve `/insights/{id}/react`

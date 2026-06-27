@@ -54,6 +54,7 @@ from ayaz.services.metrics import (
     effective_spend,
     roas as _roas_metric,
 )
+from ayaz.services.scores import compute_scores
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -61,6 +62,54 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 _TIMESERIES_METRICS = frozenset(
     {"spend", "impressions", "clicks", "conversions", "conversion_value", "roas"}
 )
+
+
+# ── Scores response schemas ───────────────────────────────────────────────────
+
+
+class ScoreComponent(BaseModel):
+    """Tek bir puan bileşeni — metrik, skor, mevcut/baz değer ve açıklama.
+
+    Fields
+    ------
+    key:        Internal identifier (efficiency | engagement | conversion).
+    label:      Turkish display name.
+    score:      0–100 integer.  ~50 = kendi geçmişinizle aynı seviye.
+    value:      Current-period headline metric value (e.g. current ROAS).
+    baseline:   Baseline (previous-period) headline metric value.
+    basis:      Short Turkish explanation of why the score is what it is.
+    """
+
+    key: str
+    label: str
+    score: int
+    value: float
+    baseline: float
+    basis: str
+
+
+class OverallScore(BaseModel):
+    """Genel Etkinlik puanı — üç bileşenin ağırlıklı ortalaması.
+
+    Weights: Verimlilik %40 · Etkileşim %30 · Dönüşüm %30.
+    """
+
+    score: int
+    label: str
+    rating: str  # "iyi" | "orta" | "zayıf"
+
+
+class ScoresResponse(BaseModel):
+    """Performans puanlama yanıtı.
+
+    Tüm puanlar kiracının kendi geçmişine göre hesaplanır (seçilen dönem vs
+    hemen önceki eşit uzunlukta dönem).  Harici karşılaştırma yoktur.
+    """
+
+    date_from: date
+    date_to: date
+    overall: OverallScore
+    components: list[ScoreComponent]
 
 
 # ── Response schemas ──────────────────────────────────────────────────────────
@@ -673,6 +722,87 @@ def top_movers(
             )
             for m in result["movers"]
         ],
+    )
+
+
+# ── Performance scores endpoint ───────────────────────────────────────────────
+
+
+def _totals_to_scores_dict(totals: SummaryTotals) -> dict:
+    """Convert a SummaryTotals Pydantic model to a plain dict for compute_scores."""
+    return {
+        "spend": totals.spend,
+        "impressions": totals.impressions,
+        "clicks": totals.clicks,
+        "conversions": totals.conversions,
+        "conversion_value": totals.conversion_value,
+        "ctr": totals.ctr,
+        "cpc": totals.cpc,
+        "cpa": totals.cpa,
+        "roas": totals.roas,
+    }
+
+
+@router.get(
+    "/scores",
+    response_model=ScoresResponse,
+    summary="Performans puanları — şeffaf, öz-göreli skorlar",
+)
+def scores(
+    date_from: Annotated[date, Query(description="Dönem başlangıç tarihi (YYYY-MM-DD)")],
+    date_to: Annotated[date, Query(description="Dönem bitiş tarihi (YYYY-MM-DD)")],
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> ScoresResponse:
+    """Seçilen dönem için performans puanlarını döndürür.
+
+    Puanlar tamamen kiracının kendi geçmişine göre hesaplanır: seçilen dönem,
+    hemen önceki eşit uzunlukta döneme (baz dönem) kıyaslanır.
+    Harici karşılaştırma veya sektör ortalaması kullanılmaz.
+
+    Bileşenler ve ağırlıklar:
+    - Verimlilik (%40): ROAS ve CPA'ya dayalı verimlilik skoru.
+    - Etkileşim (%30): CTR'ye dayalı etkileşim skoru.
+    - Dönüşüm (%30): Dönüşüm oranına (conversions/clicks) dayalı skor.
+
+    Skor skalası:
+    - ~50: Kendi geçmişinizle aynı seviye.
+    - 70–100: Açıkça daha iyi performans.
+    - 0–40: Açıkça daha zayıf performans.
+
+    Rating eşikleri: ≥67 "iyi", 34–66 "orta", <34 "zayıf".
+
+    Baz dönem sıfır olduğunda (yeterli geçmiş veri yoksa) tarafsız 50 döner.
+    Sıfıra bölme hatası asla oluşmaz.
+    """
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="date_from must be <= date_to",
+        )
+
+    tenant_id = membership.tenant_id
+
+    # Current period totals.
+    current_totals, _ = _aggregate_period(db, tenant_id, date_from, date_to)
+
+    # Baseline: immediately preceding equal-length period.
+    period_len = (date_to - date_from).days + 1
+    prev_to = date_from - timedelta(days=1)
+    prev_from = prev_to - timedelta(days=period_len - 1)
+    baseline_totals, _ = _aggregate_period(db, tenant_id, prev_from, prev_to)
+
+    # Delegate scoring to the pure function (unit-testable without HTTP/DB).
+    result = compute_scores(
+        current_totals=_totals_to_scores_dict(current_totals),
+        baseline_totals=_totals_to_scores_dict(baseline_totals),
+    )
+
+    return ScoresResponse(
+        date_from=date_from,
+        date_to=date_to,
+        overall=OverallScore(**result["overall"]),
+        components=[ScoreComponent(**c) for c in result["components"]],
     )
 
 
