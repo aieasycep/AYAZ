@@ -43,6 +43,12 @@
   flex-wrap: wrap;
 }
 
+/* Presets row — full width so it sits above the date inputs */
+.presetsRow {
+  width: 100%;
+  flex-basis: 100%;
+}
+
 .dateGroup {
   display: flex;
   flex-direction: column;

@@ -21,6 +21,10 @@ import AppNav from '@/components/AppNav';
 import DashboardEmptyState from '@/components/DashboardEmptyState';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { LoadingState, ErrorState } from '@/components/StateViews';
+import DateRangePresets, {
+  detectPreset,
+  type PresetKey,
+} from '@/components/DateRangePresets';
 import styles from './dashboard.module.css';
 
 // --- Date helpers ---
@@ -34,6 +38,46 @@ function getDefaultDates() {
   const from = new Date();
   from.setDate(from.getDate() - 29);
   return { from: toISODate(from), to: toISODate(to) };
+}
+
+const LS_RANGE_KEY = 'ayaz_dashboard_range';
+
+/** Validate that a string looks like YYYY-MM-DD. */
+function isValidDate(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+/** Read the persisted range from localStorage; returns null if absent/invalid. */
+function loadPersistedRange(): { from: string; to: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LS_RANGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'from' in parsed &&
+      'to' in parsed &&
+      isValidDate((parsed as { from: string }).from) &&
+      isValidDate((parsed as { to: string }).to)
+    ) {
+      return { from: (parsed as { from: string }).from, to: (parsed as { to: string }).to };
+    }
+  } catch {
+    // corrupted — ignore
+  }
+  return null;
+}
+
+/** Persist the applied range to localStorage. */
+function persistRange(from: string, to: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LS_RANGE_KEY, JSON.stringify({ from, to }));
+  } catch {
+    // storage full or blocked — silently ignore
+  }
 }
 
 // --- Formatters ---
@@ -91,11 +135,33 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  const defaults = getDefaultDates();
-  const [dateFrom, setDateFrom] = useState(defaults.from);
-  const [dateTo, setDateTo] = useState(defaults.to);
-  const [appliedFrom, setAppliedFrom] = useState(defaults.from);
-  const [appliedTo, setAppliedTo] = useState(defaults.to);
+  // Initialise from persisted range when available, falling back to the
+  // 30-day default. All four values derive from the same lazy computation so
+  // they stay in sync on the first render.
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    const p = loadPersistedRange();
+    return p?.from ?? getDefaultDates().from;
+  });
+  const [dateTo, setDateTo] = useState<string>(() => {
+    const p = loadPersistedRange();
+    return p?.to ?? getDefaultDates().to;
+  });
+  const [appliedFrom, setAppliedFrom] = useState<string>(() => {
+    const p = loadPersistedRange();
+    return p?.from ?? getDefaultDates().from;
+  });
+  const [appliedTo, setAppliedTo] = useState<string>(() => {
+    const p = loadPersistedRange();
+    return p?.to ?? getDefaultDates().to;
+  });
+
+  // Track which preset is currently active (null = custom/no match)
+  const [activePreset, setActivePreset] = useState<PresetKey | null>(() => {
+    const p = loadPersistedRange();
+    const f = p?.from ?? getDefaultDates().from;
+    const t = p?.to ?? getDefaultDates().to;
+    return detectPreset(f, t);
+  });
 
   // Compare toggle
   const [compareOn, setCompareOn] = useState(false);
@@ -167,8 +233,22 @@ export default function DashboardPage() {
   function applyDates() {
     setAppliedFrom(dateFrom);
     setAppliedTo(dateTo);
+    setActivePreset(detectPreset(dateFrom, dateTo));
+    persistRange(dateFrom, dateTo);
     fetchSummary(dateFrom, dateTo, compareOn);
     fetchTimeseries(dateFrom, dateTo, metric);
+  }
+
+  function handlePresetSelect(from: string, to: string) {
+    // Set inputs and apply immediately — same as picking dates + clicking "Uygula"
+    setDateFrom(from);
+    setDateTo(to);
+    setAppliedFrom(from);
+    setAppliedTo(to);
+    setActivePreset(detectPreset(from, to));
+    persistRange(from, to);
+    fetchSummary(from, to, compareOn);
+    fetchTimeseries(from, to, metric);
   }
 
   function handleCompareToggle() {
@@ -218,6 +298,14 @@ export default function DashboardPage() {
 
         {/* Date range + compare toggle + CSV export */}
         <section className={styles.dateBar}>
+          {/* Quick presets row — spans full width above the inputs */}
+          <div className={styles.presetsRow}>
+            <DateRangePresets
+              onSelect={handlePresetSelect}
+              activePreset={activePreset}
+            />
+          </div>
+
           <div className={styles.dateGroup}>
             <label className={styles.dateLabel} htmlFor="date-from">
               Baslangic

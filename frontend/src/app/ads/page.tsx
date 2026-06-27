@@ -18,6 +18,10 @@ import TimeSeriesChart from '@/components/TimeSeriesChart';
 import AppNav from '@/components/AppNav';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
+import DateRangePresets, {
+  detectPreset,
+  type PresetKey,
+} from '@/components/DateRangePresets';
 import styles from './ads.module.css';
 
 // --- Date helpers ---
@@ -139,6 +143,11 @@ export default function AdsPage() {
   const [dateTo, setDateTo] = useState(defaults.to);
   const [appliedFrom, setAppliedFrom] = useState(defaults.from);
   const [appliedTo, setAppliedTo] = useState(defaults.to);
+
+  // Track which preset is currently active (null = custom/no match)
+  const [activePreset, setActivePreset] = useState<PresetKey | null>(
+    () => detectPreset(defaults.from, defaults.to),
+  );
   const [channelFilter, setChannelFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | ''>('');
   const [appliedChannel, setAppliedChannel] = useState('');
@@ -207,8 +216,22 @@ export default function AdsPage() {
     setAppliedTo(dateTo);
     setAppliedChannel(channelFilter);
     setAppliedStatus(statusFilter);
+    setActivePreset(detectPreset(dateFrom, dateTo));
     fetchCampaigns(dateFrom, dateTo, channelFilter, statusFilter);
     fetchRecos(dateFrom, dateTo);
+  }
+
+  function handlePresetSelect(from: string, to: string) {
+    // Apply immediately; preserve existing channel/status filter values
+    setDateFrom(from);
+    setDateTo(to);
+    setAppliedFrom(from);
+    setAppliedTo(to);
+    setAppliedChannel(channelFilter);
+    setAppliedStatus(statusFilter);
+    setActivePreset(detectPreset(from, to));
+    fetchCampaigns(from, to, channelFilter, statusFilter);
+    fetchRecos(from, to);
   }
 
   // Expanded campaign detail
@@ -338,6 +361,14 @@ export default function AdsPage() {
 
           {/* Toolbar */}
           <div className={styles.toolbar}>
+            {/* Quick presets — full-width row above date inputs */}
+            <div className={styles.presetsRow}>
+              <DateRangePresets
+                onSelect={handlePresetSelect}
+                activePreset={activePreset}
+              />
+            </div>
+
             <div className={styles.dateGroup}>
               <label className={styles.dateLabel} htmlFor="ads-from">
                 Başlangıç

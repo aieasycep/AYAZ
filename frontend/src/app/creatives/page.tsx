@@ -10,6 +10,10 @@ import {
   type CreativesPerformanceResponse,
 } from '@/lib/creatives-api';
 import AppNav from '@/components/AppNav';
+import DateRangePresets, {
+  detectPreset,
+  type PresetKey,
+} from '@/components/DateRangePresets';
 import styles from './creatives.module.css';
 
 // --- Date helpers ---
@@ -171,6 +175,11 @@ export default function CreativesPage() {
   const [appliedTo, setAppliedTo] = useState(defaults.to);
   const [sort, setSort] = useState<AdSortField>('spend');
 
+  // Track which preset is currently active (null = custom/no match)
+  const [activePreset, setActivePreset] = useState<PresetKey | null>(
+    () => detectPreset(defaults.from, defaults.to),
+  );
+
   const [data, setData] = useState<CreativesPerformanceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -218,7 +227,17 @@ export default function CreativesPage() {
   function applyDates() {
     setAppliedFrom(dateFrom);
     setAppliedTo(dateTo);
+    setActivePreset(detectPreset(dateFrom, dateTo));
     fetchData(dateFrom, dateTo, sort);
+  }
+
+  function handlePresetSelect(from: string, to: string) {
+    setDateFrom(from);
+    setDateTo(to);
+    setAppliedFrom(from);
+    setAppliedTo(to);
+    setActivePreset(detectPreset(from, to));
+    fetchData(from, to, sort);
   }
 
   function handleSortChange(newSort: AdSortField) {
@@ -248,6 +267,14 @@ export default function CreativesPage() {
 
         {/* Date bar */}
         <section className={styles.dateBar}>
+          {/* Quick presets — full-width row above date inputs */}
+          <div className={styles.presetsRow}>
+            <DateRangePresets
+              onSelect={handlePresetSelect}
+              activePreset={activePreset}
+            />
+          </div>
+
           <div className={styles.dateGroup}>
             <label className={styles.dateLabel} htmlFor="cr-date-from">
               Başlangıç

@@ -129,6 +129,12 @@
   widget'ları ErrorBoundary ile sarıldı (runtime-çökme sınıfına karşı sertleştirme).
 - Yerel/demo çalıştırma: SQLite-uyumlu DB engine (Postgres yolu değişmedi).
 
+## Dalga 25 — Tarih Aralığı Ön-Ayarları
+- Paylaşılan `DateRangePresets` bileşeni: Son 7/30/90 gün, Bu ay, Geçen ay
+  (yerel saatle hesaplanır, aktif ön-ayar vurgulanır, erişilebilir).
+- Dashboard, reklam ve kreatif sayfalarına eklendi; tek tıkla seç+uygula.
+- Dashboard son aralığı `localStorage`'da hatırlar (`ayaz_dashboard_range`).
+
 ## Dalga 24 — Dark Mode + Tema
 - Koyu tema: `[data-theme="dark"]` token override'ları + `prefers-color-scheme`
   ile "Sistem" desteği; ThemeProvider (localStorage `ayaz_theme`) + FOUC önleyici
