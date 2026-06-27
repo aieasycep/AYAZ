@@ -19,6 +19,8 @@ import {
   ruleFromText,
   getChannelQuality,
   getPublicFeedUrl,
+  enrichSource,
+  applyEnrichment,
   type FeedSource,
   type FeedChannel,
   type FeedRule,
@@ -32,6 +34,8 @@ import {
   type RuleFromTextResponse,
   type FeedQualityResponse,
   type QualityIssue,
+  type EnrichableField,
+  type EnrichmentSuggestion,
 } from '@/lib/feeds-api';
 import AppNav from '@/components/AppNav';
 import styles from './feeds.module.css';
@@ -309,6 +313,236 @@ function QualityIssueRow({ issue }: { issue: QualityIssue }) {
           <span className={styles.muted}>&middot; {issue.affected_count.toLocaleString('tr-TR')} ürün</span>
         </span>
       </div>
+    </div>
+  );
+}
+
+// --- Enrichment field labels ---
+
+const ENRICH_FIELD_LABELS: Record<EnrichableField, string> = {
+  color: 'Renk',
+  brand: 'Marka',
+  category: 'Kategori',
+  material: 'Materyal',
+  title: 'Başlık',
+};
+
+const ALL_ENRICH_FIELDS: EnrichableField[] = ['color', 'brand', 'category', 'material', 'title'];
+
+// --- Toast notification ---
+
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div className={styles.toast} role="status" aria-live="polite">
+      <span>{message}</span>
+      <button className={styles.toastClose} onClick={onDismiss} aria-label="Kapat">×</button>
+    </div>
+  );
+}
+
+// --- Enrichment panel ---
+
+function EnrichmentPanel({ source, onClose }: { source: FeedSource; onClose: () => void }) {
+  const [selectedFields, setSelectedFields] = useState<EnrichableField[]>([...ALL_ENRICH_FIELDS]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [suggestions, setSuggestions] = useState<EnrichmentSuggestion[] | null>(null);
+  const [sampled, setSampled] = useState(false);
+  const [sampledTotal, setSampledTotal] = useState<number | null>(null);
+
+  // approval state: key = `${product_id}::${field}`
+  const [approvals, setApprovals] = useState<Record<string, boolean>>({});
+
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function suggestionKey(s: EnrichmentSuggestion): string {
+    return `${s.product_id}::${s.field}`;
+  }
+
+  function toggleField(f: EnrichableField) {
+    setSelectedFields((prev) =>
+      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]
+    );
+  }
+
+  async function handleFetchSuggestions() {
+    if (selectedFields.length === 0) return;
+    setLoading(true);
+    setError(null);
+    setSuggestions(null);
+    setApprovals({});
+    setApplyError(null);
+    try {
+      const res = await enrichSource(source.id, { fields: selectedFields });
+      setSuggestions(res.suggestions);
+      setSampled(res.sampled);
+      setSampledTotal(res.sampled_total);
+      // Pre-check high-confidence rows
+      const initial: Record<string, boolean> = {};
+      for (const s of res.suggestions) {
+        initial[suggestionKey(s)] = s.confidence === 'high';
+      }
+      setApprovals(initial);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Öneriler alınamadı');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleApply() {
+    if (!suggestions) return;
+    setApplyError(null);
+    setApplying(true);
+    try {
+      const checkedApprovals = suggestions
+        .filter((s) => approvals[suggestionKey(s)])
+        .map((s) => ({ product_id: s.product_id, field: s.field, value: s.suggested }));
+      const res = await applyEnrichment(source.id, { approvals: checkedApprovals });
+      setToast(`${res.applied_count} alan güncellendi`);
+      setSuggestions(null);
+      setApprovals({});
+    } catch (err: unknown) {
+      setApplyError(err instanceof Error ? err.message : 'Uygulama başarısız');
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  const checkedCount = Object.values(approvals).filter(Boolean).length;
+
+  function toggleApproval(key: string) {
+    setApprovals((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function shortProductId(id: string): string {
+    return id.length > 16 ? `${id.slice(0, 8)}…${id.slice(-6)}` : id;
+  }
+
+  return (
+    <div className={styles.enrichPanel}>
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+
+      <div className={styles.enrichHeader}>
+        <span className={styles.enrichTitle}>AI ile Zenginleştir</span>
+        <button className={styles.enrichCloseBtn} onClick={onClose} aria-label="Kapat">×</button>
+      </div>
+
+      {/* Field multiselect */}
+      <div className={styles.enrichFieldRow}>
+        {ALL_ENRICH_FIELDS.map((f) => (
+          <label key={f} className={`${styles.enrichFieldChip} ${selectedFields.includes(f) ? styles.enrichFieldChipActive : ''}`}>
+            <input
+              type="checkbox"
+              checked={selectedFields.includes(f)}
+              onChange={() => toggleField(f)}
+              className={styles.enrichFieldCheckbox}
+            />
+            {ENRICH_FIELD_LABELS[f]}
+          </label>
+        ))}
+      </div>
+
+      <div className={styles.enrichActions}>
+        <button
+          className={styles.primaryBtn}
+          onClick={handleFetchSuggestions}
+          disabled={loading || selectedFields.length === 0}
+        >
+          {loading ? 'Öneriler getiriliyor...' : 'Öneri Getir'}
+        </button>
+        {error && <span className={styles.formError}>{error}</span>}
+      </div>
+
+      {/* Review table */}
+      {suggestions !== null && (
+        <>
+          {sampled && (
+            <div className={styles.enrichSampledNote}>
+              Sonuçlar ilk {sampledTotal != null ? sampledTotal.toLocaleString('tr-TR') : '...'} ürün üzerinden örneklenmiştir.
+            </div>
+          )}
+
+          {suggestions.length === 0 ? (
+            <div className={styles.enrichEmpty}>
+              Zenginleştirilecek eksik alan bulunamadı
+            </div>
+          ) : (
+            <>
+              <div className={styles.enrichTable} role="table" aria-label="Zenginleştirme önerileri">
+                <div className={styles.enrichTableHead} role="row">
+                  <span role="columnheader" className={styles.enrichColCheck} />
+                  <span role="columnheader" className={styles.enrichColProduct}>Ürün ID</span>
+                  <span role="columnheader" className={styles.enrichColField}>Alan</span>
+                  <span role="columnheader" className={styles.enrichColCurrent}>Mevcut</span>
+                  <span role="columnheader" className={styles.enrichColArrow} />
+                  <span role="columnheader" className={styles.enrichColSuggested}>Öneri</span>
+                  <span role="columnheader" className={styles.enrichColConf}>Güven</span>
+                </div>
+
+                {suggestions.map((s) => {
+                  const key = suggestionKey(s);
+                  const isHigh = s.confidence === 'high';
+                  return (
+                    <div
+                      key={key}
+                      className={`${styles.enrichTableRow} ${approvals[key] ? styles.enrichTableRowChecked : ''}`}
+                      role="row"
+                    >
+                      <span role="cell" className={styles.enrichColCheck}>
+                        <input
+                          type="checkbox"
+                          checked={!!approvals[key]}
+                          onChange={() => toggleApproval(key)}
+                          aria-label={`${shortProductId(s.product_id)} — ${ENRICH_FIELD_LABELS[s.field]} onayla`}
+                        />
+                      </span>
+                      <span role="cell" className={`${styles.enrichColProduct} ${styles.enrichProductId}`} title={s.product_id}>
+                        {shortProductId(s.product_id)}
+                      </span>
+                      <span role="cell" className={styles.enrichColField}>
+                        <span className={styles.enrichFieldBadge}>{ENRICH_FIELD_LABELS[s.field]}</span>
+                      </span>
+                      <span role="cell" className={`${styles.enrichColCurrent} ${!s.current ? styles.enrichEmpty_ : ''}`}>
+                        {s.current ?? '— boş'}
+                      </span>
+                      <span role="cell" className={styles.enrichColArrow}>→</span>
+                      <span role="cell" className={styles.enrichColSuggested}>
+                        {s.suggested}
+                      </span>
+                      <span role="cell" className={styles.enrichColConf}>
+                        <span className={`${styles.enrichConfChip} ${isHigh ? styles.enrichConfHigh : styles.enrichConfLow}`}>
+                          {isHigh ? 'yüksek' : 'düşük'}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {applyError && <span className={styles.formError}>{applyError}</span>}
+
+              <div className={styles.enrichApplyRow}>
+                <button
+                  className={styles.primaryBtn}
+                  onClick={handleApply}
+                  disabled={applying || checkedCount === 0}
+                >
+                  {applying ? 'Uygulanıyor...' : `Onaylananları Uygula (${checkedCount})`}
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -1173,6 +1407,9 @@ export default function FeedsPage() {
   // Sync state per source
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
 
+  // Enrichment panel open/close
+  const [enrichSourceId, setEnrichSourceId] = useState<string | null>(null);
+
   const fetchSources = useCallback(async () => {
     setSourcesLoading(true);
     setSourcesError(null);
@@ -1327,31 +1564,52 @@ export default function FeedsPage() {
             ) : (
               <div className={styles.sourceList}>
                 {sources.map((src) => (
-                  <div
-                    key={src.id}
-                    className={`${styles.sourceItem} ${selectedSourceId === src.id ? styles.sourceItemActive : ''}`}
-                    onClick={() => setSelectedSourceId(src.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && setSelectedSourceId(src.id)}
-                  >
-                    <span className={`${styles.sourceDot} ${selectedSourceId === src.id ? styles.sourceDotActive : ''}`} />
-                    <div className={styles.sourceInfo}>
-                      <div className={styles.sourceName}>{src.name}</div>
-                      <div className={styles.sourceMeta}>
-                        {SOURCE_TYPE_LABELS[src.source_type]}
-                        {src.item_count != null ? ` · ${src.item_count.toLocaleString('tr-TR')} ürün` : ''}
-                        {src.last_synced ? ` · ${fmtDate(src.last_synced)}` : ''}
-                      </div>
-                    </div>
-                    <button
-                      className={styles.syncBtn}
-                      onClick={(e) => { e.stopPropagation(); handleSync(src); }}
-                      disabled={syncing[src.id] ?? false}
-                      title="Senkronize Et"
+                  <div key={src.id}>
+                    <div
+                      className={`${styles.sourceItem} ${selectedSourceId === src.id ? styles.sourceItemActive : ''}`}
+                      onClick={() => setSelectedSourceId(src.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && setSelectedSourceId(src.id)}
                     >
-                      {syncing[src.id] ? '...' : 'Sync'}
-                    </button>
+                      <span className={`${styles.sourceDot} ${selectedSourceId === src.id ? styles.sourceDotActive : ''}`} />
+                      <div className={styles.sourceInfo}>
+                        <div className={styles.sourceName}>{src.name}</div>
+                        <div className={styles.sourceMeta}>
+                          {SOURCE_TYPE_LABELS[src.source_type]}
+                          {src.item_count != null ? ` · ${src.item_count.toLocaleString('tr-TR')} ürün` : ''}
+                          {src.last_synced ? ` · ${fmtDate(src.last_synced)}` : ''}
+                        </div>
+                      </div>
+                      <button
+                        className={styles.syncBtn}
+                        onClick={(e) => { e.stopPropagation(); handleSync(src); }}
+                        disabled={syncing[src.id] ?? false}
+                        title="Senkronize Et"
+                      >
+                        {syncing[src.id] ? '...' : 'Sync'}
+                      </button>
+                    </div>
+                    {selectedSourceId === src.id && (
+                      <div className={styles.sourceEnrichRow}>
+                        <button
+                          className={`${styles.enrichBtn} ${enrichSourceId === src.id ? styles.enrichBtnActive : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEnrichSourceId((prev) => (prev === src.id ? null : src.id));
+                          }}
+                          aria-expanded={enrichSourceId === src.id}
+                        >
+                          AI ile Zenginleştir
+                        </button>
+                      </div>
+                    )}
+                    {enrichSourceId === src.id && (
+                      <EnrichmentPanel
+                        source={src}
+                        onClose={() => setEnrichSourceId(null)}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

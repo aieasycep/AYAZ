@@ -304,6 +304,65 @@ export function getPublicFeedUrl(publicToken: string): string {
   return `${API_BASE}/api/v1/feeds/public/${publicToken}`;
 }
 
+// --- AI Product Enrichment ---
+
+export type EnrichableField = 'color' | 'brand' | 'category' | 'material' | 'title';
+
+export interface EnrichSourcePayload {
+  fields: EnrichableField[];
+  product_ids?: string[];
+  limit?: number;
+}
+
+export interface EnrichmentSuggestion {
+  product_id: string;
+  field: EnrichableField;
+  current: string | null;
+  suggested: string;
+  confidence: 'high' | 'low';
+  source: 'ai' | 'heuristic';
+}
+
+export interface EnrichSourceResponse {
+  suggestions: EnrichmentSuggestion[];
+  sampled: boolean;
+  sampled_total: number | null;
+}
+
+export function enrichSource(
+  sourceId: string,
+  payload: EnrichSourcePayload,
+): Promise<EnrichSourceResponse> {
+  return authFetch<EnrichSourceResponse>(
+    `/api/v1/feeds/sources/${sourceId}/enrich`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+}
+
+export interface EnrichmentApproval {
+  product_id: string;
+  field: EnrichableField;
+  value: string;
+}
+
+export interface ApplyEnrichmentPayload {
+  approvals: EnrichmentApproval[];
+}
+
+export interface ApplyEnrichmentResponse {
+  applied_count: number;
+}
+
+export function applyEnrichment(
+  sourceId: string,
+  payload: ApplyEnrichmentPayload,
+): Promise<ApplyEnrichmentResponse> {
+  return authFetch<ApplyEnrichmentResponse>(
+    `/api/v1/feeds/sources/${sourceId}/enrich/apply`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+}
+
 // --- Feed Quality ---
 
 export interface QualityIssue {

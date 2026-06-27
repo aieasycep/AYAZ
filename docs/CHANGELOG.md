@@ -171,6 +171,7 @@
   alanları (renk/marka/kategori/materyal/başlık) kaynak metinden ÖNERİR (kaydetmez);
   `.../enrich/apply` yalnızca onaylanan değerleri `FeedProduct.data`'ya yazar.
   LLM + deterministik mock-fallback (anahtarsız çalışır). 55 yeni test (suite 1686).
+  Frontend: kaynakta 'AI ile Zenginleştir' paneli — alan seçimi → öneri tablosu (mevcut→önerilen + güven çipi, yüksek-güven ön-işaretli) → 'Onaylananları Uygula'. 11 yeni frontend testi (132).
 
 ## Dalga 48 — Feed Kalite Kapısı (backend)
 - Yayından önce kanal-bazlı doğrulama: `GET /feeds/channels/{id}/quality` — kural-uygulanmış

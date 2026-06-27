@@ -9,6 +9,9 @@ import type {
   RuleFromTextResponse,
   FeedQualityResponse,
   QualityIssue,
+  EnrichmentSuggestion,
+  EnrichSourceResponse,
+  ApplyEnrichmentResponse,
 } from '@/lib/feeds-api';
 
 // ---------------------------------------------------------------------------
@@ -621,5 +624,260 @@ describe('getChannelQuality', () => {
 
     const { getChannelQuality: gq } = await import('@/lib/feeds-api');
     await expect(gq('channel-xyz')).rejects.toThrow('Oturum süresi doldu');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EnrichmentSuggestion / EnrichSourceResponse type contracts
+// ---------------------------------------------------------------------------
+
+describe('EnrichSourceResponse type', () => {
+  it('carries suggestions array with all expected fields', () => {
+    const suggestion: EnrichmentSuggestion = {
+      product_id: 'prod-001',
+      field: 'color',
+      current: null,
+      suggested: 'Kırmızı',
+      confidence: 'high',
+      source: 'ai',
+    };
+    const resp: EnrichSourceResponse = {
+      suggestions: [suggestion],
+      sampled: false,
+      sampled_total: null,
+    };
+    expect(resp.suggestions).toHaveLength(1);
+    expect(resp.suggestions[0].field).toBe('color');
+    expect(resp.suggestions[0].confidence).toBe('high');
+    expect(resp.suggestions[0].source).toBe('ai');
+    expect(resp.sampled).toBe(false);
+    expect(resp.sampled_total).toBeNull();
+  });
+
+  it('accepts sampled=true with sampled_total', () => {
+    const resp: EnrichSourceResponse = {
+      suggestions: [],
+      sampled: true,
+      sampled_total: 10000,
+    };
+    expect(resp.sampled).toBe(true);
+    expect(resp.sampled_total).toBe(10000);
+  });
+
+  it('accepts heuristic source with low confidence', () => {
+    const s: EnrichmentSuggestion = {
+      product_id: 'prod-002',
+      field: 'brand',
+      current: '',
+      suggested: 'Acme',
+      confidence: 'low',
+      source: 'heuristic',
+    };
+    expect(s.source).toBe('heuristic');
+    expect(s.confidence).toBe('low');
+  });
+
+  it('covers all five enrichable fields as valid values', () => {
+    const fields = ['color', 'brand', 'category', 'material', 'title'] as const;
+    for (const field of fields) {
+      const s: EnrichmentSuggestion = {
+        product_id: 'x',
+        field,
+        current: null,
+        suggested: 'Test',
+        confidence: 'high',
+        source: 'ai',
+      };
+      expect(s.field).toBe(field);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ApplyEnrichmentResponse type contract
+// ---------------------------------------------------------------------------
+
+describe('ApplyEnrichmentResponse type', () => {
+  it('carries applied_count', () => {
+    const resp: ApplyEnrichmentResponse = { applied_count: 7 };
+    expect(resp.applied_count).toBe(7);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// enrichSource — fetch mock
+// ---------------------------------------------------------------------------
+
+describe('enrichSource', () => {
+  beforeEach(() => {
+    if (typeof globalThis.localStorage === 'undefined') {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: { getItem: () => 'test-token', removeItem: vi.fn(), setItem: vi.fn() },
+        writable: true,
+      });
+    }
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls POST /api/v1/feeds/sources/{sourceId}/enrich with correct body and returns parsed response', async () => {
+    const mockResponse: EnrichSourceResponse = {
+      suggestions: [
+        {
+          product_id: 'prod-abc',
+          field: 'color',
+          current: null,
+          suggested: 'Mavi',
+          confidence: 'high',
+          source: 'ai',
+        },
+        {
+          product_id: 'prod-def',
+          field: 'brand',
+          current: '',
+          suggested: 'Acme',
+          confidence: 'low',
+          source: 'heuristic',
+        },
+      ],
+      sampled: true,
+      sampled_total: 5000,
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { enrichSource: es } = await import('@/lib/feeds-api');
+    const result = await es('source-123', { fields: ['color', 'brand'] });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/feeds/sources/source-123/enrich');
+    expect(options.method).toBe('POST');
+    const body = JSON.parse(options.body as string);
+    expect(body.fields).toEqual(['color', 'brand']);
+    expect(result.suggestions).toHaveLength(2);
+    expect(result.suggestions[0].product_id).toBe('prod-abc');
+    expect(result.suggestions[0].confidence).toBe('high');
+    expect(result.suggestions[1].confidence).toBe('low');
+    expect(result.sampled).toBe(true);
+    expect(result.sampled_total).toBe(5000);
+  });
+
+  it('passes optional product_ids and limit in request body', async () => {
+    const mockResponse: EnrichSourceResponse = { suggestions: [], sampled: false, sampled_total: null };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve('{}'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { enrichSource: es } = await import('@/lib/feeds-api');
+    await es('source-xyz', { fields: ['title'], product_ids: ['p1', 'p2'], limit: 50 });
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string);
+    expect(body.product_ids).toEqual(['p1', 'p2']);
+    expect(body.limit).toBe(50);
+  });
+
+  it('throws on non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      text: () => Promise.resolve('Geçersiz alanlar'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { enrichSource: es } = await import('@/lib/feeds-api');
+    await expect(es('source-123', { fields: ['color'] })).rejects.toThrow('Geçersiz alanlar');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyEnrichment — fetch mock
+// ---------------------------------------------------------------------------
+
+describe('applyEnrichment', () => {
+  beforeEach(() => {
+    if (typeof globalThis.localStorage === 'undefined') {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: { getItem: () => 'test-token', removeItem: vi.fn(), setItem: vi.fn() },
+        writable: true,
+      });
+    }
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls POST /api/v1/feeds/sources/{sourceId}/enrich/apply with approvals and returns applied_count', async () => {
+    const mockResponse: ApplyEnrichmentResponse = { applied_count: 3 };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { applyEnrichment: ae } = await import('@/lib/feeds-api');
+    const result = await ae('source-123', {
+      approvals: [
+        { product_id: 'prod-abc', field: 'color', value: 'Mavi' },
+        { product_id: 'prod-def', field: 'brand', value: 'Acme' },
+        { product_id: 'prod-ghi', field: 'title', value: 'Yeni Başlık' },
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/feeds/sources/source-123/enrich/apply');
+    expect(options.method).toBe('POST');
+    const body = JSON.parse(options.body as string);
+    expect(body.approvals).toHaveLength(3);
+    expect(body.approvals[0]).toEqual({ product_id: 'prod-abc', field: 'color', value: 'Mavi' });
+    expect(result.applied_count).toBe(3);
+  });
+
+  it('sends empty approvals array when nothing is approved', async () => {
+    const mockResponse: ApplyEnrichmentResponse = { applied_count: 0 };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { applyEnrichment: ae } = await import('@/lib/feeds-api');
+    const result = await ae('source-xyz', { approvals: [] });
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(options.body as string);
+    expect(body.approvals).toEqual([]);
+    expect(result.applied_count).toBe(0);
+  });
+
+  it('throws on non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: () => Promise.resolve('Onay verisi hatalı'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { applyEnrichment: ae } = await import('@/lib/feeds-api');
+    await expect(ae('source-123', { approvals: [] })).rejects.toThrow('Onay verisi hatalı');
   });
 });
