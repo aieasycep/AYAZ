@@ -65,6 +65,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 38 (tamamlandı):** Erişilebilirlik — global focus-visible + prefers-reduced-motion.
 - **Dalga 39 (tamamlandı):** Frontend birim test altyapısı (Vitest+RTL, 49 test) + CI işi.
 - **Dalga 40 (tamamlandı):** Gözlemlenebilirlik — request-ID + yapılandırılmış istek logu + `/health/ready` DB hazırlık probu.
+- **Dalga 41 (tamamlandı):** E2E smoke suite CI'da (SQLite tabanlı `e2e-smoke` işi, 19 rota) + smoke chromium-yolu CI-uyumu.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

@@ -65,6 +65,9 @@ from ayaz.models.briefing import (  # noqa: F401
 from ayaz.models.auth import (  # noqa: F401
     RevokedToken,
 )
+from ayaz.models.notifications import (  # noqa: F401
+    Notification,
+)
 
 __all__ = [
     "Base",
@@ -104,4 +107,5 @@ __all__ = [
     "Goal",
     "Briefing",
     "RevokedToken",
+    "Notification",
 ]

@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 41 — E2E Smoke CI'da
+- Playwright E2E smoke suite CI'ya bağlandı (`e2e-smoke` işi): SQLite ile backend
+  bootstrap (create_all + seed) + frontend build/start + `playwright install chromium`
+  → 19 rota. `smoke.py` chromium yolu CI-uyumlu (env/hardcoded/default fallback).
+  `scripts/create_all_sqlite.py` eklendi; `models/__init__` artık `Notification`'ı da içerir.
+
 ## Dalga 40 — Gözlemlenebilirlik & Hazırlık Probu
 - `X-Request-ID` middleware (gelen başlığı yansıtır/üretir) + yapılandırılmış istek
   logu (method/path/status/süre/request_id; gövde/başlık/sır loglanmaz; /health DEBUG).

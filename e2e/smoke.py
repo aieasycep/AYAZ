@@ -29,10 +29,19 @@ AYAZ_WEB = os.environ.get("AYAZ_WEB", "http://localhost:3000")
 DEMO_EMAIL = os.environ.get("AYAZ_DEMO_EMAIL", "demo@ayaz.app")
 DEMO_PASSWORD = os.environ.get("AYAZ_DEMO_PASSWORD", "demo12345")
 
-CHROMIUM_EXECUTABLE = os.environ.get(
-    "PLAYWRIGHT_CHROMIUM_EXECUTABLE",
-    "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
-)
+# Resolve the Chromium executable path:
+#   1. $PLAYWRIGHT_CHROMIUM_EXECUTABLE if set and the path exists
+#   2. The in-container hardcoded fallback if it exists
+#   3. None → Playwright uses its own installed browser (CI path)
+_ENV_CHROMIUM = os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE")
+_HARDCODED_CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+
+if _ENV_CHROMIUM and Path(_ENV_CHROMIUM).exists():
+    CHROMIUM_EXECUTABLE: str | None = _ENV_CHROMIUM
+elif Path(_HARDCODED_CHROMIUM).exists():
+    CHROMIUM_EXECUTABLE = _HARDCODED_CHROMIUM
+else:
+    CHROMIUM_EXECUTABLE = None
 
 ARTIFACTS_DIR = Path(__file__).parent / "artifacts"
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -251,7 +260,7 @@ def main() -> int:
     print(f"\nAYAZ Smoke Test Suite")
     print(f"  Backend : {AYAZ_API}")
     print(f"  Frontend: {AYAZ_WEB}")
-    print(f"  Chromium: {CHROMIUM_EXECUTABLE}")
+    print(f"  Chromium: {CHROMIUM_EXECUTABLE or '(playwright installed browser)'}")
     print()
 
     # --- Step 1: Obtain demo token via API -----------------------------------
@@ -269,10 +278,10 @@ def main() -> int:
     results: list[tuple[str, bool, list[str]]] = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path=CHROMIUM_EXECUTABLE,
-        )
+        launch_kwargs: dict = {"headless": True}
+        if CHROMIUM_EXECUTABLE is not None:
+            launch_kwargs["executable_path"] = CHROMIUM_EXECUTABLE
+        browser = p.chromium.launch(**launch_kwargs)
 
         # Public context (no token) — for the landing page
         public_context: BrowserContext = browser.new_context()
