@@ -518,6 +518,293 @@
   color: var(--color-danger);
 }
 
+/* Rule row: paused state */
+
+.ruleRowPaused {
+  opacity: 0.55;
+  background: var(--color-surface-2);
+}
+
+.ruleRowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ruleRowTop {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Pause toggle button */
+
+.pauseBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1.5px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.pauseBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pauseBtnActive {
+  border-color: var(--color-warning, #d97706);
+  color: var(--color-warning, #d97706);
+  background: rgba(217, 119, 6, 0.08);
+}
+
+/* "Duraklatıldı" badge */
+
+.pausedBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+  background: rgba(217, 119, 6, 0.12);
+  color: var(--color-warning, #d97706);
+  letter-spacing: 0.2px;
+  flex-shrink: 0;
+}
+
+/* Per-rule impact inline */
+
+.ruleImpact {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  display: flex;
+  gap: 0.25rem;
+}
+
+.ruleImpactExcluded {
+  color: var(--color-danger);
+}
+
+/* Delete rule button */
+
+.deleteRuleBtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.deleteRuleBtn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: rgba(220, 38, 38, 0.07);
+}
+
+.deleteRuleBtnConfirm {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: rgba(220, 38, 38, 0.12);
+  font-weight: 700;
+}
+
+/* Impact bar (Feature 2) */
+
+.rulePanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.875rem 0 0.35rem;
+  flex-wrap: wrap;
+}
+
+.lintSummary {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.impactBar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.impactTotal {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  font-size: 0.8125rem;
+  flex-wrap: wrap;
+}
+
+.impactLabel {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.impactBefore {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.impactArrow {
+  color: var(--color-text-muted);
+}
+
+.impactAfter {
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.impactSampled {
+  font-size: 0.7375rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Simulate (Feature 3) */
+
+.simulateRow {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.125rem;
+}
+
+.simResult {
+  padding: 0.75rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.simSummary {
+  font-size: 0.8125rem;
+  color: var(--color-text);
+}
+
+.sampleDiff {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.sampleDiffRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  font-size: 0.775rem;
+  flex-wrap: wrap;
+}
+
+.sampleDiffKey {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.sampleDiffBefore {
+  color: var(--color-danger);
+  font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sampleDiffArrow {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.sampleDiffAfter {
+  color: var(--color-success);
+  font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Lint chips (Feature 4) */
+
+.lintChips {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.lintChip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.175rem 0.5rem;
+  border-radius: 5px;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.lintChipError {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--color-danger);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.lintChipWarn {
+  background: rgba(217, 119, 6, 0.1);
+  color: var(--color-warning, #d97706);
+  border: 1px solid rgba(217, 119, 6, 0.22);
+}
+
+.lintChipInfo {
+  background: rgba(59, 91, 219, 0.08);
+  color: var(--color-primary);
+  border: 1px solid rgba(59, 91, 219, 0.18);
+}
+
+/* Checkbox label */
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  cursor: pointer;
+  padding-top: 0.45rem;
+}
+
 @media (max-width: 640px) {
   .main {
     padding: 1rem;

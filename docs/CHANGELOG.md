@@ -166,6 +166,15 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 44 — Feed Kural Stüdyosu (görsel editör)
+- Channable panel kareleri (062/064) referansıyla `/feeds` kural editörü yükseltildi:
+  per-kural **duraklat** (greyed + 'Duraklatıldı' rozeti), **'Etkiyi Hesapla' barı**
+  (Toplam before→after + kural başına 'X değişti · Y hariç'), kaydetmeden **Önizle**
+  (simulate + before→after örnek diff), ve **kural-linter çipleri** (no_effect/excludes_all/
+  shadowed/duplicate, önem renkli). feeds-api'ye impact/simulate/lint/patch/delete eklendi.
+- Yan fayda: create-rule formundaki config anahtar adları backend şemasıyla birebir düzeltildi.
+  21 yeni frontend testi (toplam 76).
+
 ## Dalga 43 — Feed Kural Stüdyosu (backend çekirdeği)
 - Channable'ın en sevilen UX'i (canlı panel teardown'undan): per-kural **pause**
   (`is_paused`, migration 0016; apply_rules duraklatılanı atlar), **etki önizleme**

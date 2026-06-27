@@ -68,6 +68,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 41 (tamamlandı):** E2E smoke suite CI'da (SQLite tabanlı `e2e-smoke` işi, 19 rota) + smoke chromium-yolu CI-uyumu.
 - **Dalga 42 (tamamlandı):** Self-serve kayıt akışı (`/signup`) — kırık PLG kapısı düzeltildi (rakip-analiz bulgusu).
 - **Dalga 43 (tamamlandı):** Feed Kural Stüdyosu backend — pause + etki önizleme + dry-run simülasyon + kural-linter (Channable panel ilhamı).
+- **Dalga 44 (tamamlandı):** Feed Kural Stüdyosu görsel editör — duraklat + 'Etkiyi Hesapla' barı + kaydetmeden Önizle + linter çipleri (panel kareleri referansıyla).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

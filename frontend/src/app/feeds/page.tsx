@@ -11,6 +11,11 @@ import {
   createFeedChannel,
   getChannelRules,
   createChannelRule,
+  patchChannelRule,
+  deleteChannelRule,
+  getRulesImpact,
+  simulateRule,
+  lintChannelRules,
   getPublicFeedUrl,
   type FeedSource,
   type FeedChannel,
@@ -19,6 +24,9 @@ import {
   type ChannelType,
   type OutputFormat,
   type RuleType,
+  type RulesImpactResponse,
+  type SimulateRuleResponse,
+  type LintIssue,
 } from '@/lib/feeds-api';
 import AppNav from '@/components/AppNav';
 import styles from './feeds.module.css';
@@ -54,6 +62,14 @@ const OUTPUT_FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
   { value: 'tsv', label: 'TSV' },
 ];
 
+// Linter code → Turkish friendly text
+const LINT_CODE_LABELS: Record<string, string> = {
+  no_effect: 'Bu kural hiçbir ürünü etkilemiyor',
+  excludes_all: 'Bu kural neredeyse tüm ürünleri eliyor',
+  shadowed: 'Daha önceki bir kural bunu gölgeliyor',
+  duplicate: 'Yinelenen kural',
+};
+
 function fmtDate(iso: string | null): string {
   if (!iso) return '-';
   return new Date(iso).toLocaleString('tr-TR', {
@@ -70,13 +86,13 @@ function fmtRuleConfigSummary(type: RuleType, config: Record<string, unknown>): 
     case 'set_value':
       return `${config.field ?? ''} = "${config.value ?? ''}"`;
     case 'rename_field':
-      return `${config.from ?? ''} -> ${config.to ?? ''}`;
+      return `${config.from_field ?? config.from ?? ''} → ${config.to_field ?? config.to ?? ''}`;
     case 'find_replace':
-      return `"${config.find ?? ''}" -> "${config.replace ?? ''}" (${config.field ?? 'tüm alanlar'})`;
+      return `"${config.pattern ?? config.find ?? ''}" → "${config.replacement ?? config.replace ?? ''}" (${config.field ?? 'tüm alanlar'})`;
     case 'filter_include':
-      return `${config.field ?? ''} ${config.operator ?? '='} "${config.value ?? ''}"`;
+      return `${config.condition_field ?? config.field ?? ''} ${config.condition_op ?? config.operator ?? '='} "${config.condition_value ?? config.value ?? ''}"`;
     case 'filter_exclude':
-      return `${config.field ?? ''} ${config.operator ?? '='} "${config.value ?? ''}" (hariç)`;
+      return `${config.condition_field ?? config.field ?? ''} ${config.condition_op ?? config.operator ?? '='} "${config.condition_value ?? config.value ?? ''}" (hariç)`;
     case 'calculated':
       return `${config.field ?? ''} = ${config.expression ?? ''}`;
     default:
@@ -95,12 +111,13 @@ interface RuleConfigState {
   rf_to: string;
   // find_replace
   fr_field: string;
-  fr_find: string;
-  fr_replace: string;
+  fr_pattern: string;
+  fr_replacement: string;
+  fr_use_regex: boolean;
   // filter_include / filter_exclude
-  fi_field: string;
-  fi_operator: string;
-  fi_value: string;
+  fi_condition_field: string;
+  fi_condition_op: string;
+  fi_condition_value: string;
   // calculated
   calc_field: string;
   calc_expression: string;
@@ -109,8 +126,8 @@ interface RuleConfigState {
 const DEFAULT_RULE_CONFIG: RuleConfigState = {
   sv_field: '', sv_value: '',
   rf_from: '', rf_to: '',
-  fr_field: '', fr_find: '', fr_replace: '',
-  fi_field: '', fi_operator: 'eq', fi_value: '',
+  fr_field: '', fr_pattern: '', fr_replacement: '', fr_use_regex: false,
+  fi_condition_field: '', fi_condition_op: 'eq', fi_condition_value: '',
   calc_field: '', calc_expression: '',
 };
 
@@ -119,13 +136,18 @@ function buildRuleConfig(type: RuleType, cfg: RuleConfigState): Record<string, u
     case 'set_value':
       return { field: cfg.sv_field, value: cfg.sv_value };
     case 'rename_field':
-      return { from: cfg.rf_from, to: cfg.rf_to };
+      return { from_field: cfg.rf_from, to_field: cfg.rf_to, drop_original: false };
     case 'find_replace':
-      return { field: cfg.fr_field || undefined, find: cfg.fr_find, replace: cfg.fr_replace };
+      return {
+        field: cfg.fr_field || undefined,
+        pattern: cfg.fr_pattern,
+        replacement: cfg.fr_replacement,
+        use_regex: cfg.fr_use_regex,
+      };
     case 'filter_include':
-      return { field: cfg.fi_field, operator: cfg.fi_operator, value: cfg.fi_value };
+      return { condition_field: cfg.fi_condition_field, condition_op: cfg.fi_condition_op, condition_value: cfg.fi_condition_value };
     case 'filter_exclude':
-      return { field: cfg.fi_field, operator: cfg.fi_operator, value: cfg.fi_value };
+      return { condition_field: cfg.fi_condition_field, condition_op: cfg.fi_condition_op, condition_value: cfg.fi_condition_value };
     case 'calculated':
       return { field: cfg.calc_field, expression: cfg.calc_expression };
   }
@@ -142,7 +164,6 @@ function CopyButton({ text }: { text: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for non-HTTPS or old browsers
       const el = document.createElement('textarea');
       el.value = text;
       el.style.position = 'fixed';
@@ -167,6 +188,60 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+// --- Lint chip ---
+
+function LintChip({ issue }: { issue: LintIssue }) {
+  const label = LINT_CODE_LABELS[issue.code] ?? issue.message;
+  const chipClass =
+    issue.severity === 'error'
+      ? styles.lintChipError
+      : issue.severity === 'warning'
+      ? styles.lintChipWarn
+      : styles.lintChipInfo;
+  return <span className={`${styles.lintChip} ${chipClass}`} title={issue.message}>{label}</span>;
+}
+
+// --- Sample diff row ---
+
+function SampleDiff({
+  before,
+  after,
+}: {
+  before: Record<string, unknown>[];
+  after: Record<string, unknown>[];
+}) {
+  if (!before.length && !after.length) return null;
+  const rows = Math.max(before.length, after.length);
+  return (
+    <div className={styles.sampleDiff}>
+      {Array.from({ length: rows }).map((_, i) => {
+        const b = before[i];
+        const a = after[i];
+        // Show the first key that differs
+        const keys = b ? Object.keys(b) : a ? Object.keys(a) : [];
+        const changedKey = keys.find((k) => b && a && String(b[k]) !== String(a[k])) ?? keys[0];
+        if (!changedKey) return null;
+        return (
+          <div key={i} className={styles.sampleDiffRow}>
+            <span className={styles.sampleDiffKey}>{changedKey}:</span>
+            {b && (
+              <span className={styles.sampleDiffBefore} title="Önce">
+                {String(b[changedKey] ?? '')}
+              </span>
+            )}
+            <span className={styles.sampleDiffArrow}>→</span>
+            {a && (
+              <span className={styles.sampleDiffAfter} title="Sonra">
+                {String(a[changedKey] ?? '')}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // --- Rule editor for a channel ---
 
 function RuleEditor({ channel }: { channel: FeedChannel }) {
@@ -181,6 +256,23 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Feature 2: Impact bar
+  const [impact, setImpact] = useState<RulesImpactResponse | null>(null);
+  const [impactLoading, setImpactLoading] = useState(false);
+  const [impactError, setImpactError] = useState<string | null>(null);
+
+  // Feature 3: Simulate-before-save
+  const [simResult, setSimResult] = useState<SimulateRuleResponse | null>(null);
+  const [simLoading, setSimLoading] = useState(false);
+  const [simError, setSimError] = useState<string | null>(null);
+
+  // Feature 4: Linter
+  const [lintIssues, setLintIssues] = useState<LintIssue[]>([]);
+  const [lintLoading, setLintLoading] = useState(false);
+
+  // Delete confirm
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const fetchRules = useCallback(async () => {
     setRulesLoading(true);
     setRulesError(null);
@@ -194,12 +286,74 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
     }
   }, [channel.id]);
 
-  useEffect(() => {
-    fetchRules();
-  }, [fetchRules]);
+  // Auto-lint after rules load
+  const runLint = useCallback(async () => {
+    setLintLoading(true);
+    try {
+      const res = await lintChannelRules(channel.id);
+      setLintIssues(res.issues);
+    } catch {
+      // non-fatal
+    } finally {
+      setLintLoading(false);
+    }
+  }, [channel.id]);
 
-  function updateCfg(key: keyof RuleConfigState, value: string) {
+  useEffect(() => {
+    fetchRules().then(() => runLint());
+  }, [fetchRules, runLint]);
+
+  function updateCfg(key: keyof RuleConfigState, value: string | boolean) {
     setRuleCfg((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // Feature 1: Pause toggle
+  async function handleTogglePause(rule: FeedRule) {
+    const newPaused = !rule.is_paused;
+    // Optimistic update
+    setRules((prev) =>
+      prev.map((r) => (r.id === rule.id ? { ...r, is_paused: newPaused } : r))
+    );
+    try {
+      const updated = await patchChannelRule(rule.id, { is_paused: newPaused });
+      setRules((prev) => prev.map((r) => (r.id === rule.id ? updated : r)));
+    } catch {
+      // Revert on failure
+      setRules((prev) =>
+        prev.map((r) => (r.id === rule.id ? { ...r, is_paused: rule.is_paused } : r))
+      );
+    }
+  }
+
+  // Feature 2: Fetch impact
+  async function handleFetchImpact() {
+    setImpactLoading(true);
+    setImpactError(null);
+    try {
+      const res = await getRulesImpact(channel.id);
+      setImpact(res);
+    } catch (err: unknown) {
+      setImpactError(err instanceof Error ? err.message : 'Etki hesaplanamadı');
+    } finally {
+      setImpactLoading(false);
+    }
+  }
+
+  // Feature 3: Simulate
+  async function handleSimulate() {
+    setSimLoading(true);
+    setSimError(null);
+    setSimResult(null);
+    try {
+      const config = buildRuleConfig(ruleType, ruleCfg);
+      const position = rulePos ? parseInt(rulePos, 10) : undefined;
+      const res = await simulateRule(channel.id, { rule_type: ruleType, config, position });
+      setSimResult(res);
+    } catch (err: unknown) {
+      setSimError(err instanceof Error ? err.message : 'Önizleme başarısız');
+    } finally {
+      setSimLoading(false);
+    }
   }
 
   async function handleAddRule(e: React.FormEvent) {
@@ -213,13 +367,46 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       setRuleCfg({ ...DEFAULT_RULE_CONFIG });
       setRulePos('');
       setShowForm(false);
+      setSimResult(null);
+      setSimError(null);
       await fetchRules();
+      await runLint();
+      setImpact(null); // stale — user should re-run
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Kural eklenemedi');
     } finally {
       setSubmitting(false);
     }
   }
+
+  async function handleDeleteRule(ruleId: string) {
+    if (deletingId !== ruleId) {
+      setDeletingId(ruleId);
+      return; // first click = confirm
+    }
+    try {
+      await deleteChannelRule(ruleId);
+      setRules((prev) => prev.filter((r) => r.id !== ruleId));
+      setDeletingId(null);
+      setImpact(null);
+      await runLint();
+    } catch {
+      setDeletingId(null);
+    }
+  }
+
+  // Impact stat lookup by rule_id
+  function impactStatFor(ruleId: string) {
+    return impact?.rules.find((r) => r.rule_id === ruleId) ?? null;
+  }
+
+  // Lint issues for a rule
+  function lintIssuesFor(ruleId: string) {
+    return lintIssues.filter((i) => i.rule_id === ruleId);
+  }
+
+  const totalLintErrors = lintIssues.filter((i) => i.severity === 'error').length;
+  const totalLintWarnings = lintIssues.filter((i) => i.severity === 'warning').length;
 
   const publicUrl = getPublicFeedUrl(channel.public_token);
 
@@ -232,7 +419,25 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
         <CopyButton text={publicUrl} />
       </div>
 
-      <div className={styles.rulePanelTitle}>Kurallar</div>
+      {/* Rules header */}
+      <div className={styles.rulePanelHeader}>
+        <span className={styles.rulePanelTitle}>Kurallar</span>
+        {/* Feature 4: Lint summary */}
+        {!lintLoading && lintIssues.length > 0 && (
+          <span className={styles.lintSummary}>
+            {totalLintErrors > 0 && (
+              <span className={`${styles.lintChip} ${styles.lintChipError}`}>
+                {totalLintErrors} hata
+              </span>
+            )}
+            {totalLintWarnings > 0 && (
+              <span className={`${styles.lintChip} ${styles.lintChipWarn}`}>
+                {totalLintWarnings} uyarı
+              </span>
+            )}
+          </span>
+        )}
+      </div>
 
       {rulesLoading ? (
         <div className={styles.stateBoxSm}>
@@ -249,22 +454,106 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
               <span className={styles.muted}>Henüz kural yok.</span>
             </div>
           ) : (
-            <div className={styles.ruleList}>
-              {rules
-                .slice()
-                .sort((a, b) => a.position - b.position)
-                .map((rule) => (
-                  <div key={rule.id} className={styles.ruleRow}>
-                    <span className={styles.rulePos}>{rule.position}</span>
-                    <span className={styles.ruleType}>
-                      {RULE_TYPE_LABELS[rule.rule_type] ?? rule.rule_type}
-                    </span>
-                    <span className={styles.ruleConfig}>
-                      {fmtRuleConfigSummary(rule.rule_type, rule.config)}
-                    </span>
+            <>
+              {/* Feature 2: Impact bar */}
+              <div className={styles.impactBar}>
+                {impact && (
+                  <div className={styles.impactTotal}>
+                    <span className={styles.impactLabel}>Toplam:</span>
+                    <span className={styles.impactBefore}>{impact.total_before.toLocaleString('tr-TR')} ürün</span>
+                    <span className={styles.impactArrow}>→</span>
+                    <span className={styles.impactAfter}>{impact.total_after.toLocaleString('tr-TR')} ürün</span>
+                    {impact.sampled && (
+                      <span className={styles.impactSampled}>
+                        (ilk {impact.sampled_total?.toLocaleString('tr-TR') ?? '...'} üründe hesaplandı)
+                      </span>
+                    )}
                   </div>
-                ))}
-            </div>
+                )}
+                {impactError && <span className={styles.formError}>{impactError}</span>}
+                <button
+                  className={styles.secondaryBtn}
+                  onClick={handleFetchImpact}
+                  disabled={impactLoading}
+                >
+                  {impactLoading ? 'Hesaplanıyor...' : 'Etkiyi Hesapla'}
+                </button>
+              </div>
+
+              <div className={styles.ruleList}>
+                {rules
+                  .slice()
+                  .sort((a, b) => a.position - b.position)
+                  .map((rule) => {
+                    const stat = impactStatFor(rule.id);
+                    const issues = lintIssuesFor(rule.id);
+                    const isConfirmDelete = deletingId === rule.id;
+                    return (
+                      <div
+                        key={rule.id}
+                        className={`${styles.ruleRow} ${rule.is_paused ? styles.ruleRowPaused : ''}`}
+                      >
+                        <span className={styles.rulePos}>{rule.position}</span>
+
+                        {/* Feature 1: Pause toggle */}
+                        <button
+                          className={`${styles.pauseBtn} ${rule.is_paused ? styles.pauseBtnActive : ''}`}
+                          onClick={() => handleTogglePause(rule)}
+                          title={rule.is_paused ? 'Devam Ettir' : 'Duraklat'}
+                          aria-label={rule.is_paused ? 'Devam Ettir' : 'Duraklat'}
+                        >
+                          {rule.is_paused ? '▶' : '⏸'}
+                        </button>
+
+                        <div className={styles.ruleRowMain}>
+                          <div className={styles.ruleRowTop}>
+                            <span className={styles.ruleType}>
+                              {RULE_TYPE_LABELS[rule.rule_type] ?? rule.rule_type}
+                            </span>
+                            {rule.is_paused && (
+                              <span className={styles.pausedBadge}>Duraklatıldı</span>
+                            )}
+                            <span className={styles.ruleConfig}>
+                              {fmtRuleConfigSummary(rule.rule_type, rule.config)}
+                            </span>
+                          </div>
+
+                          {/* Feature 2: per-rule impact counts */}
+                          {stat && !rule.is_paused && (
+                            <div className={styles.ruleImpact}>
+                              <span>{stat.affected_count.toLocaleString('tr-TR')} ürün değişti</span>
+                              {stat.excluded_count > 0 && (
+                                <span className={styles.ruleImpactExcluded}>
+                                  · {stat.excluded_count.toLocaleString('tr-TR')} hariç
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Feature 4: lint chips per rule */}
+                          {issues.length > 0 && (
+                            <div className={styles.lintChips}>
+                              {issues.map((issue, idx) => (
+                                <LintChip key={idx} issue={issue} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          className={`${styles.deleteRuleBtn} ${isConfirmDelete ? styles.deleteRuleBtnConfirm : ''}`}
+                          onClick={() => handleDeleteRule(rule.id)}
+                          title={isConfirmDelete ? 'Silmek için tekrar tıkla' : 'Kuralı Sil'}
+                          aria-label={isConfirmDelete ? 'Silmek için tekrar tıkla' : 'Kuralı Sil'}
+                          onBlur={() => { if (deletingId === rule.id) setDeletingId(null); }}
+                        >
+                          {isConfirmDelete ? '?' : '×'}
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
           )}
 
           {!showForm ? (
@@ -287,6 +576,8 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     onChange={(e) => {
                       setRuleType(e.target.value as RuleType);
                       setRuleCfg({ ...DEFAULT_RULE_CONFIG });
+                      setSimResult(null);
+                      setSimError(null);
                     }}
                   >
                     {(Object.entries(RULE_TYPE_LABELS) as [RuleType, string][]).map(([v, l]) => (
@@ -341,12 +632,23 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     <input className={styles.input} placeholder="description" value={ruleCfg.fr_field} onChange={(e) => updateCfg('fr_field', e.target.value)} />
                   </div>
                   <div className={styles.field}>
-                    <label className={styles.label}>Bul</label>
-                    <input className={styles.input} placeholder="Aranacak metin" value={ruleCfg.fr_find} onChange={(e) => updateCfg('fr_find', e.target.value)} required />
+                    <label className={styles.label}>Ara</label>
+                    <input className={styles.input} placeholder="Aranacak metin" value={ruleCfg.fr_pattern} onChange={(e) => updateCfg('fr_pattern', e.target.value)} required />
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>Değiştir</label>
-                    <input className={styles.input} placeholder="Yeni metin" value={ruleCfg.fr_replace} onChange={(e) => updateCfg('fr_replace', e.target.value)} />
+                    <input className={styles.input} placeholder="Yeni metin" value={ruleCfg.fr_replacement} onChange={(e) => updateCfg('fr_replacement', e.target.value)} />
+                  </div>
+                  <div className={styles.field} style={{ maxWidth: '100px' }}>
+                    <label className={styles.label}>Regex</label>
+                    <label className={styles.checkboxLabel}>
+                      <input
+                        type="checkbox"
+                        checked={ruleCfg.fr_use_regex}
+                        onChange={(e) => updateCfg('fr_use_regex', e.target.checked)}
+                      />
+                      Regex kullan
+                    </label>
                   </div>
                 </div>
               )}
@@ -355,23 +657,22 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                 <div className={styles.formRow}>
                   <div className={styles.field}>
                     <label className={styles.label}>Alan</label>
-                    <input className={styles.input} placeholder="price" value={ruleCfg.fi_field} onChange={(e) => updateCfg('fi_field', e.target.value)} required />
+                    <input className={styles.input} placeholder="availability" value={ruleCfg.fi_condition_field} onChange={(e) => updateCfg('fi_condition_field', e.target.value)} required />
                   </div>
-                  <div className={styles.field} style={{ maxWidth: '120px' }}>
+                  <div className={styles.field} style={{ maxWidth: '160px' }}>
                     <label className={styles.label}>Koşul</label>
-                    <select className={styles.select} value={ruleCfg.fi_operator} onChange={(e) => updateCfg('fi_operator', e.target.value)}>
+                    <select className={styles.select} value={ruleCfg.fi_condition_op} onChange={(e) => updateCfg('fi_condition_op', e.target.value)}>
                       <option value="eq">Eşit (=)</option>
                       <option value="neq">Eşit değil (!=)</option>
+                      <option value="contains">İçerir</option>
+                      <option value="not_contains">İçermez</option>
                       <option value="gt">Büyük (&gt;)</option>
-                      <option value="gte">Büyük eşit (&gt;=)</option>
                       <option value="lt">Küçük (&lt;)</option>
-                      <option value="lte">Küçük eşit (&lt;=)</option>
-                      <option value="contains">Içerir</option>
                     </select>
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>Değer</label>
-                    <input className={styles.input} placeholder="0" value={ruleCfg.fi_value} onChange={(e) => updateCfg('fi_value', e.target.value)} required />
+                    <input className={styles.input} placeholder="in stock" value={ruleCfg.fi_condition_value} onChange={(e) => updateCfg('fi_condition_value', e.target.value)} required />
                   </div>
                 </div>
               )}
@@ -384,8 +685,33 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                   </div>
                   <div className={styles.field} style={{ flex: 2 }}>
                     <label className={styles.label}>İfade</label>
-                    <input className={styles.input} placeholder="price * 0.9" value={ruleCfg.calc_expression} onChange={(e) => updateCfg('calc_expression', e.target.value)} required />
+                    <input className={styles.input} placeholder="{price} * 0.9" value={ruleCfg.calc_expression} onChange={(e) => updateCfg('calc_expression', e.target.value)} required />
                   </div>
+                </div>
+              )}
+
+              {/* Feature 3: Simulate preview */}
+              <div className={styles.simulateRow}>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={handleSimulate}
+                  disabled={simLoading}
+                >
+                  {simLoading ? 'Önizleniyor...' : 'Önizle'}
+                </button>
+                {simError && <span className={styles.formError}>{simError}</span>}
+              </div>
+
+              {simResult && (
+                <div className={styles.simResult}>
+                  <div className={styles.simSummary}>
+                    Bu kural ~<strong>{simResult.affected_count.toLocaleString('tr-TR')}</strong> ürünü etkiler
+                    {simResult.excluded_count > 0 && (
+                      <>, <strong>{simResult.excluded_count.toLocaleString('tr-TR')}</strong> ürünü hariç tutar</>
+                    )}
+                  </div>
+                  <SampleDiff before={simResult.sample_before} after={simResult.sample_after} />
                 </div>
               )}
 
@@ -398,7 +724,12 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                 <button
                   type="button"
                   className={styles.secondaryBtn}
-                  onClick={() => { setShowForm(false); setFormError(null); }}
+                  onClick={() => {
+                    setShowForm(false);
+                    setFormError(null);
+                    setSimResult(null);
+                    setSimError(null);
+                  }}
                   disabled={submitting}
                 >
                   İptal
@@ -684,7 +1015,7 @@ export default function FeedsPage() {
         <div>
           <h1 className={styles.pageTitle}>Feed Yönetimi</h1>
           <p className={styles.pageSubtitle}>
-            Ürün feedlerinizi yönetin, kanallara özel çıktılar oluşturun ve herkese açık feed URL'leri paylaşın.
+            Ürün feedlerinizi yönetin, kanallara özel çıktılar oluşturun ve herkese açık feed URL&apos;leri paylaşın.
           </p>
         </div>
 

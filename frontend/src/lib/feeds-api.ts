@@ -84,10 +84,12 @@ export interface FeedChannel {
 
 export interface FeedRule {
   id: string;
-  channel_id: string;
+  /** Backend field name is feed_channel_id */
+  feed_channel_id: string;
   position: number;
   rule_type: RuleType;
   config: Record<string, unknown>;
+  is_paused: boolean;
   created_at: string;
 }
 
@@ -176,6 +178,101 @@ export function createChannelRule(
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+// --- Rule update / delete ---
+
+export interface PatchRulePayload {
+  rule_type?: RuleType;
+  position?: number;
+  config?: Record<string, unknown>;
+  is_paused?: boolean;
+}
+
+export function patchChannelRule(
+  ruleId: string,
+  payload: PatchRulePayload,
+): Promise<FeedRule> {
+  return authFetch<FeedRule>(`/api/v1/feeds/rules/${ruleId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteChannelRule(ruleId: string): Promise<void> {
+  return authFetch<void>(`/api/v1/feeds/rules/${ruleId}`, {
+    method: 'DELETE',
+  });
+}
+
+// --- Rule Studio: Impact ---
+
+export interface RuleImpactStat {
+  rule_id: string;
+  position: number;
+  rule_type: string;
+  is_paused: boolean;
+  affected_count: number;
+  excluded_count: number;
+}
+
+export interface RulesImpactResponse {
+  total_before: number;
+  total_after: number;
+  sampled: boolean;
+  sampled_total: number | null;
+  rules: RuleImpactStat[];
+}
+
+export function getRulesImpact(channelId: string): Promise<RulesImpactResponse> {
+  return authFetch<RulesImpactResponse>(
+    `/api/v1/feeds/channels/${channelId}/rules/impact`,
+  );
+}
+
+// --- Rule Studio: Simulate ---
+
+export interface SimulateRulePayload {
+  rule_type: RuleType;
+  config: Record<string, unknown>;
+  position?: number;
+}
+
+export interface SimulateRuleResponse {
+  affected_count: number;
+  excluded_count: number;
+  sample_before: Record<string, unknown>[];
+  sample_after: Record<string, unknown>[];
+}
+
+export function simulateRule(
+  channelId: string,
+  payload: SimulateRulePayload,
+): Promise<SimulateRuleResponse> {
+  return authFetch<SimulateRuleResponse>(
+    `/api/v1/feeds/channels/${channelId}/rules/simulate`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  );
+}
+
+// --- Rule Studio: Lint ---
+
+export interface LintIssue {
+  severity: string; // 'error' | 'warning' | 'info'
+  rule_id: string;
+  position: number;
+  code: string; // 'no_effect' | 'excludes_all' | 'shadowed' | 'duplicate'
+  message: string;
+}
+
+export interface LintResponse {
+  issues: LintIssue[];
+}
+
+export function lintChannelRules(channelId: string): Promise<LintResponse> {
+  return authFetch<LintResponse>(
+    `/api/v1/feeds/channels/${channelId}/rules/lint`,
+  );
 }
 
 // --- Public feed URL helper ---
