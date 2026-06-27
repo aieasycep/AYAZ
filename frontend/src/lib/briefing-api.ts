@@ -90,7 +90,7 @@ export interface BriefingSummary {
 // Backend returns performance_delta as {yesterday:{spend,roas,conversions},
 // prior_day:{...}, delta:{spend_pct,roas_pct,conversions_pct}}. The UI expects a
 // per-metric map {spend:{value,prev,pct}, ...}. Normalise here so the page stays simple.
-function normaliseBriefing(b: Briefing): Briefing {
+export function normaliseBriefing(b: Briefing): Briefing {
   const pd = (b?.body?.performance_delta ?? {}) as Record<string, unknown>;
   if (pd && (pd.yesterday || pd.prior_day || pd.delta)) {
     const y = (pd.yesterday ?? {}) as Record<string, number>;

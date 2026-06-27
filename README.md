@@ -129,6 +129,7 @@ cd frontend && npm install && npm run dev
 | Ölçüt | Değer |
 |---|---|
 | Backend testleri | ~1400 (`pytest`, SQLite ile hermetik — DB gerekmez) |
+| Frontend testleri | 49 (Vitest + Testing Library) + E2E smoke (Playwright, 19 rota) |
 | API endpoint'leri | ~123 (19 v1 router + `/health`) |
 | Alembic migration | 15 |
 | Web sayfası | 19 (landing + `/settings` dahil) |

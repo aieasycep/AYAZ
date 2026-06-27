@@ -166,6 +166,11 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 39 — Frontend Birim Testleri
+- Vitest + React Testing Library + jsdom kuruldu (önceden frontend birim testi yoktu).
+  49 test: api normalize yardımcıları (briefing/goals), tarih ön-ayar matematiği,
+  göreli zaman biçimleyici, StateViews bileşen render. CI'ye "Frontend — tests" işi eklendi.
+
 ## Dalga 38 — Erişilebilirlik (a11y)
 - Global `:focus-visible` klavye-odak halkası (açık/koyu temada görünür) ve
   `prefers-reduced-motion` desteği (hareket azaltıldığında animasyon/geçişler kısılır).

@@ -91,14 +91,14 @@ export interface UpdateGoalPayload {
 // --- Normalisation ---
 // Backend Goal uses `channel_filter`; the UI reads/writes `channel`. Translate
 // both directions so the page can keep using `channel`.
-function normaliseGoal(g: Goal & { channel_filter?: string | null }): Goal {
+export function normaliseGoal(g: Goal & { channel_filter?: string | null }): Goal {
   if (g && g.channel == null && g.channel_filter !== undefined) {
     g.channel = g.channel_filter;
   }
   return g;
 }
 
-function goalPayloadToBackend<T extends { channel?: string | null }>(
+export function goalPayloadToBackend<T extends { channel?: string | null }>(
   payload: T,
 ): Omit<T, 'channel'> & { channel_filter?: string | null } {
   const { channel, ...rest } = payload;
