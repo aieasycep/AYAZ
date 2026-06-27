@@ -24,6 +24,8 @@ import {
   type FixActionType,
 } from '@/lib/insights-api';
 import AppNav from '@/components/AppNav';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
 import styles from './insights.module.css';
 
 // --- Label helpers ---
@@ -494,27 +496,19 @@ export default function InsightsPage() {
           </div>
 
           {insightsLoading ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>İçgörüler yükleniyor...</span>
-            </div>
+            <LoadingState message="İçgörüler yükleniyor..." />
           ) : insightsError ? (
-            <div className={styles.stateBox}>
-              <span className={styles.errorText}>{insightsError}</span>
-              <br />
-              <button
-                className={styles.retryBtn}
-                onClick={() => fetchInsights(severityFilter, statusFilter)}
-              >
-                Tekrar Dene
-              </button>
-            </div>
+            <ErrorState
+              message={insightsError}
+              onRetry={() => fetchInsights(severityFilter, statusFilter)}
+            />
           ) : insights.length === 0 ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Bu filtreler için içgörü bulunamadı.
-              </span>
-            </div>
+            <EmptyState
+              title="İçgörü bulunamadı"
+              description="Bu filtreler için içgörü bulunamadı."
+            />
           ) : (
+            <ErrorBoundary label="İçgörü Akışı">
             <div className={styles.feed}>
               {insights.map((ins) => (
                 <div
@@ -590,6 +584,7 @@ export default function InsightsPage() {
                 </div>
               ))}
             </div>
+            </ErrorBoundary>
           )}
         </section>
 
@@ -602,24 +597,16 @@ export default function InsightsPage() {
           </div>
 
           {rulesLoading ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>Kurallar yükleniyor...</span>
-            </div>
+            <LoadingState message="Kurallar yükleniyor..." />
           ) : rulesError ? (
-            <div className={styles.stateBox}>
-              <span className={styles.errorText}>{rulesError}</span>
-              <br />
-              <button className={styles.retryBtn} onClick={fetchRules}>
-                Tekrar Dene
-              </button>
-            </div>
+            <ErrorState message={rulesError} onRetry={fetchRules} />
           ) : rules.length === 0 ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Henüz uyarı kuralı tanımlanmamış.
-              </span>
-            </div>
+            <EmptyState
+              title="Kural yok"
+              description="Henüz uyarı kuralı tanımlanmamış."
+            />
           ) : (
+            <ErrorBoundary label="Uyarı Kuralları">
             <div className={styles.rulesList}>
               {rules.map((rule) => (
                 <div key={rule.id} className={styles.ruleRow}>
@@ -651,6 +638,7 @@ export default function InsightsPage() {
                 </div>
               ))}
             </div>
+            </ErrorBoundary>
           )}
 
           {/* Add rule form */}

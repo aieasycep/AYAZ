@@ -19,6 +19,8 @@ import TimeSeriesChart from '@/components/TimeSeriesChart';
 import ChannelTable from '@/components/ChannelTable';
 import AppNav from '@/components/AppNav';
 import DashboardEmptyState from '@/components/DashboardEmptyState';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { LoadingState, ErrorState } from '@/components/StateViews';
 import styles from './dashboard.module.css';
 
 // --- Date helpers ---
@@ -276,11 +278,14 @@ export default function DashboardPage() {
         <section className={styles.kpiGrid}>
           {summaryLoading ? (
             <div className={styles.kpiPlaceholder}>
-              <span className={styles.muted}>KPI verileri yukleniyor...</span>
+              <LoadingState message="KPI verileri yükleniyor..." />
             </div>
           ) : summaryError ? (
             <div className={styles.kpiPlaceholder}>
-              <span className={styles.errorText}>{summaryError}</span>
+              <ErrorState
+                message={summaryError}
+                onRetry={() => fetchSummary(appliedFrom, appliedTo, compareOn)}
+              />
             </div>
           ) : totals ? (
             <>
@@ -347,12 +352,14 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-          <TimeSeriesChart
-            points={timeseries?.points ?? []}
-            metricLabel={metricLabel}
-            loading={tsLoading}
-            error={tsError}
-          />
+          <ErrorBoundary label="Zaman Serisi">
+            <TimeSeriesChart
+              points={timeseries?.points ?? []}
+              metricLabel={metricLabel}
+              loading={tsLoading}
+              error={tsError}
+            />
+          </ErrorBoundary>
         </section>
 
         {/* By-channel table */}
@@ -360,11 +367,13 @@ export default function DashboardPage() {
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>Kanala Gore Performans</h2>
           </div>
-          <ChannelTable
-            rows={summary?.by_channel ?? []}
-            loading={summaryLoading}
-            error={summaryError}
-          />
+          <ErrorBoundary label="Kanal Tablosu">
+            <ChannelTable
+              rows={summary?.by_channel ?? []}
+              loading={summaryLoading}
+              error={summaryError}
+            />
+          </ErrorBoundary>
         </section>
       </main>
     </div>

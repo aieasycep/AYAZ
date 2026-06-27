@@ -120,6 +120,15 @@
 - `users` tablosuna 4 tercih kolonu (migration 0013); change-password için
   rate-limit. 28 yeni test (toplam suite 1231 geçiyor).
 
+## Dalga 23 — Hata Sınırları & Zarif Durumlar
+- App Router hata/yükleme/404 dosyaları: `error.tsx`, `global-error.tsx`,
+  `not-found.tsx`, `loading.tsx` (Türkçe, erişilebilir).
+- Paylaşılan bileşenler: `ErrorBoundary` (widget-bazlı çökme yalıtımı) +
+  `StateViews` (`LoadingState`/`ErrorState`/`EmptyState`).
+- Dashboard, içgörü ve reklam sayfaları bu bileşenleri benimsedi; ana veri
+  widget'ları ErrorBoundary ile sarıldı (runtime-çökme sınıfına karşı sertleştirme).
+- Yerel/demo çalıştırma: SQLite-uyumlu DB engine (Postgres yolu değişmedi).
+
 ---
 
 > **Mevcut durum:** Çekirdek M1–M10 + 7 farklılaştırıcı + güvenlik sertleştirme + PWA tamam.

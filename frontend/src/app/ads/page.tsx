@@ -16,6 +16,8 @@ import {
 } from '@/lib/ads-api';
 import TimeSeriesChart from '@/components/TimeSeriesChart';
 import AppNav from '@/components/AppNav';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
 import styles from './ads.module.css';
 
 // --- Date helpers ---
@@ -399,29 +401,21 @@ export default function AdsPage() {
           </div>
 
           {campaignsLoading ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>Kampanyalar yükleniyor...</span>
-            </div>
+            <LoadingState message="Kampanyalar yükleniyor..." />
           ) : campaignsError ? (
-            <div className={styles.stateBox}>
-              <span className={styles.errorText}>{campaignsError}</span>
-              <br />
-              <button
-                className={styles.retryBtn}
-                onClick={() =>
-                  fetchCampaigns(appliedFrom, appliedTo, appliedChannel, appliedStatus)
-                }
-              >
-                Tekrar Dene
-              </button>
-            </div>
+            <ErrorState
+              message={campaignsError}
+              onRetry={() =>
+                fetchCampaigns(appliedFrom, appliedTo, appliedChannel, appliedStatus)
+              }
+            />
           ) : sortedCampaigns.length === 0 ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Bu filtreler için kampanya bulunamadı.
-              </span>
-            </div>
+            <EmptyState
+              title="Kampanya bulunamadı"
+              description="Bu filtreler için kampanya bulunamadı."
+            />
           ) : (
+            <ErrorBoundary label="Kampanya Tablosu">
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
@@ -527,6 +521,7 @@ export default function AdsPage() {
                 </tbody>
               </table>
             </div>
+            </ErrorBoundary>
           )}
         </section>
 
@@ -540,27 +535,19 @@ export default function AdsPage() {
           </div>
 
           {recosLoading ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>Öneriler yükleniyor...</span>
-            </div>
+            <LoadingState message="Öneriler yükleniyor..." />
           ) : recosError ? (
-            <div className={styles.stateBox}>
-              <span className={styles.errorText}>{recosError}</span>
-              <br />
-              <button
-                className={styles.retryBtn}
-                onClick={() => fetchRecos(appliedFrom, appliedTo)}
-              >
-                Tekrar Dene
-              </button>
-            </div>
+            <ErrorState
+              message={recosError}
+              onRetry={() => fetchRecos(appliedFrom, appliedTo)}
+            />
           ) : recos.length === 0 ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Bu dönem için öneri bulunmuyor.
-              </span>
-            </div>
+            <EmptyState
+              title="Öneri bulunmuyor"
+              description="Bu dönem için öneri bulunmuyor."
+            />
           ) : (
+            <ErrorBoundary label="Öneriler">
             <div className={styles.recoList}>
               {recos.map((r, idx) => (
                 <div key={`${r.campaign_id}-${idx}`} className={styles.recoRow}>
@@ -585,6 +572,7 @@ export default function AdsPage() {
                 </div>
               ))}
             </div>
+            </ErrorBoundary>
           )}
         </section>
       </main>
