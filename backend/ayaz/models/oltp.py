@@ -14,6 +14,7 @@ Multi-tenancy strategy
 
 import enum
 import uuid
+from datetime import datetime
 
 import sqlalchemy as sa
 from sqlalchemy import (
@@ -135,6 +136,14 @@ class User(Base, TimestampMixin):
     )
     hashed_password: Mapped[str] = mapped_column(Text, nullable=False)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+
+    # Security — added in migration 0015
+    credentials_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+        comment="UTC timestamp of the last password change; tokens issued before this are rejected.",
+    )
 
     # User preferences — added in migration 0013
     locale: Mapped[str] = mapped_column(

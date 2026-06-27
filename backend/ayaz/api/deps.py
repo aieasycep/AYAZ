@@ -18,6 +18,7 @@ which resolves the active tenant from the JWT and validates the user's role.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -75,6 +76,36 @@ def get_current_user(
     user = db.get(User, user_id)
     if user is None:
         raise _unauthorized
+
+    # Credentials-changed cutoff: reject tokens issued before a password change.
+    # Tokens that carry an ``iat`` claim and were issued before the user's
+    # ``credentials_changed_at`` timestamp are no longer valid.
+    # Tokens without an ``iat`` claim (legacy tokens issued before this feature
+    # was deployed) are treated as valid to avoid inadvertently locking out
+    # existing sessions on deploy.
+    #
+    # Precision note: JWT ``iat`` is stored as epoch seconds (integer). To
+    # avoid rejecting tokens issued in the same second as ``credentials_changed_at``
+    # (which carries microsecond precision), we truncate ``credentials_changed_at``
+    # to whole seconds before comparison.  A token issued at the same second as
+    # the cutoff is treated as valid (issued-at >= cutoff second → accepted).
+    if user.credentials_changed_at is not None:
+        iat_raw = payload.get("iat")
+        if iat_raw is not None:
+            try:
+                # jose returns iat as a numeric Unix epoch (int or float)
+                iat_dt = datetime.fromtimestamp(float(iat_raw), tz=timezone.utc)
+            except (TypeError, ValueError, OSError):
+                iat_dt = None
+            if iat_dt is not None:
+                # Ensure credentials_changed_at is timezone-aware
+                cca = user.credentials_changed_at
+                if cca.tzinfo is None:
+                    cca = cca.replace(tzinfo=timezone.utc)
+                # Truncate cca to whole seconds to match JWT iat precision
+                cca_seconds = cca.replace(microsecond=0)
+                if iat_dt < cca_seconds:
+                    raise _unauthorized
 
     return user
 

@@ -79,9 +79,9 @@ AYAZ/
 │   │   ├── connectors/  # 10 platform konektörü + Connector SDK (base/registry)
 │   │   ├── security/    # Auth/RBAC, hardening yardımcıları
 │   │   └── tasks/       # Celery görevleri (sync, scheduler)
-│   ├── alembic/         # 14 migration
+│   ├── alembic/         # 15 migration
 │   ├── scripts/         # seed_demo.py (idempotent demo verisi)
-│   └── tests/           # ~1350 backend testi
+│   └── tests/           # ~1400 backend testi
 ├── frontend/       # Next.js + React + TS web uygulaması (19 sayfa, PWA)
 │   ├── src/app/        # Sayfalar (dashboard, ads, insights, assistant, billing, ...)
 │   ├── src/components/  # Paylaşılan bileşenler
@@ -128,9 +128,9 @@ cd frontend && npm install && npm run dev
 
 | Ölçüt | Değer |
 |---|---|
-| Backend testleri | ~1350 (`pytest`, SQLite ile hermetik — DB gerekmez) |
+| Backend testleri | ~1400 (`pytest`, SQLite ile hermetik — DB gerekmez) |
 | API endpoint'leri | ~123 (19 v1 router + `/health`) |
-| Alembic migration | 14 |
+| Alembic migration | 15 |
 | Web sayfası | 19 (landing + `/settings` dahil) |
 | Tema | Açık + Koyu (Dark mode) + Sistem |
 | Hızlı erişim | Komut paleti (⌘K), bildirim merkezi, başlangıç rehberi |

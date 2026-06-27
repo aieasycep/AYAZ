@@ -166,6 +166,14 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 36 — Kimlik/Güvenlik Sertleştirme
+- **Şifre değişince tüm oturumlar geçersiz:** JWT'ye `iat` eklendi; `users`'a
+  `credentials_changed_at` (migration 0015). Şifre değişiminden önce verilmiş
+  tokenlar 401 (eski/legacy token uyumu korunur).
+- `PATCH /auth/preferences`: `timezone` artık IANA tz veritabanına göre doğrulanır (422).
+- Copilot araç hatalarında iç imza sızdırılmıyor (genel mesaj + sunucu logu).
+- Copilot `get_top_movers` ters tarih aralığına karşı korumalı. 26 yeni test (suite 1400).
+
 ## Dalga 35 — Bildirimler Sayfası
 - Yeni `/notifications` sayfası: tüm bildirimleri listele, Tümü/Okunmamış + önem
   (Bilgi/Uyarı/Kritik) filtreleri, tümünü okundu işaretle, tıklayınca okundu+ilgili

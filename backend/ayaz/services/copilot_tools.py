@@ -558,6 +558,11 @@ def _get_top_movers(
     else:
         df = _parse_date(date_from)
 
+    # Symmetry guard: if date_from is after date_to, swap them so the
+    # underlying service always receives a valid (non-negative) date range.
+    if df > dt:
+        df, dt = dt, df
+
     # Clamp limit to sensible bounds.
     try:
         limit = max(1, min(int(limit), 20))
@@ -775,7 +780,9 @@ def dispatch(
         logging.getLogger(__name__).warning(
             "[copilot_tools] dispatch(%r) raised: %s", name, exc, exc_info=True
         )
-        return {"error": str(exc)}
+        # Return a generic Turkish message — never expose internal exception
+        # details (e.g. Python TypeError/signature strings) to the caller.
+        return {"error": "Araç çalıştırılamadı."}
 
 
 # ── Claude tool schemas (TOOL_SPECS) ───────────────────────────────────────────

@@ -13,6 +13,7 @@ PATCH /auth/preferences      — update current user preferences
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -158,6 +159,16 @@ class UpdatePreferencesRequest(BaseModel):
     def _validate_locale(cls, v: str | None) -> str | None:
         if v is not None and v not in {"tr", "en"}:
             raise ValueError("Geçersiz dil seçeneği. 'tr' veya 'en' olmalıdır.")
+        return v
+
+    @field_validator("timezone")
+    @classmethod
+    def _validate_timezone(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        from zoneinfo import available_timezones
+        if v not in available_timezones():
+            raise ValueError("Geçersiz saat dilimi.")
         return v
 
 
@@ -387,6 +398,14 @@ def change_password(
     Plain-text passwords are NEVER logged.
 
     Rate limited: 5 requests/minute/IP (configurable via settings).
+
+    Security note — session invalidation
+    -------------------------------------
+    After a successful password change, ``credentials_changed_at`` is set to
+    the current UTC time.  Any JWT that was issued *before* this timestamp will
+    be rejected by ``get_current_user`` with HTTP 401 on the next request.
+    This includes the token the caller used for this very request — the client
+    is expected to re-authenticate (log in again) to obtain a fresh token.
     """
     if not verify_password(body.current_password, current_user.hashed_password):
         raise HTTPException(
@@ -401,6 +420,10 @@ def change_password(
         )
 
     current_user.hashed_password = hash_password(body.new_password)
+    # Invalidate all previously-issued JWTs by recording the change time.
+    # Any token with iat < credentials_changed_at will be rejected by the auth
+    # dependency on the next request.
+    current_user.credentials_changed_at = datetime.now(timezone.utc)
     db.commit()
 
     return MessageResponse(detail="Şifre güncellendi.")
