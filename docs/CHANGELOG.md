@@ -171,6 +171,7 @@
   (migration 0017). `POST /insights/{id}/apply` ({applied}) ve `/insights/{id}/react`
   ({reaction: up|down|null}); liste filtreleri `applied` ve `reaction`. Kapalı geri-bildirim +
   'uygulananlar' görünümü. 27 yeni test (suite 1508).
+  Frontend: `/insights` kartlarında 'Uygulandı' toggle + 👍/👎 (optimistik) + 'Uygulananlar' filtresi. 12 yeni frontend testi (toplam 99).
 
 ## Dalga 45 — Türkçe Doğal Dil → Feed Kuralı (backend)
 - `POST /feeds/channels/{id}/rules/from-text`: Türkçe cümleden taslak FeedRule üretir

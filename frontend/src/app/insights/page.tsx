@@ -7,6 +7,8 @@ import {
   getInsights,
   patchInsight,
   generateInsights,
+  applyInsight,
+  reactInsight,
   getAlertRules,
   createAlertRule,
   patchAlertRule,
@@ -16,6 +18,7 @@ import {
   type Insight,
   type InsightSeverity,
   type InsightStatus,
+  type InsightReaction,
   type AlertRule,
   type AlertComparator,
   type AlertDelivery,
@@ -203,6 +206,7 @@ function InsightFixesPanel({ insightId, onToast, onNavigate }: InsightFixesPanel
 
 type SeverityFilter = InsightSeverity | 'all';
 type StatusFilter = InsightStatus | 'all';
+type AppliedFilter = 'all' | 'applied';
 
 const SEVERITY_OPTS: { value: SeverityFilter; label: string }[] = [
   { value: 'all', label: 'Hepsi' },
@@ -215,6 +219,11 @@ const STATUS_OPTS: { value: StatusFilter; label: string }[] = [
   { value: 'new', label: 'Yeni' },
   { value: 'seen', label: 'Görüldü' },
   { value: 'all', label: 'Tümü' },
+];
+
+const APPLIED_OPTS: { value: AppliedFilter; label: string }[] = [
+  { value: 'all', label: 'Tümü' },
+  { value: 'applied', label: 'Uygulananlar' },
 ];
 
 // --- Alert rule form state ---
@@ -263,6 +272,7 @@ export default function InsightsPage() {
   // --- Filters ---
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('new');
+  const [appliedFilter, setAppliedFilter] = useState<AppliedFilter>('all');
 
   // --- Insights state ---
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -270,6 +280,7 @@ export default function InsightsPage() {
   const [insightsError, setInsightsError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [actionBusy, setActionBusy] = useState<Record<string, boolean>>({});
+  const [feedbackBusy, setFeedbackBusy] = useState<Record<string, boolean>>({});
 
   // --- Alert rules state ---
   const [rules, setRules] = useState<AlertRule[]>([]);
@@ -283,13 +294,14 @@ export default function InsightsPage() {
   // --- Fetch insights ---
 
   const fetchInsights = useCallback(
-    async (sev: SeverityFilter, stat: StatusFilter) => {
+    async (sev: SeverityFilter, stat: StatusFilter, app: AppliedFilter) => {
       setInsightsLoading(true);
       setInsightsError(null);
       try {
         const data = await getInsights({
           severity: sev === 'all' ? '' : sev,
           status: stat === 'all' ? 'all' : stat,
+          applied: app === 'applied' ? true : undefined,
         });
         // Sort descending by score
         data.sort((a, b) => b.score - a.score);
@@ -326,7 +338,7 @@ export default function InsightsPage() {
 
   useEffect(() => {
     if (!getToken()) return;
-    fetchInsights(severityFilter, statusFilter);
+    fetchInsights(severityFilter, statusFilter, appliedFilter);
     fetchRules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -335,8 +347,8 @@ export default function InsightsPage() {
 
   useEffect(() => {
     if (!getToken()) return;
-    fetchInsights(severityFilter, statusFilter);
-  }, [severityFilter, statusFilter, fetchInsights]);
+    fetchInsights(severityFilter, statusFilter, appliedFilter);
+  }, [severityFilter, statusFilter, appliedFilter, fetchInsights]);
 
   // --- Generate insights ---
 
@@ -344,7 +356,7 @@ export default function InsightsPage() {
     setGenerating(true);
     try {
       await generateInsights();
-      await fetchInsights(severityFilter, statusFilter);
+      await fetchInsights(severityFilter, statusFilter, appliedFilter);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Yenileme başarısız');
     } finally {
@@ -365,6 +377,68 @@ export default function InsightsPage() {
       alert(err instanceof Error ? err.message : 'İşlem başarısız');
     } finally {
       setActionBusy((prev) => ({ ...prev, [id]: false }));
+    }
+  }
+
+  // --- Feedback: apply toggle ---
+
+  async function handleApplyToggle(ins: Insight) {
+    const newApplied = !ins.applied_at;
+    // Optimistic update
+    setInsights((prev) =>
+      prev.map((i) =>
+        i.id === ins.id
+          ? { ...i, applied_at: newApplied ? new Date().toISOString() : null }
+          : i,
+      ),
+    );
+    setFeedbackBusy((prev) => ({ ...prev, [`apply-${ins.id}`]: true }));
+    try {
+      const updated = await applyInsight(ins.id, newApplied);
+      setInsights((prev) =>
+        prev.map((i) => (i.id === updated.id ? updated : i)),
+      );
+      showToast(newApplied ? 'Uygulandı olarak işaretlendi' : 'Uygulama geri alındı');
+    } catch (err: unknown) {
+      // Revert on error
+      setInsights((prev) =>
+        prev.map((i) =>
+          i.id === ins.id ? { ...i, applied_at: ins.applied_at } : i,
+        ),
+      );
+      showToast(err instanceof Error ? err.message : 'İşlem başarısız');
+    } finally {
+      setFeedbackBusy((prev) => ({ ...prev, [`apply-${ins.id}`]: false }));
+    }
+  }
+
+  // --- Feedback: reaction ---
+
+  async function handleReaction(ins: Insight, reaction: InsightReaction) {
+    const newReaction: InsightReaction | null =
+      ins.reaction === reaction ? null : reaction;
+    // Optimistic update
+    setInsights((prev) =>
+      prev.map((i) =>
+        i.id === ins.id ? { ...i, reaction: newReaction } : i,
+      ),
+    );
+    setFeedbackBusy((prev) => ({ ...prev, [`react-${ins.id}`]: true }));
+    try {
+      const updated = await reactInsight(ins.id, newReaction);
+      setInsights((prev) =>
+        prev.map((i) => (i.id === updated.id ? updated : i)),
+      );
+    } catch (err: unknown) {
+      // Revert on error
+      setInsights((prev) =>
+        prev.map((i) =>
+          i.id === ins.id ? { ...i, reaction: ins.reaction } : i,
+        ),
+      );
+      showToast(err instanceof Error ? err.message : 'İşlem başarısız');
+    } finally {
+      setFeedbackBusy((prev) => ({ ...prev, [`react-${ins.id}`]: false }));
     }
   }
 
@@ -492,6 +566,17 @@ export default function InsightsPage() {
                   {opt.label}
                 </button>
               ))}
+              <span className={styles.filterSep} />
+              {APPLIED_OPTS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`${styles.filterBtn} ${appliedFilter === opt.value ? styles.filterBtnActive : ''}`}
+                  onClick={() => setAppliedFilter(opt.value)}
+                  aria-pressed={appliedFilter === opt.value}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -500,7 +585,7 @@ export default function InsightsPage() {
           ) : insightsError ? (
             <ErrorState
               message={insightsError}
-              onRetry={() => fetchInsights(severityFilter, statusFilter)}
+              onRetry={() => fetchInsights(severityFilter, statusFilter, appliedFilter)}
             />
           ) : insights.length === 0 ? (
             <EmptyState
@@ -556,6 +641,40 @@ export default function InsightsPage() {
                         onNavigate={(path) => router.push(path)}
                       />
                     )}
+
+                    {/* Feedback footer */}
+                    <div className={styles.feedbackFooter}>
+                      <button
+                        className={`${styles.feedbackApplyBtn} ${ins.applied_at ? styles.feedbackApplyBtnActive : ''}`}
+                        onClick={() => handleApplyToggle(ins)}
+                        disabled={feedbackBusy[`apply-${ins.id}`]}
+                        aria-pressed={!!ins.applied_at}
+                        aria-label={ins.applied_at ? 'Uygulandı işaretini kaldır' : 'Uygulandı olarak işaretle'}
+                      >
+                        {ins.applied_at ? '✓ Uygulandı' : 'Uygulandı'}
+                      </button>
+
+                      <div className={styles.feedbackReactionGroup} role="group" aria-label="Geri bildirim">
+                        <button
+                          className={`${styles.feedbackReactionBtn} ${styles.feedbackReactionBtnUp}`}
+                          onClick={() => handleReaction(ins, 'up')}
+                          disabled={feedbackBusy[`react-${ins.id}`]}
+                          aria-pressed={ins.reaction === 'up'}
+                          aria-label="Faydalı"
+                        >
+                          👍
+                        </button>
+                        <button
+                          className={`${styles.feedbackReactionBtn} ${styles.feedbackReactionBtnDown}`}
+                          onClick={() => handleReaction(ins, 'down')}
+                          disabled={feedbackBusy[`react-${ins.id}`]}
+                          aria-pressed={ins.reaction === 'down'}
+                          aria-label="Faydasız"
+                        >
+                          👎
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Actions */}

@@ -43,6 +43,7 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 export type InsightSeverity = 'critical' | 'warning' | 'info';
 export type InsightStatus = 'new' | 'seen' | 'dismissed';
+export type InsightReaction = 'up' | 'down';
 
 export interface Insight {
   id: string;
@@ -58,6 +59,8 @@ export interface Insight {
   status: InsightStatus;
   score: number;
   created_at: string;
+  applied_at: string | null;
+  reaction: InsightReaction | null;
 }
 
 // Backend returns {as_of_date, new_info, new_warning, new_critical, skipped}.
@@ -132,12 +135,36 @@ function rulePayloadToBackend<T extends { active?: boolean }>(
 export function getInsights(params?: {
   severity?: InsightSeverity | '';
   status?: InsightStatus | 'all' | '';
+  applied?: boolean;
+  reaction?: InsightReaction;
 }): Promise<Insight[]> {
   const qs = new URLSearchParams();
   if (params?.severity) qs.set('severity', params.severity);
   if (params?.status && params.status !== 'all') qs.set('status', params.status);
+  if (params?.applied !== undefined) qs.set('applied', String(params.applied));
+  if (params?.reaction) qs.set('reaction', params.reaction);
   const query = qs.toString() ? `?${qs.toString()}` : '';
   return authFetch<Insight[]>(`/api/v1/insights${query}`);
+}
+
+export function applyInsight(
+  id: string,
+  applied: boolean,
+): Promise<Insight> {
+  return authFetch<Insight>(`/api/v1/insights/${id}/apply`, {
+    method: 'POST',
+    body: JSON.stringify({ applied }),
+  });
+}
+
+export function reactInsight(
+  id: string,
+  reaction: InsightReaction | null,
+): Promise<Insight> {
+  return authFetch<Insight>(`/api/v1/insights/${id}/react`, {
+    method: 'POST',
+    body: JSON.stringify({ reaction }),
+  });
 }
 
 export function patchInsight(
