@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 29 — Türkçe Diakritik Tutarlılığı
+- Dashboard, reklam, kreatif, feed, içgörü, brifing, faturalama ve top-movers
+  ekranlarındaki ASCII-leştirilmiş Türkçe metinler doğru diakritiklerle düzeltildi
+  (~50 dizi; ör. Gösterim, Dönüşüm, Başlangıç, Dışa aktarma, Oluşturuldu, İşlem).
+  Yalnızca kullanıcıya görünen metinler; mantık anahtarları/`value` alanları korundu.
+
 ---
 
 > **Mevcut durum:** Çekirdek M1–M10 + 7 farklılaştırıcı + güvenlik sertleştirme + PWA tamam.

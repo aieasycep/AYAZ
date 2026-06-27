@@ -77,9 +77,9 @@ function fmtDate(iso: string | null): string {
 
 function fixActionIcon(action_type: FixActionType): string {
   switch (action_type) {
-    case 'create_alert_rule': return 'Otomatik uyari kurali olustur';
+    case 'create_alert_rule': return 'Otomatik uyarı kuralı oluştur';
     case 'create_goal':       return 'Hedef koy';
-    case 'view_campaign':     return 'Kampanyayi gor';
+    case 'view_campaign':     return 'Kampanyayı gör';
     case 'dismiss':           return 'Yok say';
   }
 }
@@ -115,7 +115,7 @@ function InsightFixesPanel({ insightId, onToast, onNavigate }: InsightFixesPanel
       const data = await getInsightFixes(insightId);
       setFixes(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Cozumler yuklenemedi');
+      setError(err instanceof Error ? err.message : 'Çözümler yüklenemedi');
       fetchedRef.current = false; // allow retry
     } finally {
       setLoading(false);
@@ -132,9 +132,9 @@ function InsightFixesPanel({ insightId, onToast, onNavigate }: InsightFixesPanel
       }
       await applyInsightFix(insightId, fix.action_type, fix.payload);
       setApplied((prev) => ({ ...prev, [key]: true }));
-      onToast('Olusturuldu');
+      onToast('Oluşturuldu');
     } catch (err: unknown) {
-      onToast(err instanceof Error ? err.message : 'Islem basarisiz');
+      onToast(err instanceof Error ? err.message : 'İşlem başarısız');
     } finally {
       setApplying((prev) => ({ ...prev, [key]: false }));
     }
@@ -146,13 +146,13 @@ function InsightFixesPanel({ insightId, onToast, onNavigate }: InsightFixesPanel
         className={styles.fixesToggleBtn}
         onClick={handleToggle}
       >
-        {open ? '▲' : '▼'} Kok neden &amp; cozum
+        {open ? '▲' : '▼'} Kök neden &amp; çözüm
       </button>
 
       {open && (
         <div className={styles.fixesPanel}>
           {loading ? (
-            <div className={styles.fixesLoading}>Yuklenıyor...</div>
+            <div className={styles.fixesLoading}>Yükleniyor...</div>
           ) : error ? (
             <div className={styles.fixesError}>
               {error}{' '}
@@ -169,7 +169,7 @@ function InsightFixesPanel({ insightId, onToast, onNavigate }: InsightFixesPanel
             </div>
           ) : fixes ? (
             <>
-              <div className={styles.rootCauseLabel}>Kok Neden</div>
+              <div className={styles.rootCauseLabel}>Kök Neden</div>
               <div className={styles.rootCauseText}>{fixes.root_cause}</div>
               {fixes.fixes.length > 0 && (
                 <div className={styles.fixesList}>

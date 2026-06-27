@@ -118,9 +118,9 @@ function fmtRoas(n: number): string {
 
 const METRIC_OPTIONS: { value: TimeseriesMetric; label: string }[] = [
   { value: 'spend', label: 'Harcama' },
-  { value: 'impressions', label: 'Gosterim' },
-  { value: 'clicks', label: 'Tiklama' },
-  { value: 'conversions', label: 'Donusum' },
+  { value: 'impressions', label: 'Gösterim' },
+  { value: 'clicks', label: 'Tıklama' },
+  { value: 'conversions', label: 'Dönüşüm' },
   { value: 'roas', label: 'ROAS' },
 ];
 
@@ -195,7 +195,7 @@ export default function DashboardPage() {
         setCompareData(null);
       }
     } catch (err: unknown) {
-      setSummaryError(err instanceof Error ? err.message : 'Veri alinamadi');
+      setSummaryError(err instanceof Error ? err.message : 'Veri alınamadı');
     } finally {
       setSummaryLoading(false);
     }
@@ -209,7 +209,7 @@ export default function DashboardPage() {
         const data = await getTimeseries(from, to, m);
         setTimeseries(data);
       } catch (err: unknown) {
-        setTsError(err instanceof Error ? err.message : 'Veri alinamadi');
+        setTsError(err instanceof Error ? err.message : 'Veri alınamadı');
       } finally {
         setTsLoading(false);
       }
@@ -268,7 +268,7 @@ export default function DashboardPage() {
         `dashboard-${appliedFrom}-${appliedTo}.csv`,
       );
     } catch (err: unknown) {
-      setCsvError(err instanceof Error ? err.message : 'Disa aktarma basarisiz');
+      setCsvError(err instanceof Error ? err.message : 'Dışa aktarma başarısız');
     } finally {
       setCsvLoading(false);
     }
@@ -309,7 +309,7 @@ export default function DashboardPage() {
 
           <div className={styles.dateGroup}>
             <label className={styles.dateLabel} htmlFor="date-from">
-              Baslangic
+              Başlangıç
             </label>
             <input
               id="date-from"
@@ -322,7 +322,7 @@ export default function DashboardPage() {
           </div>
           <div className={styles.dateGroup}>
             <label className={styles.dateLabel} htmlFor="date-to">
-              Bitis
+              Bitiş
             </label>
             <input
               id="date-to"
@@ -345,7 +345,7 @@ export default function DashboardPage() {
               checked={compareOn}
               onChange={handleCompareToggle}
             />
-            <span className={styles.compareLabel}>Onceki donemle karsilastir</span>
+            <span className={styles.compareLabel}>Önceki dönemle karşılaştır</span>
           </label>
 
           {/* CSV export */}
@@ -385,17 +385,17 @@ export default function DashboardPage() {
                 invertDelta
               />
               <KpiCard
-                label="Gosterim"
+                label="Gösterim"
                 value={fmtNum(totals.impressions)}
                 delta={compareOn ? deltas?.impressions : undefined}
               />
               <KpiCard
-                label="Tiklama"
+                label="Tıklama"
                 value={fmtNum(totals.clicks)}
                 delta={compareOn ? deltas?.clicks : undefined}
               />
               <KpiCard
-                label="Donusum"
+                label="Dönüşüm"
                 value={fmtNum(totals.conversions)}
                 delta={compareOn ? deltas?.conversions : undefined}
               />
@@ -454,7 +454,7 @@ export default function DashboardPage() {
         {/* By-channel table */}
         <section className={styles.card}>
           <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>Kanala Gore Performans</h2>
+            <h2 className={styles.cardTitle}>Kanala Göre Performans</h2>
           </div>
           <ErrorBoundary label="Kanal Tablosu">
             <ChannelTable
@@ -468,9 +468,9 @@ export default function DashboardPage() {
         {/* Top Movers widget */}
         <section className={styles.card}>
           <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>En Cok Degişenler</h2>
+            <h2 className={styles.cardTitle}>En Çok Değişenler</h2>
           </div>
-          <ErrorBoundary label="En Cok Degişenler">
+          <ErrorBoundary label="En Çok Değişenler">
             <TopMovers dateFrom={appliedFrom} dateTo={appliedTo} />
           </ErrorBoundary>
         </section>

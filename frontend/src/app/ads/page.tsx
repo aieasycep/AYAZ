@@ -305,7 +305,7 @@ export default function AdsPage() {
         `kampanyalar-${appliedFrom}-${appliedTo}.csv`,
       );
     } catch (err: unknown) {
-      setCsvError(err instanceof Error ? err.message : 'Disa aktarma basarisiz');
+      setCsvError(err instanceof Error ? err.message : 'Dışa aktarma başarısız');
     } finally {
       setCsvLoading(false);
     }

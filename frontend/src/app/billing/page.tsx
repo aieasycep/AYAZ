@@ -74,7 +74,7 @@ function CancelDialog({ onConfirm, onDismiss, loading, error }: CancelDialogProp
       <div className={styles.dialog}>
         <div className={styles.dialogTitle}>Aboneliği iptal et</div>
         <div className={styles.dialogBody}>
-          Aboneliginizi iptal etmek istediginizden emin misiniz? Mevcut donem
+          Aboneliğinizi iptal etmek istediğinizden emin misiniz? Mevcut dönem
           sonunda planınız ücretsiz plana geçecektir.
         </div>
         {error && <div className={styles.errorText} style={{ marginBottom: '0.75rem' }}>{error}</div>}
@@ -156,7 +156,7 @@ function PlanCard({
     <div className={cardClass}>
       {isCurrent && <span className={styles.currentBadge}>Mevcut plan</span>}
       {isRecommended && !isCurrent && (
-        <span className={styles.recommendedBadge}>Onerilen</span>
+        <span className={styles.recommendedBadge}>Önerilen</span>
       )}
 
       <div className={styles.planName}>{plan.name}</div>
@@ -374,7 +374,7 @@ export default function BillingPage() {
           <div>
             <h1 className={styles.pageTitle}>Faturalama</h1>
             <p className={styles.pageSubtitle}>
-              Aboneliginizi ve planınızı yönetin
+              Aboneliğinizi ve planınızı yönetin
             </p>
           </div>
         </div>

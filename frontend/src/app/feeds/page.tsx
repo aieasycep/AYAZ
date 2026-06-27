@@ -35,16 +35,16 @@ const CHANNEL_TYPE_LABELS: Record<ChannelType, string> = {
   google_shopping: 'Google Shopping',
   meta_catalog: 'Meta Katalog',
   tiktok: 'TikTok',
-  custom: 'Ozel',
+  custom: 'Özel',
 };
 
 const RULE_TYPE_LABELS: Record<RuleType, string> = {
-  set_value: 'Deger Ata',
-  rename_field: 'Alan Yeniden Adlandir',
-  find_replace: 'Bul & Degistir',
+  set_value: 'Değer Ata',
+  rename_field: 'Alan Yeniden Adlandır',
+  find_replace: 'Bul & Değiştir',
   filter_include: 'Filtrele (Dahil Et)',
   filter_exclude: 'Filtrele (Hariç Tut)',
-  calculated: 'Hesaplanmis Deger',
+  calculated: 'Hesaplanmış Değer',
 };
 
 const OUTPUT_FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
@@ -162,7 +162,7 @@ function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       title="Feed URL'sini kopyala"
     >
-      {copied ? 'Kopyalandi!' : 'Kopyala'}
+      {copied ? 'Kopyalandı!' : 'Kopyala'}
     </button>
   );
 }
@@ -315,8 +315,8 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     <input className={styles.input} placeholder="title" value={ruleCfg.sv_field} onChange={(e) => updateCfg('sv_field', e.target.value)} required />
                   </div>
                   <div className={styles.field}>
-                    <label className={styles.label}>Deger</label>
-                    <input className={styles.input} placeholder="Sabit deger" value={ruleCfg.sv_value} onChange={(e) => updateCfg('sv_value', e.target.value)} required />
+                    <label className={styles.label}>Değer</label>
+                    <input className={styles.input} placeholder="Sabit değer" value={ruleCfg.sv_value} onChange={(e) => updateCfg('sv_value', e.target.value)} required />
                   </div>
                 </div>
               )}
@@ -345,7 +345,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     <input className={styles.input} placeholder="Aranacak metin" value={ruleCfg.fr_find} onChange={(e) => updateCfg('fr_find', e.target.value)} required />
                   </div>
                   <div className={styles.field}>
-                    <label className={styles.label}>Degistir</label>
+                    <label className={styles.label}>Değiştir</label>
                     <input className={styles.input} placeholder="Yeni metin" value={ruleCfg.fr_replace} onChange={(e) => updateCfg('fr_replace', e.target.value)} />
                   </div>
                 </div>
@@ -358,10 +358,10 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     <input className={styles.input} placeholder="price" value={ruleCfg.fi_field} onChange={(e) => updateCfg('fi_field', e.target.value)} required />
                   </div>
                   <div className={styles.field} style={{ maxWidth: '120px' }}>
-                    <label className={styles.label}>Kosul</label>
+                    <label className={styles.label}>Koşul</label>
                     <select className={styles.select} value={ruleCfg.fi_operator} onChange={(e) => updateCfg('fi_operator', e.target.value)}>
-                      <option value="eq">Esit (=)</option>
-                      <option value="neq">Esit degil (!=)</option>
+                      <option value="eq">Eşit (=)</option>
+                      <option value="neq">Eşit değil (!=)</option>
                       <option value="gt">Büyük (&gt;)</option>
                       <option value="gte">Büyük eşit (&gt;=)</option>
                       <option value="lt">Küçük (&lt;)</option>
@@ -370,7 +370,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     </select>
                   </div>
                   <div className={styles.field}>
-                    <label className={styles.label}>Deger</label>
+                    <label className={styles.label}>Değer</label>
                     <input className={styles.input} placeholder="0" value={ruleCfg.fi_value} onChange={(e) => updateCfg('fi_value', e.target.value)} required />
                   </div>
                 </div>
@@ -383,7 +383,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     <input className={styles.input} placeholder="sale_price" value={ruleCfg.calc_field} onChange={(e) => updateCfg('calc_field', e.target.value)} required />
                   </div>
                   <div className={styles.field} style={{ flex: 2 }}>
-                    <label className={styles.label}>Ifade</label>
+                    <label className={styles.label}>İfade</label>
                     <input className={styles.input} placeholder="price * 0.9" value={ruleCfg.calc_expression} onChange={(e) => updateCfg('calc_expression', e.target.value)} required />
                   </div>
                 </div>
@@ -401,7 +401,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                   onClick={() => { setShowForm(false); setFormError(null); }}
                   disabled={submitting}
                 >
-                  Iptal
+                  İptal
                 </button>
               </div>
             </form>
@@ -485,7 +485,7 @@ function ChannelPanel({ source }: { source: FeedSource }) {
         <form className={styles.formBox} onSubmit={handleAddChannel}>
           <div className={styles.formRow}>
             <div className={styles.field}>
-              <label className={styles.label}>Kanal Adi</label>
+              <label className={styles.label}>Kanal Adı</label>
               <input
                 className={styles.input}
                 placeholder="Google Shopping TR"
@@ -533,7 +533,7 @@ function ChannelPanel({ source }: { source: FeedSource }) {
               onClick={() => { setShowForm(false); setFormError(null); }}
               disabled={submitting}
             >
-              Iptal
+              İptal
             </button>
           </div>
         </form>
@@ -553,7 +553,7 @@ function ChannelPanel({ source }: { source: FeedSource }) {
         </div>
       ) : channels.length === 0 ? (
         <div className={styles.stateBox}>
-          <span className={styles.muted}>Bu kaynaga bağli kanal yok. Yeni bir kanal ekleyin.</span>
+          <span className={styles.muted}>Bu kaynağa bağlı kanal yok. Yeni bir kanal ekleyin.</span>
         </div>
       ) : (
         <div className={styles.channelGrid}>
@@ -684,7 +684,7 @@ export default function FeedsPage() {
         <div>
           <h1 className={styles.pageTitle}>Feed Yönetimi</h1>
           <p className={styles.pageSubtitle}>
-            Ürün feedlerinizi yönetin, kanallara özel çiktilar oluşturun ve herkese açık feed URL'leri paylaşin.
+            Ürün feedlerinizi yönetin, kanallara özel çıktılar oluşturun ve herkese açık feed URL'leri paylaşın.
           </p>
         </div>
 
@@ -692,7 +692,7 @@ export default function FeedsPage() {
           {/* Left: source list */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
-              <h2 className={styles.cardTitle}>Feed Kaynaklari</h2>
+              <h2 className={styles.cardTitle}>Feed Kaynakları</h2>
               {!showNewSource && (
                 <button className={styles.secondaryBtn} onClick={() => setShowNewSource(true)}>
                   + Yeni Feed
@@ -703,7 +703,7 @@ export default function FeedsPage() {
             {showNewSource && (
               <form className={styles.formBox} onSubmit={handleCreateSource}>
                 <div className={styles.field}>
-                  <label className={styles.label}>Feed Adi</label>
+                  <label className={styles.label}>Feed Adı</label>
                   <input
                     className={styles.input}
                     placeholder="Ana Ürün Katalogu"
@@ -751,7 +751,7 @@ export default function FeedsPage() {
                     onClick={() => { setShowNewSource(false); setNsError(null); }}
                     disabled={nsSubmitting}
                   >
-                    Iptal
+                    İptal
                   </button>
                 </div>
               </form>
@@ -771,7 +771,7 @@ export default function FeedsPage() {
               </div>
             ) : sources.length === 0 ? (
               <div className={styles.stateBox}>
-                <span className={styles.muted}>Henüz bir feed kaynagi yok.</span>
+                <span className={styles.muted}>Henüz bir feed kaynağı yok.</span>
               </div>
             ) : (
               <div className={styles.sourceList}>
@@ -815,7 +815,7 @@ export default function FeedsPage() {
               <div className={styles.card}>
                 <div className={styles.stateBox}>
                   <span className={styles.muted}>
-                    {sourcesLoading ? 'Yükleniyor...' : 'Sol taraftan bir feed kaynagi seçin.'}
+                    {sourcesLoading ? 'Yükleniyor...' : 'Sol taraftan bir feed kaynağı seçin.'}
                   </span>
                 </div>
               </div>

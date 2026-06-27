@@ -315,7 +315,7 @@ export default function BriefingPage() {
             {deltaEntriesTyped.length > 0 && (
               <section className={styles.section}>
                 <div className={styles.sectionHeader}>
-                  <h2 className={styles.sectionTitle}>Performans Degisimi</h2>
+                  <h2 className={styles.sectionTitle}>Performans Değişimi</h2>
                 </div>
                 <div className={styles.deltaGrid}>
                   {deltaEntriesTyped.map((d) => (
@@ -331,12 +331,12 @@ export default function BriefingPage() {
               </section>
             )}
 
-            {/* 3. One cigikan icgörüler */}
+            {/* 3. Öne çıkan içgörüler */}
             {briefing.body.top_insights.length > 0 && (
               <section className={styles.section}>
                 <div className={styles.sectionHeader}>
                   <h2 className={styles.sectionTitle}>
-                    One Cikan Icgorüler
+                    Öne Çıkan İçgörüler
                   </h2>
                 </div>
                 <div className={styles.insightsList}>
@@ -354,11 +354,11 @@ export default function BriefingPage() {
               </section>
             )}
 
-            {/* 4. Onerilen aksiyon */}
+            {/* 4. Önerilen aksiyon */}
             {briefing.body.top_recommendation && (
               <section className={styles.section}>
                 <div className={styles.sectionHeader}>
-                  <h2 className={styles.sectionTitle}>Onerilen Aksiyon</h2>
+                  <h2 className={styles.sectionTitle}>Önerilen Aksiyon</h2>
                 </div>
                 <div className={styles.recommendationBox}>
                   <div className={styles.recommendationMessage}>
@@ -366,7 +366,7 @@ export default function BriefingPage() {
                   </div>
                   <div>
                     <div className={styles.recommendationActionLabel}>
-                      Onerililen Adim
+                      Önerilen Adım
                     </div>
                     <div className={styles.recommendationAction}>
                       {briefing.body.top_recommendation.suggested_action}
@@ -392,19 +392,19 @@ export default function BriefingPage() {
           </>
         )}
 
-        {/* 6. Gecmis brifingler */}
+        {/* 6. Geçmiş brifingler */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Gecmis Brifingler</h2>
+            <h2 className={styles.sectionTitle}>Geçmiş Brifingler</h2>
           </div>
           <div className={styles.historyDetails}>
             {historyLoading ? (
-              <span className={styles.muted}>Gecmis yükleniyor...</span>
+              <span className={styles.muted}>Geçmiş yükleniyor...</span>
             ) : historyError ? (
               <span className={styles.errorText}>{historyError}</span>
             ) : history.length === 0 ? (
               <span className={styles.muted}>
-                Henüz kayitli brifing bulunmuyor.
+                Henüz kayıtlı brifing bulunmuyor.
               </span>
             ) : (
               <details>

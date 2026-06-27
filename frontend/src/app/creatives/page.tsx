@@ -198,7 +198,7 @@ export default function CreativesPage() {
         `kreatifler-${appliedFrom}-${appliedTo}.csv`,
       );
     } catch (err: unknown) {
-      setCsvError(err instanceof Error ? err.message : 'Disa aktarma basarisiz');
+      setCsvError(err instanceof Error ? err.message : 'Dışa aktarma başarısız');
     } finally {
       setCsvLoading(false);
     }

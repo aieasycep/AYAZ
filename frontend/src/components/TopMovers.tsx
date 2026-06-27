@@ -21,11 +21,11 @@ interface MetricOption {
 
 const METRIC_OPTIONS: MetricOption[] = [
   { value: 'spend', label: 'Harcama' },
-  { value: 'conversions', label: 'Donusum' },
-  { value: 'conversion_value', label: 'Donusum Degeri' },
+  { value: 'conversions', label: 'Dönüşüm' },
+  { value: 'conversion_value', label: 'Dönüşüm Değeri' },
   { value: 'roas', label: 'ROAS' },
-  { value: 'clicks', label: 'Tiklama' },
-  { value: 'impressions', label: 'Gosterim' },
+  { value: 'clicks', label: 'Tıklama' },
+  { value: 'impressions', label: 'Gösterim' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ function MoverRowItem({ mover, metric }: MoverRowProps) {
 
       <span
         className={`${styles.deltaBadge} ${badgeClass}`}
-        aria-label={`Degisim: ${badgeText}`}
+        aria-label={`Değişim: ${badgeText}`}
       >
         {arrowChar && (
           <span className={styles.arrow} aria-hidden="true">
@@ -167,7 +167,7 @@ export default function TopMovers({ dateFrom, dateTo }: TopMoversProps) {
         const data = await getTopMovers(from, to, dim, met);
         setMovers(data.movers);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Veri alinamadi');
+        setError(err instanceof Error ? err.message : 'Veri alınamadı');
       } finally {
         setLoading(false);
       }
@@ -182,7 +182,7 @@ export default function TopMovers({ dateFrom, dateTo }: TopMoversProps) {
   const controls = (
     <div className={styles.controls}>
       {/* Dimension toggle */}
-      <div className={styles.toggle} role="group" aria-label="Boyut secimi">
+      <div className={styles.toggle} role="group" aria-label="Boyut seçimi">
         <button
           type="button"
           className={`${styles.toggleBtn} ${dimension === 'channel' ? styles.toggleBtnActive : ''}`}
@@ -205,7 +205,7 @@ export default function TopMovers({ dateFrom, dateTo }: TopMoversProps) {
       <select
         className={styles.metricSelect}
         value={metric}
-        aria-label="Metrik secimi"
+        aria-label="Metrik seçimi"
         onChange={(e) => setMetric(e.target.value as TopMoversMetric)}
       >
         {METRIC_OPTIONS.map((opt) => (
@@ -222,7 +222,7 @@ export default function TopMovers({ dateFrom, dateTo }: TopMoversProps) {
   if (loading) {
     body = (
       <div className={styles.stateWrapper}>
-        <LoadingState message="En cok degisenleri yukluyor..." />
+        <LoadingState message="En çok değişenler yükleniyor..." />
       </div>
     );
   } else if (error) {
@@ -237,12 +237,12 @@ export default function TopMovers({ dateFrom, dateTo }: TopMoversProps) {
   } else if (movers.length === 0) {
     body = (
       <div className={styles.stateWrapper}>
-        <EmptyState title="Bu donemde degisim verisi yok." />
+        <EmptyState title="Bu dönemde değişim verisi yok." />
       </div>
     );
   } else {
     body = (
-      <ul className={styles.list} aria-label="En cok degisenlerin listesi">
+      <ul className={styles.list} aria-label="En çok değişenlerin listesi">
         {movers.map((mover) => (
           <MoverRowItem key={mover.key} mover={mover} metric={metric} />
         ))}
