@@ -9,6 +9,7 @@ import NotificationBell from './NotificationBell';
 import { useTheme } from './ThemeProvider';
 import styles from './AppNav.module.css';
 import CommandPalette from './CommandPalette';
+import QuickAsk from './QuickAsk';
 
 export const NAV_LINKS = [
   { href: '/dashboard', label: 'Panel' },
@@ -97,6 +98,7 @@ export default function AppNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [quickAskOpen, setQuickAskOpen] = useState(false);
 
   // Close drawer on route change
   useEffect(() => {
@@ -140,11 +142,35 @@ export default function AppNav() {
             </nav>
           </div>
 
-          {/* Right: workspace switcher + notification bell + theme toggle + logout (desktop) + hamburger (mobile) */}
+          {/* Right: workspace switcher + veriye-sor + notification bell + theme toggle + logout (desktop) + hamburger (mobile) */}
           <div className={styles.right}>
             <div className={styles.desktopOnly}>
               <WorkspaceSwitcher />
             </div>
+            {/* "Veriye Sor" — persistent quick-ask button */}
+            <button
+              className={`${styles.quickAskBtn} ${styles.desktopOnly}`}
+              onClick={() => setQuickAskOpen(true)}
+              aria-label="Veriye Sor — yapay zeka asistanına soru sor"
+              title="Veriye Sor (yapay zeka)"
+              type="button"
+            >
+              {/* Spark / bolt icon */}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+              Veriye Sor
+            </button>
             <NotificationBell />
             <ThemeToggle />
             <button className={`${styles.logoutBtn} ${styles.desktopOnly}`} onClick={handleLogout}>
@@ -177,7 +203,12 @@ export default function AppNav() {
       )}
 
       {/* Command palette — global ⌘K / Ctrl+K quick nav */}
-      <CommandPalette />
+      <CommandPalette onOpenQuickAsk={() => setQuickAskOpen(true)} />
+
+      {/* QuickAsk modal — rendered at root level, inside AppNav wrapper */}
+      {quickAskOpen && (
+        <QuickAsk onClose={() => setQuickAskOpen(false)} />
+      )}
 
       {/* Mobile drawer */}
       <nav
@@ -207,6 +238,31 @@ export default function AppNav() {
             <NotificationBell />
             <ThemeToggle />
           </div>
+          {/* "Veriye Sor" — mobile drawer entry */}
+          <button
+            className={styles.drawerQuickAskBtn}
+            onClick={() => {
+              setDrawerOpen(false);
+              setQuickAskOpen(true);
+            }}
+            aria-label="Veriye Sor — yapay zeka asistanına soru sor"
+            type="button"
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            Veriye Sor
+          </button>
           <button className={styles.drawerLogoutBtn} onClick={handleLogout}>
             Oturumu Kapat
           </button>

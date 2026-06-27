@@ -60,10 +60,19 @@ function matches(item: PaletteItem, query: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+interface CommandPaletteProps {
+  /** Called when the user selects "Veriye Sor" from the palette. */
+  onOpenQuickAsk?: () => void;
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function CommandPalette() {
+export default function CommandPalette({ onOpenQuickAsk }: CommandPaletteProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
@@ -101,7 +110,15 @@ export default function CommandPalette() {
         ? 'Sistem temasına geç'
         : 'Açık temaya geç';
 
-    return [
+    const actions: ActionItem[] = [
+      {
+        kind: 'action',
+        id: 'action:veriye-sor',
+        label: 'Veriye Sor',
+        run: () => {
+          if (onOpenQuickAsk) onOpenQuickAsk();
+        },
+      },
       {
         kind: 'action',
         id: 'action:theme',
@@ -118,6 +135,8 @@ export default function CommandPalette() {
         },
       },
     ];
+
+    return actions;
   }
 
   const allItems: PaletteItem[] = [...navItems, ...buildActions()];

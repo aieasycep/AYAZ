@@ -104,3 +104,16 @@ export function sendMessage(
     },
   );
 }
+
+/**
+ * QuickAsk helper: creates a new blank conversation then immediately posts
+ * the user's first message.  Returns the newly-created conversation so the
+ * caller can navigate to /assistant?c=<id>.
+ */
+export async function createConversationWithMessage(
+  firstMessage: string,
+): Promise<Conversation> {
+  const conv = await createConversation();
+  await sendMessage(conv.id, firstMessage);
+  return conv;
+}

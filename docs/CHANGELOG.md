@@ -166,6 +166,11 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 50 — Omnipresent "Veriye Sor" (Copilot hızlı erişim)
+- Adin'in her-yerde 'Ask your data' barı ilhamı (ama açık + Türkçe): nav'da ve komut
+  paletinde (⌘K) 'Veriye Sor' → QuickAsk modalı → soruyu yaz → Copilot konuşması oluşturulur
+  → `/assistant?c=<id>` ile cevaba yönlendirir. Asistan sayfasına derin-link desteği. 4 yeni test (136).
+
 ## Dalga 49 — AI Ürün-Zenginleştirme (backend)
 - Channable 'Optimize' ilhamı, insan-onaylı: `POST /feeds/sources/{id}/enrich` eksik
   alanları (renk/marka/kategori/materyal/başlık) kaynak metinden ÖNERİR (kaydetmez);

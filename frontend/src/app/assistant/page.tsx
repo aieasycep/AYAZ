@@ -6,8 +6,9 @@ import {
   useRef,
   useCallback,
   KeyboardEvent,
+  Suspense,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getToken } from '@/lib/api';
 import {
   listConversations,
@@ -100,8 +101,9 @@ interface UiMessage {
 
 // ---- Component ----
 
-export default function AssistantPage() {
+function AssistantPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!getToken()) {
@@ -160,6 +162,25 @@ export default function AssistantPage() {
     if (!getToken()) return;
     fetchConversations();
   }, [fetchConversations]);
+
+  // --- Deep-link: ?c=<id> — auto-select a conversation once the list is loaded ---
+  // This runs whenever conversations or convsLoading changes.
+  // It selects the conversation indicated by the query param exactly once.
+  const deepLinkedRef = useRef(false);
+  useEffect(() => {
+    if (convsLoading) return;                      // wait for list to load
+    if (deepLinkedRef.current) return;             // already handled
+    const paramId = searchParams.get('c');
+    if (!paramId) return;
+    deepLinkedRef.current = true;
+    // Only select if the conversation is in the loaded list
+    const found = conversations.find((c) => c.id === paramId);
+    if (found) {
+      selectConversation(paramId);
+    }
+  // selectConversation is defined below — we reference it via the closure.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convsLoading, conversations, searchParams]);
 
   // --- Load messages for a conversation ---
 
@@ -524,5 +545,15 @@ export default function AssistantPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrap in Suspense so that useSearchParams() doesn't block static rendering.
+// (Next.js 14 requires this for any client component using useSearchParams.)
+export default function AssistantPage() {
+  return (
+    <Suspense>
+      <AssistantPageInner />
+    </Suspense>
   );
 }
