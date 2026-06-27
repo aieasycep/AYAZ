@@ -8,8 +8,9 @@ import WorkspaceSwitcher from './WorkspaceSwitcher';
 import NotificationBell from './NotificationBell';
 import { useTheme } from './ThemeProvider';
 import styles from './AppNav.module.css';
+import CommandPalette from './CommandPalette';
 
-const NAV_LINKS = [
+export const NAV_LINKS = [
   { href: '/dashboard', label: 'Panel' },
   { href: '/assistant', label: 'Asistan' },
   { href: '/briefing', label: 'Brifing' },
@@ -174,6 +175,9 @@ export default function AppNav() {
           aria-hidden="true"
         />
       )}
+
+      {/* Command palette — global ⌘K / Ctrl+K quick nav */}
+      <CommandPalette />
 
       {/* Mobile drawer */}
       <nav

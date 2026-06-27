@@ -129,6 +129,11 @@
   widget'ları ErrorBoundary ile sarıldı (runtime-çökme sınıfına karşı sertleştirme).
 - Yerel/demo çalıştırma: SQLite-uyumlu DB engine (Postgres yolu değişmedi).
 
+## Dalga 27 — Komut Paleti (⌘K)
+- Global komut paleti: ⌘K/Ctrl+K ile aç, tüm sayfalara hızlı geçiş + komutlar
+  (tema değiştir, oturum kapat). Diakritik-duyarsız arama, tam klavye gezinme,
+  erişilebilir (dialog/listbox); açık/koyu tema. Yalnızca oturum-içi sayfalarda.
+
 ## Dalga 26 — Bildirim Merkezi
 - Tenant-kapsamlı `Notification` modeli (migration 0014) + servis + router:
   `GET /notifications`, `/unread-count`, `POST /{id}/read`, `/read-all`.
