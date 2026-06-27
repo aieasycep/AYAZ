@@ -57,6 +57,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 30 (tamamlandı):** Copilot `get_top_movers` aracı + sıralama mantığının ortak servise (`metrics.compute_top_movers`) çıkarılması.
 - **Dalga 31 (tamamlandı):** Yeni içgörü dedektörleri — dönüşüm oranı düşüşü + olumlu hareket (M4: 6 → 8 dedektör).
 - **Dalga 32 (tamamlandı):** Başlangıç rehberi (onboarding kontrol listesi) — dashboard'da aktivasyon adımları.
+- **Dalga 33 (tamamlandı):** Copilot araç genişlemesi — `get_notifications` + `get_goal_progress` (flagship güçlendirme).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

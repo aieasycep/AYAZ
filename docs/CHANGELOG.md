@@ -166,6 +166,11 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 33 — Copilot: Bildirim & Hedef Araçları
+- Copilot'a iki salt-okunur araç daha: `get_notifications` (okunmamış/son bildirimler)
+  ve `get_goal_progress` (hedeflere ilerleme/tahmin/durum). Mevcut servisler yeniden
+  kullanıldı (notifications_center, goals). 23 yeni test (suite 1374).
+
 ## Dalga 32 — Başlangıç Rehberi (Onboarding)
 - Dashboard'da kapatılabilir "Başlangıç" kontrol listesi: hesap bağla → hedef koy →
   otomasyon kuralı → AI Asistan'ı dene. Tamamlanma mevcut endpoint'lerden türetilir;

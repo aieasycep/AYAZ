@@ -613,6 +613,109 @@ def _get_subscription_status(
     }
 
 
+def _get_notifications(
+    db: Session,
+    tenant_id: uuid.UUID,
+    unread_only: bool = False,
+    limit: int = 10,
+) -> dict:
+    """Return recent notifications for the tenant.
+
+    Calls sync_from_insights first (lazy generation) to ensure notifications
+    reflect the current state of insights before listing.  Tenant-scoped.
+    """
+    from ayaz.services.notifications_center import (
+        list_notifications,
+        sync_from_insights,
+        unread_count,
+    )
+
+    # Lazy sync: generate any new notifications from unseen insights
+    sync_from_insights(db, tenant_id)
+
+    # Clamp limit to sensible bounds
+    try:
+        limit = max(1, min(int(limit), 50))
+    except (TypeError, ValueError):
+        limit = 10
+
+    notifications = list_notifications(
+        db, tenant_id, unread_only=unread_only, limit=limit
+    )
+    count_unread = unread_count(db, tenant_id)
+
+    return {
+        "unread_count": count_unread,
+        "notifications": [
+            {
+                "id": str(n.id),
+                "title": n.title,
+                "severity": n.severity,
+                "type": n.type,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+                "read": n.read_at is not None,
+            }
+            for n in notifications
+        ],
+    }
+
+
+def _get_goal_progress(
+    db: Session,
+    tenant_id: uuid.UUID,
+    goal_id: str | None = None,
+) -> dict:
+    """Return progress for all of the tenant's goals (or one specific goal).
+
+    For each goal returns name, metric, target_value, current_value,
+    pct_to_target, forecast_value, status, and a Turkish recommendation.
+    Delegates entirely to goals.list_goals + goals.compute_progress.
+    Tenant-scoped.
+    """
+    from datetime import date as _date
+
+    from ayaz.services.goals import compute_progress, get_goal, list_goals
+
+    as_of = _date.today()
+
+    if goal_id is not None:
+        # Focus on a single goal
+        try:
+            gid = uuid.UUID(str(goal_id))
+        except ValueError:
+            return {"error": f"Geçersiz goal_id formatı: {goal_id!r}"}
+
+        goal = get_goal(db, tenant_id, gid)
+        if goal is None:
+            return {"error": f"Hedef bulunamadı: {goal_id!r}"}
+        goals = [goal]
+    else:
+        goals = list_goals(db, tenant_id, active_only=True)
+
+    if not goals:
+        return {
+            "goals": [],
+            "note": "Bu kiracı için henüz aktif hedef tanımlanmamış.",
+        }
+
+    result = []
+    for g in goals:
+        progress = compute_progress(db=db, goal=g, as_of_date=as_of)
+        result.append({
+            "goal_id": str(g.id),
+            "name": g.name,
+            "metric": g.metric,
+            "target_value": progress.target_value,
+            "current_value": progress.current_value,
+            "pct_to_target": progress.pct_to_target,
+            "forecast_value": progress.forecast_value,
+            "status": progress.status,
+            "recommendation": progress.recommendation,
+        })
+
+    return {"goals": result}
+
+
 # ── Tool dispatch table ────────────────────────────────────────────────────────
 
 # Tools marked is_action=True perform real DB writes.  The stub path should
@@ -631,6 +734,8 @@ _TOOLS: dict[str, Any] = {
     "draft_automation_rule": _draft_automation_rule,
     "get_top_movers": _get_top_movers,
     "get_subscription_status": _get_subscription_status,
+    "get_notifications": _get_notifications,
+    "get_goal_progress": _get_goal_progress,
     # ── Action tools (v2) — real writes ─────────────────────────────────────
     "create_automation_rule": _create_automation_rule,
     "create_goal": _create_goal,
@@ -880,6 +985,55 @@ TOOL_SPECS: list[dict] = [
                 "limit": {
                     "type": "integer",
                     "description": "Döndürülecek maksimum kayıt sayısı (1-20). Varsayılan: 5.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_notifications",
+        "description": (
+            "Kullanıcının okunmamış/son bildirimlerini döndürür. "
+            "İstek öncesinde mevcut içgörülerden yeni bildirimler otomatik olarak üretilir "
+            "(gecikmeli üretim). unread_only=true ile yalnızca okunmamışlar listelenir; "
+            "limit parametresiyle döndürülecek maksimum bildirim sayısı belirlenir."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "unread_only": {
+                    "type": "boolean",
+                    "description": (
+                        "True ise yalnızca okunmamış bildirimler döner. "
+                        "Varsayılan: false (tüm son bildirimler)."
+                    ),
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Döndürülecek maksimum bildirim sayısı (1-50). Varsayılan: 10.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_goal_progress",
+        "description": (
+            "Hedeflerin ilerleme durumunu (hedefe %, tahmin, durum) döndürür. "
+            "Varsayılan olarak kiracının tüm aktif hedeflerini döndürür. "
+            "goal_id belirtilirse yalnızca o hedefe odaklanır. "
+            "Her hedef için mevcut değer, hedef değer, hedefe yüzde, tahmin, "
+            "durum (on_track/at_risk/off_track) ve Türkçe öneri içerir."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "goal_id": {
+                    "type": "string",
+                    "description": (
+                        "İlerleme bilgisi istenilen hedefin UUID'si. "
+                        "Boş bırakılırsa tüm aktif hedefler döner."
+                    ),
                 },
             },
             "required": [],
