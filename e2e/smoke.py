@@ -102,6 +102,7 @@ ROUTES = [
     ("/billing",           True,  "Faturalama"),
     ("/workspaces",        True,  "Çalışma Alanları"),
     ("/settings",          True,  "Hesap"),
+    ("/notifications",     True,  "Bildirimler"),
 ]
 
 # ---------------------------------------------------------------------------

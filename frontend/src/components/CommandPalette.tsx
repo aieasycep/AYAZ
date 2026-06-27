@@ -79,7 +79,12 @@ export default function CommandPalette() {
   // Build items list — navigation items + quick actions
   // ---------------------------------------------------------------------------
 
-  const navItems: NavItem[] = NAV_LINKS.map((link) => ({
+  // Extra pages accessible via the palette but not in the top-nav bar
+  const EXTRA_PALETTE_LINKS = [
+    { href: '/notifications', label: 'Bildirimler' },
+  ];
+
+  const navItems: NavItem[] = [...NAV_LINKS, ...EXTRA_PALETTE_LINKS].map((link) => ({
     kind: 'nav',
     id: `nav:${link.href}`,
     label: link.label,

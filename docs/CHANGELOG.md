@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 35 — Bildirimler Sayfası
+- Yeni `/notifications` sayfası: tüm bildirimleri listele, Tümü/Okunmamış + önem
+  (Bilgi/Uyarı/Kritik) filtreleri, tümünü okundu işaretle, tıklayınca okundu+ilgili
+  sayfaya git. Zil panelinden "Tümünü gör" + komut paletinden erişilir (üst nav
+  kalabalıklaşmaz). E2E smoke 19/19 yeşil.
+
 ## Dalga 34 — E2E Regresyon Düzeltmeleri (hidrasyon)
 - E2E smoke suite canlı demo yığınına karşı çalıştırıldı; iki sorun yakalandı:
   (1) `/dashboard` React hidrasyon hatası (#418/#422) — tarih aralığı/başlangıç

@@ -245,3 +245,31 @@
   align-items: center;
   justify-content: center;
 }
+
+/* Panel footer — "Tümünü gör" link */
+.panelFooter {
+  border-top: 1px solid var(--color-border);
+  padding: 0.625rem 1rem;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.viewAllLink {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 5px;
+  transition: background 0.12s;
+}
+
+.viewAllLink:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.viewAllLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

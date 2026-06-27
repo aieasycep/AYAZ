@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   getNotifications,
@@ -281,6 +282,17 @@ export default function NotificationBell() {
                   )}
                 </button>
               ))}
+          </div>
+
+          {/* Footer — link to full notifications page */}
+          <div className={styles.panelFooter}>
+            <Link
+              href="/notifications"
+              className={styles.viewAllLink}
+              onClick={() => setOpen(false)}
+            >
+              Tümünü gör
+            </Link>
           </div>
         </div>
       )}
