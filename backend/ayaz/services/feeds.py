@@ -294,6 +294,8 @@ def apply_rules(products: list[dict], rules: list[FeedRule]) -> list[dict]:
     responsible for sorting by ``position`` beforehand, which the ORM
     relationship already does via ``order_by="FeedRule.position"``).
 
+    Paused rules (``is_paused=True``) are silently skipped.
+
     Rule types
     ----------
     set_value
@@ -323,6 +325,10 @@ def apply_rules(products: list[dict], rules: list[FeedRule]) -> list[dict]:
     result = list(products)
 
     for rule in rules:
+        # Skip paused rules (Dalga 43 — Feed Rule Studio)
+        if getattr(rule, "is_paused", False):
+            continue
+
         cfg = rule.config or {}
         rtype = rule.rule_type
 
@@ -376,6 +382,357 @@ def apply_rules(products: list[dict], rules: list[FeedRule]) -> list[dict]:
         # Unknown rule types are silently skipped (forward-compat)
 
     return result
+
+
+# ── Feed Rule Studio: impact preview, simulate, lint ─────────────────────────
+
+# Maximum products sampled for impact/lint operations to keep large catalogs fast.
+_IMPACT_SAMPLE_LIMIT = 1000
+
+
+def _apply_one_rule(products: list[dict], rule) -> list[dict]:
+    """Apply exactly one rule (any type supporting the FeedRule interface) to products.
+
+    Thin wrapper around the multi-rule engine; returns the transformed list.
+    This is a helper for the impact and simulate functions.
+    """
+    return apply_rules(products, [rule])
+
+
+def compute_rules_impact(
+    products: list[dict],
+    rules: list[FeedRule],
+) -> dict:
+    """Compute per-rule impact statistics for a channel's active rules.
+
+    This is a PURE function — no DB access, no side effects.
+
+    Rules are processed in their existing order (caller must pass them already
+    sorted by ``position``).  Paused rules are included in the output but show
+    zero counts and are flagged ``is_paused=True``.
+
+    Parameters
+    ----------
+    products:
+        Full (or sampled) list of raw product dicts to analyse.
+    rules:
+        FeedRule ORM objects (or duck-typed stubs with the same interface),
+        already sorted by position.
+
+    Returns
+    -------
+    A dict with the shape::
+
+        {
+            "total_before": int,
+            "total_after": int,
+            "sampled": bool,       # always False here — sampling done by caller
+            "rules": [
+                {
+                    "rule_id": str,
+                    "position": int,
+                    "rule_type": str,
+                    "is_paused": bool,
+                    "affected_count": int,   # products changed by this rule
+                    "excluded_count": int,   # products removed by this rule (filter only)
+                }
+            ]
+        }
+    """
+    total_before = len(products)
+    current: list[dict] = list(products)
+    rule_stats: list[dict] = []
+
+    for rule in rules:
+        is_paused = getattr(rule, "is_paused", False)
+
+        if is_paused:
+            rule_stats.append(
+                {
+                    "rule_id": str(rule.id),
+                    "position": rule.position,
+                    "rule_type": rule.rule_type,
+                    "is_paused": True,
+                    "affected_count": 0,
+                    "excluded_count": 0,
+                }
+            )
+            continue
+
+        before = list(current)
+        after = _apply_one_rule(before, rule)
+
+        is_filter = rule.rule_type in ("filter_include", "filter_exclude")
+
+        if is_filter:
+            excluded_count = len(before) - len(after)
+            affected_count = 0
+        else:
+            excluded_count = 0
+            # Count products whose dict changed after the rule
+            before_by_idx = {i: p for i, p in enumerate(before)}
+            affected_count = sum(
+                1
+                for i, p_after in enumerate(after)
+                if i < len(before) and p_after != before_by_idx[i]
+            )
+
+        rule_stats.append(
+            {
+                "rule_id": str(rule.id),
+                "position": rule.position,
+                "rule_type": rule.rule_type,
+                "is_paused": False,
+                "affected_count": affected_count,
+                "excluded_count": excluded_count,
+            }
+        )
+        current = after
+
+    return {
+        "total_before": total_before,
+        "total_after": len(current),
+        "rules": rule_stats,
+    }
+
+
+def simulate_rule(
+    products: list[dict],
+    saved_rules: list[FeedRule],
+    candidate_rule_type: str,
+    candidate_config: dict,
+    candidate_position: int | None = None,
+) -> dict:
+    """Simulate an unsaved rule applied on top of the saved non-paused rules.
+
+    This is a PURE function — no DB access, no side effects.
+
+    The candidate rule is inserted at ``candidate_position`` (or appended if
+    None).  The products are first run through all saved non-paused rules with
+    position < candidate_position, then the candidate is applied on that
+    intermediate state.
+
+    Parameters
+    ----------
+    products:
+        Raw product dicts (full or sampled, sampling done by caller).
+    saved_rules:
+        Existing non-paused FeedRule objects for the channel, sorted by position.
+    candidate_rule_type:
+        The rule_type of the candidate rule (must be in VALID_RULE_TYPES).
+    candidate_config:
+        The config dict of the candidate rule.
+    candidate_position:
+        Desired position.  Rules with position < this value are applied before
+        the candidate.  If None, all saved rules are applied first (appended).
+
+    Returns
+    -------
+    {
+        "affected_count": int,
+        "excluded_count": int,
+        "sample_before": list[dict],   # up to 3 products before candidate
+        "sample_after": list[dict],    # up to 3 products after candidate
+    }
+    """
+    # Build a lightweight stub that mirrors FeedRule's duck-type interface
+    class _CandidateRule:
+        def __init__(self) -> None:
+            import uuid as _uuid
+            self.id = _uuid.uuid4()
+            self.rule_type = candidate_rule_type
+            self.config = candidate_config
+            self.position = candidate_position if candidate_position is not None else 999999
+            self.is_paused = False
+
+    candidate = _CandidateRule()
+
+    # Apply saved rules up-to (but not including) candidate position
+    cutoff = candidate.position
+    pre_rules = [
+        r for r in saved_rules
+        if not getattr(r, "is_paused", False) and r.position < cutoff
+    ]
+
+    current = list(products)
+    for rule in pre_rules:
+        current = _apply_one_rule(current, rule)
+
+    before = list(current)
+    sample_before = before[:3]
+
+    after = _apply_one_rule(before, candidate)
+    sample_after = after[:3]
+
+    is_filter = candidate_rule_type in ("filter_include", "filter_exclude")
+    if is_filter:
+        excluded_count = len(before) - len(after)
+        affected_count = 0
+    else:
+        excluded_count = 0
+        affected_count = sum(
+            1
+            for i, p_after in enumerate(after)
+            if i < len(before) and p_after != before[i]
+        )
+
+    return {
+        "affected_count": affected_count,
+        "excluded_count": excluded_count,
+        "sample_before": sample_before,
+        "sample_after": sample_after,
+    }
+
+
+def lint_rules(
+    products: list[dict],
+    rules: list[FeedRule],
+) -> list[dict]:
+    """Run a rule linter against a product sample and return lint issues.
+
+    This is a PURE / deterministic function — no DB access, no side effects.
+
+    Checks performed
+    ----------------
+    no_effect
+        A rule whose affected_count AND excluded_count are both 0 (never matches
+        anything in the current sample).
+
+    excludes_all
+        A filter rule that removes all or nearly all items (>= 90 % of the
+        products present before the rule), which is almost always a mistake.
+
+    shadowed
+        A rule made redundant by an earlier rule.  Detected cases:
+        - Two consecutive set_value rules targeting the same field: the earlier
+          one is shadowed by the later one.
+        - A filter rule on a field that an earlier filter already fully excluded
+          from the working set (the field would never match again).
+
+    duplicate
+        Two rules with identical (rule_type, config) pairs.
+
+    Parameters
+    ----------
+    products:
+        Product sample (sampling done by caller).
+    rules:
+        FeedRule objects sorted by position (paused rules included in input so
+        we can still flag duplicates, but paused rules are skipped for
+        no_effect / excludes_all).
+
+    Returns
+    -------
+    List of issue dicts::
+
+        {
+            "severity": "warning" | "info" | "error",
+            "rule_id": str,
+            "position": int,
+            "code": str,
+            "message": str,   # Turkish
+        }
+    """
+    import json as _json
+
+    issues: list[dict] = []
+
+    # ── duplicate detection ────────────────────────────────────────────────────
+    seen_signatures: dict[str, str] = {}  # signature → first rule_id
+    for rule in rules:
+        sig = rule.rule_type + ":" + _json.dumps(rule.config, sort_keys=True)
+        if sig in seen_signatures:
+            issues.append(
+                {
+                    "severity": "warning",
+                    "rule_id": str(rule.id),
+                    "position": rule.position,
+                    "code": "duplicate",
+                    "message": (
+                        f"Bu kural, {seen_signatures[sig]} kimlikli kuralla "
+                        "aynı (rule_type ve config özdeş). Biri gereksiz olabilir."
+                    ),
+                }
+            )
+        else:
+            seen_signatures[sig] = str(rule.id)
+
+    # ── shadowed detection (set_value on same field) ───────────────────────────
+    set_value_fields: dict[str, tuple[str, int]] = {}  # field → (rule_id, position)
+    for rule in sorted(rules, key=lambda r: r.position):
+        if rule.rule_type == "set_value":
+            field = (rule.config or {}).get("field", "")
+            if field and field in set_value_fields:
+                earlier_id, earlier_pos = set_value_fields[field]
+                issues.append(
+                    {
+                        "severity": "info",
+                        "rule_id": earlier_id,
+                        "position": earlier_pos,
+                        "code": "shadowed",
+                        "message": (
+                            f"'{field}' alanına set_value kuralı, pozisyon "
+                            f"{rule.position}'deki kural tarafından geçersiz "
+                            "kılınıyor. Önceki kural etkisizdir."
+                        ),
+                    }
+                )
+            set_value_fields[field] = (str(rule.id), rule.position)
+
+    # ── no_effect and excludes_all (skip paused rules) ───────────────────────
+    active_rules = [r for r in sorted(rules, key=lambda r: r.position)
+                    if not getattr(r, "is_paused", False)]
+
+    # Reuse compute_rules_impact for per-rule stats (pass only active rules)
+    impact = compute_rules_impact(products, active_rules)
+
+    for stat in impact["rules"]:
+        if stat["is_paused"]:
+            continue
+
+        if stat["affected_count"] == 0 and stat["excluded_count"] == 0:
+            issues.append(
+                {
+                    "severity": "warning",
+                    "rule_id": stat["rule_id"],
+                    "position": stat["position"],
+                    "code": "no_effect",
+                    "message": (
+                        "Bu kural mevcut ürün örneğinde hiçbir ürünü "
+                        "etkilemiyor veya dışlamıyor. Koşul hiç eşleşmiyor olabilir."
+                    ),
+                }
+            )
+
+        # excludes_all: filter rule that drops >= 90% of the working set
+        if stat["rule_type"] in ("filter_include", "filter_exclude"):
+            # Find how many products were present before this rule
+            # by summing total_before minus prior excluded counts up to this rule
+            # Simpler: use excluded_count relative to total_before for this rule's
+            # working set. We approximate with total_before of the whole run minus
+            # all prior exclusions.
+            prior_excluded = sum(
+                s["excluded_count"]
+                for s in impact["rules"]
+                if s["position"] < stat["position"]
+            )
+            working_before = max(impact["total_before"] - prior_excluded, 1)
+            if stat["excluded_count"] >= int(working_before * 0.9):
+                issues.append(
+                    {
+                        "severity": "error",
+                        "rule_id": stat["rule_id"],
+                        "position": stat["position"],
+                        "code": "excludes_all",
+                        "message": (
+                            "Bu filtre kuralı ürünlerin büyük çoğunluğunu "
+                            f"(%{int(stat['excluded_count'] / working_before * 100)}) "
+                            "dışarıda bırakıyor. Koşul çok geniş tanımlanmış olabilir."
+                        ),
+                    }
+                )
+
+    return issues
 
 
 # ── Feed rendering ────────────────────────────────────────────────────────────

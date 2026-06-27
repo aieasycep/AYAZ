@@ -301,6 +301,14 @@ class FeedRule(Base, TimestampMixin):
     rule_type: Mapped[str] = mapped_column(String(50), nullable=False)
     # Rule-specific config dict — schema depends on rule_type (see docstring)
     config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # When True this rule is skipped during apply_rules (Dalga 43)
+    is_paused: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="When True this rule is skipped during feed generation",
+    )
 
     # Relationships
     feed_channel: Mapped["FeedChannel"] = relationship(back_populates="rules")

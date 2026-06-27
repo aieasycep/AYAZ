@@ -40,7 +40,7 @@ import uuid
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel, field_validator
-from sqlalchemy import select
+from sqlalchemy import func as sa_func, select
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
@@ -53,8 +53,12 @@ from ayaz.services.feeds import (
     VALID_OUTPUT_FORMATS,
     VALID_RULE_TYPES,
     VALID_SOURCE_TYPES,
+    _IMPACT_SAMPLE_LIMIT,
+    compute_rules_impact,
     generate_channel_feed,
     ingest_feed_source,
+    lint_rules,
+    simulate_rule,
 )
 
 router = APIRouter(prefix="/feeds", tags=["feeds"])
@@ -239,6 +243,7 @@ class FeedRuleCreate(BaseModel):
     rule_type: str
     position: int = 0
     config: dict = {}
+    is_paused: bool = False
 
     @field_validator("rule_type")
     @classmethod
@@ -252,6 +257,7 @@ class FeedRulePatch(BaseModel):
     rule_type: str | None = None
     position: int | None = None
     config: dict | None = None
+    is_paused: bool | None = None
 
     @field_validator("rule_type")
     @classmethod
@@ -268,6 +274,7 @@ class FeedRuleResponse(BaseModel):
     position: int
     rule_type: str
     config: dict
+    is_paused: bool
     created_at: str
     updated_at: str
 
@@ -282,6 +289,7 @@ class FeedRuleResponse(BaseModel):
             position=obj.position,
             rule_type=obj.rule_type,
             config=obj.config,
+            is_paused=obj.is_paused,
             created_at=obj.created_at.isoformat(),
             updated_at=obj.updated_at.isoformat(),
         )
@@ -595,6 +603,7 @@ def create_rule(
         rule_type=body.rule_type,
         position=body.position,
         config=body.config,
+        is_paused=body.is_paused,
     )
     db.add(rule)
     db.commit()
@@ -650,6 +659,8 @@ def patch_rule(
         rule.position = body.position
     if body.config is not None:
         rule.config = body.config
+    if body.is_paused is not None:
+        rule.is_paused = body.is_paused
     db.add(rule)
     db.commit()
     db.refresh(rule)
@@ -669,6 +680,217 @@ def delete_rule(
     rule = _require_rule(rule_id, membership.tenant_id, db)
     db.delete(rule)
     db.commit()
+
+
+# ── Feed Rule Studio: Pydantic schemas ───────────────────────────────────────
+
+
+class RuleImpactStat(BaseModel):
+    rule_id: str
+    position: int
+    rule_type: str
+    is_paused: bool
+    affected_count: int
+    excluded_count: int
+
+
+class RulesImpactResponse(BaseModel):
+    total_before: int
+    total_after: int
+    sampled: bool
+    sampled_total: int | None
+    rules: list[RuleImpactStat]
+
+
+class SimulateRuleBody(BaseModel):
+    rule_type: str
+    config: dict = {}
+    position: int | None = None
+
+    @field_validator("rule_type")
+    @classmethod
+    def validate_rule_type(cls, v: str) -> str:
+        if v not in VALID_RULE_TYPES:
+            raise ValueError(f"rule_type must be one of {sorted(VALID_RULE_TYPES)}")
+        return v
+
+
+class SimulateRuleResponse(BaseModel):
+    affected_count: int
+    excluded_count: int
+    sample_before: list[dict]
+    sample_after: list[dict]
+
+
+class LintIssue(BaseModel):
+    severity: str
+    rule_id: str
+    position: int
+    code: str
+    message: str
+
+
+class LintResponse(BaseModel):
+    issues: list[LintIssue]
+
+
+# ── Feed Rule Studio: helper to load channel products ────────────────────────
+
+
+def _load_channel_products(
+    channel: FeedChannel, db: Session, limit: int = _IMPACT_SAMPLE_LIMIT
+) -> tuple[list[dict], int]:
+    """Load FeedProduct rows for a channel's source (tenant-scoped).
+
+    Returns (products, total_count) where products is capped at limit.
+    """
+    total_count: int = db.scalar(
+        select(sa_func.count(FeedProduct.id)).where(
+            FeedProduct.feed_source_id == channel.feed_source_id,
+            FeedProduct.tenant_id == channel.tenant_id,
+        )
+    ) or 0
+
+    rows = list(
+        db.scalars(
+            select(FeedProduct)
+            .where(
+                FeedProduct.feed_source_id == channel.feed_source_id,
+                FeedProduct.tenant_id == channel.tenant_id,
+            )
+            .limit(limit)
+        )
+    )
+    products = [r.data for r in rows]
+    return products, total_count
+
+
+# ── Feed Rule Studio: new endpoints ──────────────────────────────────────────
+
+
+@router.get(
+    "/channels/{channel_id}/rules/impact",
+    response_model=RulesImpactResponse,
+    summary="Impact preview — per-rule affected/excluded counts for a channel",
+)
+def rules_impact(
+    channel_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> RulesImpactResponse:
+    """Return how many products each rule affects or excludes.
+
+    Products are sampled (up to 1000) for performance on large catalogues.
+    ``sampled=True`` and ``sampled_total`` indicate when sampling was applied.
+    Paused rules appear with zero counts and ``is_paused=True``.
+    """
+    ch = _require_channel(channel_id, membership.tenant_id, db)
+
+    products, total_count = _load_channel_products(ch, db, limit=_IMPACT_SAMPLE_LIMIT)
+    sampled = total_count > _IMPACT_SAMPLE_LIMIT
+
+    rules = list(
+        db.scalars(
+            select(FeedRule)
+            .where(
+                FeedRule.feed_channel_id == channel_id,
+                FeedRule.tenant_id == membership.tenant_id,
+            )
+            .order_by(FeedRule.position)
+        )
+    )
+
+    result = compute_rules_impact(products, rules)
+
+    return RulesImpactResponse(
+        total_before=result["total_before"],
+        total_after=result["total_after"],
+        sampled=sampled,
+        sampled_total=total_count if sampled else None,
+        rules=[RuleImpactStat(**stat) for stat in result["rules"]],
+    )
+
+
+@router.post(
+    "/channels/{channel_id}/rules/simulate",
+    response_model=SimulateRuleResponse,
+    summary="Dry-run an unsaved rule without persisting it",
+)
+def simulate_channel_rule(
+    channel_id: uuid.UUID,
+    body: SimulateRuleBody,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> SimulateRuleResponse:
+    """Simulate a candidate rule on top of the channel's saved non-paused rules.
+
+    Nothing is persisted.  The candidate rule is applied after all saved
+    non-paused rules whose position is less than ``body.position`` (or after
+    all of them if position is not specified).
+
+    Returns affected_count, excluded_count, and up to 3 sample products
+    before/after the candidate rule is applied.
+    """
+    ch = _require_channel(channel_id, membership.tenant_id, db)
+
+    products, _ = _load_channel_products(ch, db, limit=_IMPACT_SAMPLE_LIMIT)
+
+    saved_rules = list(
+        db.scalars(
+            select(FeedRule)
+            .where(
+                FeedRule.feed_channel_id == channel_id,
+                FeedRule.tenant_id == membership.tenant_id,
+            )
+            .order_by(FeedRule.position)
+        )
+    )
+
+    result = simulate_rule(
+        products=products,
+        saved_rules=saved_rules,
+        candidate_rule_type=body.rule_type,
+        candidate_config=body.config,
+        candidate_position=body.position,
+    )
+
+    return SimulateRuleResponse(**result)
+
+
+@router.get(
+    "/channels/{channel_id}/rules/lint",
+    response_model=LintResponse,
+    summary="Lint a channel's rules for common mistakes",
+)
+def lint_channel_rules(
+    channel_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> LintResponse:
+    """Run the rule linter against a sample of the channel's products.
+
+    Returns a list of issues with severity (error/warning/info), a machine-
+    readable code, and a Turkish language message.  An empty issues list means
+    no problems were detected.
+    """
+    ch = _require_channel(channel_id, membership.tenant_id, db)
+
+    products, _ = _load_channel_products(ch, db, limit=_IMPACT_SAMPLE_LIMIT)
+
+    rules = list(
+        db.scalars(
+            select(FeedRule)
+            .where(
+                FeedRule.feed_channel_id == channel_id,
+                FeedRule.tenant_id == membership.tenant_id,
+            )
+            .order_by(FeedRule.position)
+        )
+    )
+
+    issues = lint_rules(products, rules)
+
+    return LintResponse(issues=[LintIssue(**issue) for issue in issues])
 
 
 # ── Public feed endpoint (no auth) ────────────────────────────────────────────

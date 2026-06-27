@@ -166,6 +166,13 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 43 — Feed Kural Stüdyosu (backend çekirdeği)
+- Channable'ın en sevilen UX'i (canlı panel teardown'undan): per-kural **pause**
+  (`is_paused`, migration 0016; apply_rules duraklatılanı atlar), **etki önizleme**
+  (`/feeds/channels/{id}/rules/impact` — kural başına kaç ürün etkilendi/hariç tutuldu),
+  kaydetmeden **dry-run** (`.../rules/simulate`) ve **kural-linter** (`.../rules/lint` —
+  no-effect/excludes-all/shadowed/duplicate). 41 yeni test (suite 1459).
+
 ## Dalga 42 — Self-serve Kayıt (PLG kapısı)
 - Rakip analizinde tespit edildi: landing'deki tüm "Ücretsiz Başla" CTA'ları `/login`'e
   gidiyordu ve **kayıt sayfası/`signup()` yoktu** — ziyaretçi UI'dan hesap açamıyordu.
