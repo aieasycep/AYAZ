@@ -163,6 +163,8 @@
 - Test sağlamlığı: `conftest.py`'ye autouse `dependency_overrides` temizleyici
   eklendi — modüller arası override sızıntısından kaynaklanan flaky (sıraya
   bağlı) test hatası kökten giderildi. 41 yeni test (suite 1292, 3 kez stabil).
+- Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
+  ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
 ---
 

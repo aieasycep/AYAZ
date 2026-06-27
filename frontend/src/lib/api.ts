@@ -217,6 +217,56 @@ export async function downloadCsv(
   URL.revokeObjectURL(objectUrl);
 }
 
+// --- Top Movers ---
+
+export type TopMoversDimension = 'channel' | 'campaign';
+export type TopMoversMetric =
+  | 'spend'
+  | 'conversions'
+  | 'conversion_value'
+  | 'roas'
+  | 'clicks'
+  | 'impressions';
+
+export interface TopMover {
+  key: string;
+  label: string;
+  current: number;
+  previous: number;
+  delta: number;
+  delta_pct: number | null;
+  direction: 'up' | 'down';
+}
+
+export interface TopMoversResponse {
+  dimension: TopMoversDimension;
+  metric: TopMoversMetric;
+  date_from: string;
+  date_to: string;
+  previous_from: string;
+  previous_to: string;
+  movers: TopMover[];
+}
+
+export function getTopMovers(
+  date_from: string,
+  date_to: string,
+  dimension: TopMoversDimension = 'channel',
+  metric: TopMoversMetric = 'spend',
+  limit?: number,
+): Promise<TopMoversResponse> {
+  const params: Record<string, string> = {
+    date_from,
+    date_to,
+    dimension,
+    metric,
+  };
+  if (limit !== undefined) {
+    params.limit = String(limit);
+  }
+  return authFetch<TopMoversResponse>('/api/v1/dashboard/top-movers', params);
+}
+
 // --- Timeseries ---
 
 export type TimeseriesMetric =

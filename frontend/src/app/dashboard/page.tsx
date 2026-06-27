@@ -17,6 +17,7 @@ import {
 import KpiCard from '@/components/KpiCard';
 import TimeSeriesChart from '@/components/TimeSeriesChart';
 import ChannelTable from '@/components/ChannelTable';
+import TopMovers from '@/components/TopMovers';
 import AppNav from '@/components/AppNav';
 import DashboardEmptyState from '@/components/DashboardEmptyState';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -461,6 +462,16 @@ export default function DashboardPage() {
               loading={summaryLoading}
               error={summaryError}
             />
+          </ErrorBoundary>
+        </section>
+
+        {/* Top Movers widget */}
+        <section className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h2 className={styles.cardTitle}>En Cok Degişenler</h2>
+          </div>
+          <ErrorBoundary label="En Cok Degişenler">
+            <TopMovers dateFrom={appliedFrom} dateTo={appliedTo} />
           </ErrorBoundary>
         </section>
       </main>
