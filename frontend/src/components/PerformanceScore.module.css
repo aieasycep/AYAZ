@@ -1,0 +1,268 @@
+/* ============================================================
+   PerformanceScore — gauges section
+   ============================================================ */
+
+/* Section wrapper — two-column layout on wide screens:
+   big overall gauge on the left, component cards on the right */
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.dateHint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Body: overall + components side-by-side on wide, stacked on small */
+.body {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 0;
+}
+
+@media (max-width: 768px) {
+  .body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Overall gauge column
+   ============================================================ */
+
+.overallCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  border-right: 1px solid var(--color-border);
+  gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .overallCol {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 1.5rem;
+  }
+}
+
+/* SVG circular gauge */
+.gaugeWrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.gaugeSvg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Track ring — the grey background arc */
+.gaugeTrack {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+/* Filled arc — colour set inline via currentColor / stroke attr */
+.gaugeArc {
+  fill: none;
+  stroke-width: 10;
+  stroke-linecap: round;
+  /* Transition so re-renders animate smoothly */
+  transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease;
+}
+
+/* Score number centred inside the gauge */
+.gaugeScore {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.gaugeScoreNum {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.gaugeScoreOf {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: 0.1rem;
+}
+
+/* Label below the gauge */
+.gaugeLabel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Rating pill */
+.ratingPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: capitalize;
+}
+
+.ratingIyi {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.ratingOrta {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.ratingZayif {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+/* ============================================================
+   Component cards column
+   ============================================================ */
+
+.componentsCol {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+}
+
+@media (max-width: 900px) {
+  .componentsCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+.componentCard {
+  padding: 1.5rem;
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.componentCard:first-child {
+  border-left: none;
+}
+
+@media (max-width: 900px) {
+  .componentCard {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .componentCard:first-child {
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+.componentLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Small horizontal progress bar gauge */
+.progressWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.progressBar {
+  flex: 1;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+.fillIyi {
+  background: var(--color-success-text);
+}
+
+.fillOrta {
+  background: var(--color-warning-text);
+}
+
+.fillZayif {
+  background: var(--color-danger-text);
+}
+
+.progressScore {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 2.5rem;
+  text-align: right;
+  line-height: 1;
+}
+
+/* Basis explanation text */
+.basisText {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  /* Clamp to 3 lines so it doesn't push the card too tall */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================================
+   State wrappers (loading / error / empty)
+   ============================================================ */
+
+.stateWrapper {
+  padding: 2.5rem;
+  text-align: center;
+  grid-column: 1 / -1;
+}

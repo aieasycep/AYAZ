@@ -340,3 +340,43 @@ export function getTimeseries(
     metric,
   });
 }
+
+// --- Performance Scores ---
+
+export type ScoreRating = 'iyi' | 'orta' | 'zayıf';
+export type ScoreComponentKey = 'efficiency' | 'engagement' | 'conversion';
+
+export interface OverallScore {
+  score: number;
+  label: string;
+  rating: ScoreRating;
+}
+
+export interface ScoreComponent {
+  key: ScoreComponentKey;
+  label: string;
+  score: number;
+  /** Actual computed metric value (e.g. ROAS as a float). */
+  value: number;
+  /** Baseline/previous period value for comparison. */
+  baseline: number;
+  /** Turkish explanation of how the score was derived. */
+  basis: string;
+}
+
+export interface ScoresResponse {
+  date_from: string;
+  date_to: string;
+  overall: OverallScore;
+  components: ScoreComponent[];
+}
+
+export function getScores(
+  date_from: string,
+  date_to: string,
+): Promise<ScoresResponse> {
+  return authFetch<ScoresResponse>('/api/v1/dashboard/scores', {
+    date_from,
+    date_to,
+  });
+}

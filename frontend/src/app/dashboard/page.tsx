@@ -18,6 +18,7 @@ import KpiCard from '@/components/KpiCard';
 import TimeSeriesChart from '@/components/TimeSeriesChart';
 import ChannelTable from '@/components/ChannelTable';
 import TopMovers from '@/components/TopMovers';
+import PerformanceScore from '@/components/PerformanceScore';
 import AppNav from '@/components/AppNav';
 import DashboardEmptyState from '@/components/DashboardEmptyState';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -430,6 +431,11 @@ export default function DashboardPage() {
             </>
           ) : null}
         </section>
+
+        {/* Performance score gauges */}
+        <ErrorBoundary label="Performans Skoru">
+          <PerformanceScore dateFrom={appliedFrom} dateTo={appliedTo} />
+        </ErrorBoundary>
 
         {/* Timeseries chart */}
         <section className={styles.card}>

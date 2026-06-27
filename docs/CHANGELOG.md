@@ -170,6 +170,8 @@
 - Adin gösterge ilhamı ama ŞEFFAF: `GET /dashboard/scores` — Genel Etkinlik + Verimlilik/
   Etkileşim/Dönüşüm 0–100 skorları, **kendi geçmiş döneme göre** (sahte benchmark yok).
   Her skorda 'basis' açıklaması (neden bu skor). Saf `compute_scores` fonksiyonu. 72 yeni test (suite 1580).
+  Frontend: dashboard'da 'Performans Skoru' bölümü — SVG dairesel gösterge (Genel Etkinlik) +
+  3 bileşen kartı (skor barı + 'basis' açıklaması), rating renkleri (iyi/orta/zayıf), dark mode. 14 yeni frontend testi (115).
 
 ## Dalga 46 — İçgörü Geri-Bildirim Döngüsü (backend)
 - Adin'in 'Mark as Applied + 👍/👎' kartı ilhamı: `Insight`'a `applied_at` + `reaction`
