@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getToken } from '@/lib/api';
+import { getToken, logout } from '@/lib/api';
 import {
   getMe,
   updateProfile,
@@ -173,6 +173,7 @@ function ProfileCard() {
 // --- Password Card ---
 
 function PasswordCard() {
+  const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
@@ -205,7 +206,12 @@ function PasswordCard() {
       setNewPassword('');
       setNewPasswordConfirm('');
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      // The password change invalidates all existing sessions (the current token
+      // included), so guide the user back to login instead of letting the next
+      // request fail with 401.
+      setTimeout(() => {
+        void logout().finally(() => router.replace('/login'));
+      }, 1800);
     } catch (err: unknown) {
       const e = err as Error & { status?: number };
       if (e.status === 429) {
@@ -288,7 +294,9 @@ function PasswordCard() {
             {saving ? 'Kaydediliyor...' : 'Şifreyi Güncelle'}
           </button>
           {saveSuccess && (
-            <span className={styles.formSuccess}>Şifre güncellendi.</span>
+            <span className={styles.formSuccess}>
+              Şifre güncellendi. Güvenlik için yeniden giriş yapmanız gerekiyor…
+            </span>
           )}
           {saveError && (
             <span className={styles.formError}>{saveError}</span>

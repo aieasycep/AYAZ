@@ -166,6 +166,10 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 37 — Şifre Değişiminde Yeniden Giriş (UX)
+- `/settings` şifre değiştirme başarısında: oturum geçersizleştiği için kullanıcı
+  bilgilendirilip otomatik çıkış + `/login`'e yönlendirilir (Dalga 36'nın doğal UX tamamlayıcısı).
+
 ## Dalga 36 — Kimlik/Güvenlik Sertleştirme
 - **Şifre değişince tüm oturumlar geçersiz:** JWT'ye `iat` eklendi; `users`'a
   `credentials_changed_at` (migration 0015). Şifre değişiminden önce verilmiş

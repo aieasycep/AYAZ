@@ -61,6 +61,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 34 (tamamlandı):** E2E regresyon turu — dashboard hidrasyon hatası (localStorage-in-render) düzeltildi; smoke suite 18/18 yeşil.
 - **Dalga 35 (tamamlandı):** Bildirimler tam sayfası (`/notifications`) — filtreler + tümünü okundu; zil + komut paletinden erişim. Smoke 19/19.
 - **Dalga 36 (tamamlandı):** Kimlik/güvenlik sertleştirme — şifre değişince oturum geçersizleştirme (iat + credentials_changed_at, migration 0015), timezone doğrulama, Copilot hata-mesajı sızıntısı kapatma.
+- **Dalga 37 (tamamlandı):** Şifre değişiminde otomatik yeniden giriş UX'i (Dalga 36 tamamlayıcısı).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**
