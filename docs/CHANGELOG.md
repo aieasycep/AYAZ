@@ -166,6 +166,13 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 42 — Self-serve Kayıt (PLG kapısı)
+- Rakip analizinde tespit edildi: landing'deki tüm "Ücretsiz Başla" CTA'ları `/login`'e
+  gidiyordu ve **kayıt sayfası/`signup()` yoktu** — ziyaretçi UI'dan hesap açamıyordu.
+- Yeni `/signup` sayfası (ad/şirket/e-posta/şifre+tekrar, istemci doğrulama, 409/422/429
+  hata eşleme) + `signup()` istemci fonksiyonu + landing CTA'ları `/signup`'a bağlandı +
+  login↔signup geçiş linkleri. 6 yeni birim test (toplam 58) + e2e smoke `/signup` kapsamı.
+
 ## Dalga 41 — E2E Smoke CI'da
 - Playwright E2E smoke suite CI'ya bağlandı (`e2e-smoke` işi): SQLite ile backend
   bootstrap (create_all + seed) + frontend build/start + `playwright install chromium`

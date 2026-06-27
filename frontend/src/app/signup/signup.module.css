@@ -13,7 +13,7 @@
   box-shadow: var(--shadow-md);
   padding: 2.5rem 2rem;
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
 }
 
 .brand {
@@ -55,6 +55,12 @@
   font-size: 0.875rem;
 }
 
+.errorLink {
+  color: var(--color-alert-text);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -94,6 +100,16 @@
 .input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.inputError {
+  border-color: var(--color-alert-border);
+}
+
+.fieldError {
+  font-size: 0.8rem;
+  color: var(--color-alert-text);
+  margin-top: 0.125rem;
 }
 
 .button {

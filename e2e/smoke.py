@@ -94,6 +94,7 @@ BENIGN_CONSOLE_ALLOWLIST = [
 ROUTES = [
     # (path,               auth_required, expected_turkish_marker)
     ("/",                  False, "dijital pazarlamanız"),
+    ("/signup",            False, "Hesap Oluştur"),
     ("/dashboard",         True,  "Zaman Serisi"),
     ("/assistant",         True,  "Yeni sohbet"),
     ("/briefing",          True,  "Günlük Brifing"),

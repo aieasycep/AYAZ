@@ -82,7 +82,7 @@ AYAZ/
 │   ├── alembic/         # 15 migration
 │   ├── scripts/         # seed_demo.py (idempotent demo verisi)
 │   └── tests/           # ~1420 backend testi
-├── frontend/       # Next.js + React + TS web uygulaması (19 sayfa, PWA)
+├── frontend/       # Next.js + React + TS web uygulaması (20 sayfa, PWA)
 │   ├── src/app/        # Sayfalar (dashboard, ads, insights, assistant, billing, ...)
 │   ├── src/components/  # Paylaşılan bileşenler
 │   └── public/          # manifest.json + sw.js + ikonlar (PWA)
@@ -129,10 +129,10 @@ cd frontend && npm install && npm run dev
 | Ölçüt | Değer |
 |---|---|
 | Backend testleri | ~1420 (`pytest`, SQLite ile hermetik — DB gerekmez) |
-| Frontend testleri | 49 (Vitest + Testing Library) + E2E smoke (Playwright, 19 rota) |
+| Frontend testleri | 58 (Vitest + Testing Library) + E2E smoke (Playwright, 19 rota) |
 | API endpoint'leri | ~123 (19 v1 router + `/health`) |
 | Alembic migration | 15 |
-| Web sayfası | 19 (landing + `/settings` dahil) |
+| Web sayfası | 20 (landing + `/signup` + `/settings` dahil) |
 | Tema | Açık + Koyu (Dark mode) + Sistem |
 | Hızlı erişim | Komut paleti (⌘K), bildirim merkezi, başlangıç rehberi |
 | Konektör | 10 platform (Google Ads, Meta, GA4, Search Console, TikTok, LinkedIn, Microsoft, Criteo, Pinterest, Meta CAPI) |

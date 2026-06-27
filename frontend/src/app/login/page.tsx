@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { login, setToken, getToken } from '@/lib/api';
 import styles from './login.module.css';
 
@@ -86,6 +87,13 @@ export default function LoginPage() {
             {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
           </button>
         </form>
+
+        <div className={styles.footer}>
+          Hesabın yok mu?{' '}
+          <Link href="/signup" className={styles.footerLink}>
+            Ücretsiz kayıt ol
+          </Link>
+        </div>
       </div>
     </div>
   );

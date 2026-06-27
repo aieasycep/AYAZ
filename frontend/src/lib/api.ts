@@ -23,6 +23,49 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return res.json() as Promise<LoginResponse>;
 }
 
+export interface SignupPayload {
+  email: string;
+  password: string;
+  full_name?: string;
+  org_name: string;
+}
+
+/**
+ * Register a new account. Returns the same LoginResponse shape as login()
+ * (the backend issues an access_token directly on 201 Created).
+ * Does NOT store the token — callers must call setToken(res.access_token).
+ * Throws with a Turkish message on any error:
+ *   - 409 → duplicate email detail from backend
+ *   - 422 → first .msg from the FastAPI errors array
+ *   - 429 → rate-limit message
+ *   - other → raw detail text or generic fallback
+ */
+export async function signup(payload: SignupPayload): Promise<LoginResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let message = 'Kayıt başarısız';
+    try {
+      const body = await res.json();
+      if (res.status === 422 && Array.isArray(body?.detail)) {
+        // FastAPI validation errors array — surface the first .msg
+        message = body.detail[0]?.msg ?? message;
+      } else if (typeof body?.detail === 'string') {
+        message = body.detail;
+      }
+    } catch {
+      // body was not JSON; fall through to generic message
+    }
+    throw new Error(message);
+  }
+
+  return res.json() as Promise<LoginResponse>;
+}
+
 // --- Token helpers ---
 
 const TOKEN_KEY = 'ayaz_token';

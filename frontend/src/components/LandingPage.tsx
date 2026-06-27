@@ -150,7 +150,7 @@ export default function LandingPage() {
             <a href="#features" className={styles.topNavLink}>Özellikler</a>
             <a href="#pricing" className={styles.topNavLink}>Fiyatlandırma</a>
             <Link href="/login" className={styles.topNavLink}>Giriş Yap</Link>
-            <Link href="/login" className={styles.topNavCta}>Ücretsiz Başla</Link>
+            <Link href="/signup" className={styles.topNavCta}>Ücretsiz Başla</Link>
           </nav>
           <button className={styles.mobileMenuToggle} aria-label="Menü">
             <span />
@@ -173,7 +173,7 @@ export default function LandingPage() {
             datanızı analiz eder, fırsatları tespit eder ve sizi proaktif olarak yönlendirir.
           </p>
           <div className={styles.heroCtas}>
-            <Link href="/login" className={styles.ctaPrimary}>Ücretsiz Başla</Link>
+            <Link href="/signup" className={styles.ctaPrimary}>Ücretsiz Başla</Link>
             <a href="#features" className={styles.ctaSecondary}>Demoyu Gör</a>
           </div>
           <p className={styles.heroNote}>Kredi kartı gerekmez · Kurulum 5 dakika</p>
@@ -301,7 +301,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/login"
+                  href="/signup"
                   className={`${styles.pricingCta} ${plan.highlighted ? styles.pricingCtaHighlighted : ''}`}
                 >
                   {plan.cta}
@@ -320,7 +320,7 @@ export default function LandingPage() {
             Dakikalar içinde bağlanın. Hemen analizlere başlayın.
           </p>
           <div className={styles.closingCtas}>
-            <Link href="/login" className={styles.ctaPrimary}>Ücretsiz Hesap Oluştur</Link>
+            <Link href="/signup" className={styles.ctaPrimary}>Ücretsiz Hesap Oluştur</Link>
             <Link href="/dashboard" className={styles.ctaSecondary}>Panele Git</Link>
           </div>
         </div>
