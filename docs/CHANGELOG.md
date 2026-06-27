@@ -166,6 +166,11 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 38 — Erişilebilirlik (a11y)
+- Global `:focus-visible` klavye-odak halkası (açık/koyu temada görünür) ve
+  `prefers-reduced-motion` desteği (hareket azaltıldığında animasyon/geçişler kısılır).
+  `<html lang="tr">` + ikon butonlarda aria-label zaten mevcuttu.
+
 ## Dalga 37 — Şifre Değişiminde Yeniden Giriş (UX)
 - `/settings` şifre değiştirme başarısında: oturum geçersizleştiği için kullanıcı
   bilgilendirilip otomatik çıkış + `/login`'e yönlendirilir (Dalga 36'nın doğal UX tamamlayıcısı).

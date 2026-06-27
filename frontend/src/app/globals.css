@@ -260,3 +260,34 @@ html {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ============================================================
+   Accessibility
+   ============================================================ */
+
+/* Visible keyboard-focus indicator. :focus-visible only matches keyboard /
+   assistive-tech focus, so mouse clicks stay clean while keyboard users get a
+   clear ring in both light and dark themes. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
