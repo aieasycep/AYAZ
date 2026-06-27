@@ -69,6 +69,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 42 (tamamlandı):** Self-serve kayıt akışı (`/signup`) — kırık PLG kapısı düzeltildi (rakip-analiz bulgusu).
 - **Dalga 43 (tamamlandı):** Feed Kural Stüdyosu backend — pause + etki önizleme + dry-run simülasyon + kural-linter (Channable panel ilhamı).
 - **Dalga 44 (tamamlandı):** Feed Kural Stüdyosu görsel editör — duraklat + 'Etkiyi Hesapla' barı + kaydetmeden Önizle + linter çipleri (panel kareleri referansıyla).
+- **Dalga 45 (tamamlandı):** Türkçe doğal dil → feed kuralı backend (`/rules/from-text`) — cümleden taslak kural + açıklama + etki (Claude+mock).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

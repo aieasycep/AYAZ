@@ -166,6 +166,13 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 45 — Türkçe Doğal Dil → Feed Kuralı (backend)
+- `POST /feeds/channels/{id}/rules/from-text`: Türkçe cümleden taslak FeedRule üretir
+  (kaydetmez) + açıklama + güven + canlı etki (simulate). Claude + deterministik
+  Türkçe mock-parser (API anahtarsız da çalışır; report_builder deseni).
+- Desenler: stok filtresi, fiyat eşiği, başlığa ekleme (calculated), set_value,
+  find_replace, rename_field; alan eş-anlamlıları (fiyat/başlık/marka/stok…). 22 yeni test (suite 1481).
+
 ## Dalga 44 — Feed Kural Stüdyosu (görsel editör)
 - Channable panel kareleri (062/064) referansıyla `/feeds` kural editörü yükseltildi:
   per-kural **duraklat** (greyed + 'Duraklatıldı' rozeti), **'Etkiyi Hesapla' barı**

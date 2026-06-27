@@ -34,8 +34,11 @@ generated at channel creation time and is unguessable.
 
 from __future__ import annotations
 
+import logging
 import secrets
 import uuid
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
@@ -60,6 +63,7 @@ from ayaz.services.feeds import (
     lint_rules,
     simulate_rule,
 )
+from ayaz.services.feed_rule_nlp import parse_rule_from_text
 
 router = APIRouter(prefix="/feeds", tags=["feeds"])
 
@@ -891,6 +895,119 @@ def lint_channel_rules(
     issues = lint_rules(products, rules)
 
     return LintResponse(issues=[LintIssue(**issue) for issue in issues])
+
+
+# ── NL → FeedRule generator (Dalga 45) ───────────────────────────────────────
+
+
+class RuleFromTextBody(BaseModel):
+    """Request body for the NL-to-rule endpoint."""
+
+    text: str
+
+
+class RuleImpactPreview(BaseModel):
+    """Impact numbers from simulating the draft rule (best-effort, may be absent)."""
+
+    affected_count: int
+    excluded_count: int
+
+
+class RuleFromTextResponse(BaseModel):
+    """Draft FeedRule generated from a natural-language description.
+
+    Nothing is persisted — the caller must POST to /rules to save the rule.
+    """
+
+    rule_type: str
+    config: dict
+    explanation: str
+    confidence: str  # "high" | "low"
+    impact: RuleImpactPreview | None = None
+
+
+@router.post(
+    "/channels/{channel_id}/rules/from-text",
+    response_model=RuleFromTextResponse,
+    summary="Generate a DRAFT FeedRule from a Turkish natural-language description",
+)
+def rule_from_text(
+    channel_id: uuid.UUID,
+    body: RuleFromTextBody,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> RuleFromTextResponse:
+    """Parse a Turkish sentence and return a DRAFT FeedRule (nothing is saved).
+
+    The caller can preview the rule, then POST to ``/channels/{id}/rules`` to
+    persist it.
+
+    Examples
+    --------
+    * ``"stokta olmayan ürünleri çıkar"``  →  filter_exclude on availability
+    * ``"başlığa marka ekle"``             →  calculated title + brand
+    * ``"fiyatı 100 TL altındaki ürünleri hariç tut"``  →  filter_exclude price < 100
+
+    The ``impact`` field is populated by running ``simulate_rule()`` against the
+    channel's products.  If the channel has no products or the simulation errors,
+    ``impact`` is omitted (the rule generation still succeeds).
+
+    confidence
+    ----------
+    ``"high"`` — the parser matched a concrete pattern.
+    ``"low"``  — best-guess; the text was ambiguous.  The caller should ask the
+    user to rephrase before saving.
+    """
+    # Tenant-isolation: 404 if channel is not in this tenant
+    ch = _require_channel(channel_id, membership.tenant_id, db)
+
+    # Generate the draft rule (never raises)
+    parsed = parse_rule_from_text(body.text)
+
+    # Validate rule_type defensively (parse_rule_from_text guarantees this,
+    # but we double-check so a future bug can't leak an invalid type through)
+    if parsed.rule_type not in VALID_RULE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal parser error: invalid rule_type {parsed.rule_type!r}",
+        )
+
+    # Best-effort impact simulation (omit on any error)
+    impact: RuleImpactPreview | None = None
+    try:
+        products, _ = _load_channel_products(ch, db, limit=_IMPACT_SAMPLE_LIMIT)
+        if products:
+            saved_rules = list(
+                db.scalars(
+                    select(FeedRule)
+                    .where(
+                        FeedRule.feed_channel_id == channel_id,
+                        FeedRule.tenant_id == membership.tenant_id,
+                    )
+                    .order_by(FeedRule.position)
+                )
+            )
+            sim = simulate_rule(
+                products=products,
+                saved_rules=saved_rules,
+                candidate_rule_type=parsed.rule_type,
+                candidate_config=parsed.config,
+                candidate_position=None,
+            )
+            impact = RuleImpactPreview(
+                affected_count=sim["affected_count"],
+                excluded_count=sim["excluded_count"],
+            )
+    except Exception as exc:
+        logger.warning("[feeds] rule_from_text impact simulation failed: %s", exc)
+
+    return RuleFromTextResponse(
+        rule_type=parsed.rule_type,
+        config=parsed.config,
+        explanation=parsed.explanation,
+        confidence=parsed.confidence,
+        impact=impact,
+    )
 
 
 # ── Public feed endpoint (no auth) ────────────────────────────────────────────
