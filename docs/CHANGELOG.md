@@ -166,6 +166,19 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 68 — Hesap Sağlık Taraması (Account Audit) — "tek tıkla ücretsiz denetim"
+- Yeni farklılaştırıcı: **Hesap Sağlık Taraması** — reklam/ölçümleme/bütçe/içerik/hedef/içgörü modüllerini
+  tek tıkla tarar, **0-100 sağlık puanı** + kategorize edilmiş bulgu listesi (geç/uyarı/sorun) +
+  her bulgu için **çözüm önerisi** üretir. Pazarlama açısı: "ücretsiz hesap denetimi".
+- Backend: `GET /audit/run` (yeni tablo yok) — `audit.run_account_audit` 6 kategori, 16+ kontrol
+  (zarar eden reklam ROAS<1, bütçe yoğunlaşması, düşük CTR; hedefsiz/başarısız/düşük-eşleşme/rıza-düşüşü
+  izleme; bütçe planı; onay bekleyen/planlanmamış içerik; risk altı hedef; kritik/uyarı içgörü). Puan:
+  100 − 12×sorun − 4×uyarı; grade mükemmel/iyi/orta/zayıf. Her kategori try/except ile dayanıklı. 36 yeni test.
+- Frontend: `/audit` — dairesel puan göstergesi + grade + özet + sayımlar + "Yeniden Tara" + kategori
+  kartlarında geç/uyarı/sorun ikonlu kontrol listesi ve "Öneri:" blokları. İlk açılışta otomatik tarar. 9 yeni test.
+  Navigasyona **Denetim** eklendi.
+- Kalite: backend **2093 yeşil**, frontend **290 yeşil**, build yeşil.
+
 ## Dalga 67 — Komuta Merkezi (Command Center) — birleşik vitrin ekranı
 - Yeni bayrak-gemisi ekran: **Komuta Merkezi** — tüm modüllerden "şu an dikkat gerektirenler"i
   tek akışta toplar; üstte KPI + altta modül durum kartları. "Tek panel" vaadinin vitrini, ilk nav öğesi.

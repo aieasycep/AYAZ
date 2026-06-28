@@ -15,6 +15,7 @@ export const NAV_LINKS = [
   { href: '/command-center', label: 'Komuta Merkezi' },
   { href: '/dashboard', label: 'Panel' },
   { href: '/executive', label: 'Yönetici' },
+  { href: '/audit', label: 'Denetim' },
   { href: '/assistant', label: 'Asistan' },
   { href: '/briefing', label: 'Brifing' },
   { href: '/insights', label: 'İçgörüler' },

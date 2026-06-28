@@ -91,6 +91,10 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 64 (tamamlandı):** **Copilot çapraz-modül farkındalığı** — `get_budget_status` + `get_inbox_summary` + `get_executive_summary` araçları; her persona bütçe/inbox/yönetici özetini tek Copilot'tan doğal dille sorgular. Birleşik kokpit + tek asistan vaadi tüm yeni modüllerde tam.
 - **Dalga 65 (tamamlandı):** **Marcom Kreatif Lensi** — `GET /marcom/creative-insights` (mevcut `ad_performance` reuse); kreatif performansı etkileşim/trafik diliyle + sade içgörü + "Organik içeriğe çevir" köprüsü. `/creative-lens` sayfası. **Persona seti tamam: Performans + Planlama + CS + CMO + Marcom, hepsi tek panel + tek Copilot.**
 - **Dalga 66 (tamamlandı):** **Bütçe Plan vs Gerçekleşen** (planlama faz-2) — `GET /budget/plans/{id}/actuals`; kanal-bazlı planlanan vs gerçekleşen + tempo + sapma + harcama/süre temposu değerlendirmesi. `/planning`'de "Gerçekleşen" paneli. Planlama döngüsü kapandı.
+
+### Farklılaştırma Fazı (Dalga 67+) — `14-differentiation-backlog.md`
+- **Dalga 67 (tamamlandı):** **Komuta Merkezi** (`/command-center`) — tüm modüllerden "dikkat gerektirenler" akışı + KPI + modül durum kartları; "tek panel" vitrini, ilk nav öğesi. `GET /command-center/overview`.
+- **Dalga 68 (tamamlandı):** **Hesap Sağlık Taraması** (`/audit`) — `GET /audit/run`; 6 kategori 16+ kontrol → 0-100 puan + kategorize bulgu + çözüm önerisi. "Tek tıkla ücretsiz denetim" farklılaştırıcısı.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**
