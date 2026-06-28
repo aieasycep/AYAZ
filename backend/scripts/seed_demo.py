@@ -89,6 +89,7 @@ from ayaz.models.tracking import (
 )
 from ayaz.models.content import ContentPost
 from ayaz.models.budget import BudgetPlan
+from ayaz.models.social_inbox import SocialMessage, SocialReply
 from ayaz.models.oltp import (
     ConnectedAccount,
     Membership,
@@ -1508,6 +1509,110 @@ def _seed_budget(db, tenant: Tenant) -> dict:
     return counts
 
 
+# ── Social Inbox seeding (M13 — Sosyal Gelen Kutusu) ────────────────────────────
+
+# (channel, kind, handle, name, text, sentiment, status, assignee, tags, day_offset, reply?)
+_INBOX_MESSAGES = [
+    ("instagram", "dm", "@ays_eylül", "Ayşe Eylül",
+     "Siparişim ne zaman kargoya verilir? Çok merak ediyorum 😊", "neutral",
+     "open", None, ["kargo"], 0, None),
+    ("instagram", "comment", "@mehmet.kaya", "Mehmet Kaya",
+     "Ürün elime ulaştı, kalitesine bayıldım! Teşekkürler 🙏", "positive",
+     "resolved", "Destek Ekibi", ["övgü"],
+     -1, "Çok teşekkür ederiz Mehmet Bey, sağlıkla kullanın! 💙"),
+    ("facebook", "comment", "@zeynep.demir", "Zeynep Demir",
+     "Kargo 5 gündür gelmedi, bu nasıl bir hizmet? Rezalet.", "negative",
+     "pending", "Destek Ekibi", ["kargo", "şikayet"], 0,
+     "Yaşadığınız aksaklık için çok üzgünüz Zeynep Hanım, hemen kontrol edip dönüyoruz."),
+    ("x", "mention", "@burak_tech", "Burak",
+     "@easycep uygulamanız harika olmuş, tebrikler 👏", "positive",
+     "open", None, ["övgü"], 0, None),
+    ("facebook", "dm", "@elif.yıldız", "Elif Yıldız",
+     "İade sürecini başlatmak istiyorum, nasıl yapabilirim?", "neutral",
+     "open", None, ["iade"], -1, None),
+    ("instagram", "comment", "@can_oz", "Can Öz",
+     "Beden tablosu yanlış, aldığım ürün çok küçük geldi.", "negative",
+     "open", None, ["iade", "şikayet"], -2, None),
+    ("tiktok", "comment", "@moda_sever", "Moda Sever",
+     "Bu ürün hangi renklerde var? 😍", "positive", "open", None, [], 0, None),
+    ("linkedin", "mention", "@ahmet.sahin", "Ahmet Şahin",
+     "EasyCep ile çalışmak isteyen markalar için harika bir platform.", "positive",
+     "resolved", "Pazarlama", ["işbirliği"], -3,
+     "İlginiz için teşekkürler, işbirliği için size özelden yazıyoruz."),
+    ("instagram", "dm", "@selin.ak", "Selin Ak",
+     "Kampanya kodu çalışmıyor, yardımcı olur musunuz?", "negative",
+     "pending", "Destek Ekibi", ["kampanya"], 0, None),
+    ("youtube", "comment", "@tekno_review", "Tekno Review",
+     "Videodaki ürünün linkini paylaşır mısınız?", "neutral", "open", None, [], -1, None),
+    ("x", "dm", "@deniz.kara", "Deniz Kara",
+     "Siparişim yanlış geldi, doğrusuyla değiştirebilir misiniz?", "negative",
+     "open", None, ["iade"], 0, None),
+    ("facebook", "comment", "@gül.şen", "Gül Şen",
+     "Müşteri hizmetleriniz çok ilgili, çok memnun kaldım!", "positive",
+     "resolved", "Destek Ekibi", ["övgü"], -2,
+     "Güzel yorumunuz için teşekkürler Gül Hanım! 🌸"),
+]
+
+
+def _seed_inbox(db, tenant: Tenant) -> dict:
+    """Seed M13 Social Inbox demo data: a spread of messages across channels,
+    kinds, sentiments and statuses, with a few stored replies.
+
+    Idempotency: skip if the tenant already has any SocialMessage.
+    """
+    from sqlalchemy import func as _func
+
+    counts = {"messages": 0, "replies": 0}
+
+    existing = db.scalar(
+        select(_func.count()).select_from(SocialMessage).where(
+            SocialMessage.tenant_id == tenant.id
+        )
+    ) or 0
+    if existing > 0:
+        print(f"  SocialMessages already exist ({existing} rows) — skipping")
+        return counts
+
+    for idx, spec in enumerate(_INBOX_MESSAGES):
+        (channel, kind, handle, name, text, sentiment, status, assignee,
+         tags, day_offset, reply) = spec
+        recv = datetime(
+            _RICH_END_DATE.year, _RICH_END_DATE.month, _RICH_END_DATE.day,
+            9 + idx % 10, (idx * 7) % 60, 0, tzinfo=timezone.utc,
+        ) + timedelta(days=day_offset)
+        msg = SocialMessage(
+            tenant_id=tenant.id,
+            channel=channel,
+            kind=kind,
+            author_handle=handle,
+            author_name=name,
+            text=text,
+            sentiment=sentiment,
+            status=status,
+            assignee=assignee,
+            tags=list(tags),
+            received_at=recv.isoformat(),
+        )
+        db.add(msg)
+        db.flush()
+        counts["messages"] += 1
+        if reply:
+            db.add(SocialReply(
+                tenant_id=tenant.id,
+                message_id=msg.id,
+                body=reply,
+                author=assignee or "Destek Ekibi",
+                delivered=False,
+                ai_assisted=False,
+                created_at=(recv + timedelta(hours=1)).isoformat(),
+            ))
+            counts["replies"] += 1
+
+    db.commit()
+    print(f"  Inserted {counts['messages']} SocialMessages, {counts['replies']} replies")
+    return counts
+
+
 # ── Report seeding ─────────────────────────────────────────────────────────────
 
 _REPORT_NAME = "AYAZ Demo — Aylik Performans Raporu"
@@ -1769,6 +1874,12 @@ def run_seed() -> None:
         budget_counts = _seed_budget(db, tenant)
         summary["budget"] = budget_counts
         print(f"  Budget: plans={budget_counts['budget_plans']}")
+
+        # ── Step 5f: Social Inbox (M13) demo data ────────────────────────────
+        print("\n[5f/7] Seeding M13 social inbox data (SocialMessage + replies)...")
+        inbox_counts = _seed_inbox(db, tenant)
+        summary["inbox"] = inbox_counts
+        print(f"  Inbox: messages={inbox_counts['messages']} replies={inbox_counts['replies']}")
 
         # ── Step 6: Feeds ─────────────────────────────────────────────────────
         print("\n[6/7] Seeding product feed (FeedSource + 2 FeedChannels + rules)...")

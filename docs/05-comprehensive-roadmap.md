@@ -86,6 +86,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 59 (tamamlandı):** Copilot İçerik Planlayıcı farkındalığı — `get_content_status` aracı; "kaç içerik onay bekliyor?" doğal dille yanıtlanır. Birleşik kokpit + Copilot vaadini derinleştirir.
 - **Dalga 60 (tamamlandı):** M7 Dayanıklılık — hata sınıflandırma (kalıcı/geçici/retryable) + `POST /tracking/events/{id}/retry` + `retry_count` (migration 0022) + stats deliverability bloğu; Olay Günlüğü'nde kategori rozeti + Yeniden Gönder. Son SignalSight maddesi; M7 ölçümleme stüdyosu tamamlandı.
 - **Dalga 61 (tamamlandı):** **M12 Aylık Bütçe Planlayıcı** — toplam bütçe → hedefe göre (ROAS/dönüşüm/dengeli) platform+kampanya alokasyonu + projeksiyon (migration 0023, 7 endpoint, %5 taban/%60 tavan iteratif koruma). `/planning` sayfası canlı önizleme + kayıtlı planlar. Planlama personasının çekirdek ihtiyacı. Ekip persona yol haritası: `13-team-personas-roadmap.md`.
+- **Dalga 62 (tamamlandı):** **M13 Sosyal Gelen Kutusu** (Müşteri Hizmetleri / RADAAR paritesi) — çok kanallı DM/yorum/bahsetme gelen kutusu + panelden yanıt + atama/durum/etiket + duygu analizi + AI yanıt önerisi (migration 0024, 10 endpoint). `/inbox` iki-panelli arayüz. Canlı senkron/gönderim kimlik-kilitli. CS personasının çekirdek ihtiyacı.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

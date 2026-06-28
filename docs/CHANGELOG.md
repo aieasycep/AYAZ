@@ -166,6 +166,21 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 62 — M13 Sosyal Gelen Kutusu (Müşteri Hizmetleri / RADAAR paritesi)
+- Yeni modül: **Sosyal Gelen Kutusu** — müşteri hizmetleri ekibi tüm sosyal kanallardan gelen
+  DM/yorum/bahsetmeleri tek yerden görür, **panelden yanıtlar**, atar, etiketler, durum verir.
+  RADAAR'ın güçlü olduğu alan. İş akışı tamamen kimliksiz; **canlı senkron + gönderim bilinçli
+  kimlik-kilitli** (yanıt AYAZ'da kaydedilir, `delivered=false`; canlı gönderim OAuth gelince açılır).
+- Backend: `SocialMessage` + `SocialReply` modelleri (migration 0024); `classify_sentiment`
+  (TR/EN anahtar-kelime → olumlu/nötr/olumsuz), `suggest_reply` (şablon + Claude, anahtarsız çalışır),
+  `compute_inbox_stats`. 10 endpoint (`/inbox/*`): listele/oluştur/thread/sil + yanıtla + ata + durum +
+  etiket + suggest-reply + stats. 47 yeni backend testi.
+- Frontend: `/inbox` iki-panelli arayüz — sol: filtreli mesaj listesi (kanal+tür+duygu rozetleri, durum,
+  atanan); sağ: konuşma + yanıt thread'i (gönderim-kilit notuyla) + yanıt composer ("YZ Yanıt Öner" + Yanıtla)
+  + İşlemler (Ata/Durum/Etiketler). Üstte Açık/Beklemede/Çözüldü + duygu dağılımı. 24 yeni frontend testi.
+  Navigasyona **Gelen Kutusu** eklendi. Demo: 12 mesaj + 4 yanıt. Handle @@ gösterimi düzeltildi.
+- Kalite: backend **1954 yeşil**, frontend **241 yeşil**, build yeşil.
+
 ## Dalga 61 — M12 Aylık Bütçe Planlayıcı (Planlama personası)
 - Yeni modül: **Bütçe Planlayıcı** — "gelecek ay için toplam bütçe gir → sistem geçmiş performansa
   göre platform VE kampanya bazında dağıtsın". Kullanıcının net olarak istediği özellik; tamamen kimliksiz.

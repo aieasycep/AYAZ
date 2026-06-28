@@ -74,6 +74,10 @@ from ayaz.models.content import (  # noqa: F401
 from ayaz.models.budget import (  # noqa: F401
     BudgetPlan,
 )
+from ayaz.models.social_inbox import (  # noqa: F401
+    SocialMessage,
+    SocialReply,
+)
 
 __all__ = [
     "Base",
@@ -116,4 +120,6 @@ __all__ = [
     "Notification",
     "ContentPost",
     "BudgetPlan",
+    "SocialMessage",
+    "SocialReply",
 ]
