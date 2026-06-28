@@ -146,6 +146,19 @@ class TrackingSource(Base, TimestampMixin):
         comment="Event names whose forwarding is disabled (recorded but not forwarded)",
     )
 
+    # Consent Mode v2 / KVKK: optional JS variable name (cookie or dataLayer key)
+    # that the generated snippet reads to auto-populate the consent signals.
+    # When None, the snippet sends consent: false (existing behaviour unchanged).
+    consent_cookie_var: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
+        comment=(
+            "JS variable / cookie name the snippet reads for consent signals. "
+            "When set, the snippet reads window[consent_cookie_var] and passes "
+            "it as the consent field (bool or granular object)."
+        ),
+    )
+
     # Relationships
     destinations: Mapped[list["EventDestination"]] = relationship(
         back_populates="tracking_source", cascade="all, delete-orphan"
@@ -248,6 +261,25 @@ class EventDestination(Base, TimestampMixin):
         nullable=False,
         default=True,
         comment="Skip forwarding events without consent when True",
+    )
+
+    # Consent Mode v2 granular signals required for this destination.
+    # JSON list of signal keys: any subset of
+    #   ["ad_storage", "ad_user_data", "ad_personalization", "analytics_storage"]
+    # ALL listed keys must be granted (True) in the event's consent_signals for
+    # the event to be forwarded to this destination.
+    # When NULL or empty, platform-specific defaults are applied at runtime:
+    #   meta_capi      → ["ad_user_data"]
+    #   tiktok_events  → ["ad_user_data"]
+    #   ga4_mp         → ["analytics_storage"]
+    # If consent_required is False, satisfaction is always True regardless.
+    required_consent: Mapped[list | None] = mapped_column(
+        JSON,
+        nullable=True,
+        comment=(
+            "Consent Mode v2 signal keys ALL required to forward. "
+            "NULL/[] → platform default. Ignored when consent_required=False."
+        ),
     )
 
     is_active: Mapped[bool] = mapped_column(
@@ -368,12 +400,32 @@ class ConversionEvent(Base):
         comment="Non-PII event payload (value, currency, product data, etc.)",
     )
 
-    # KVKK/GDPR consent flag from the payload
+    # KVKK/GDPR consent flag from the payload.
+    # "overall" consent: True when ad_user_data OR analytics_storage is granted
+    # (or when a plain boolean True is sent).  Kept for backward compatibility —
+    # all existing code that gates on this bool continues to work unchanged.
     consent: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=False,
-        comment="True when the end-user has given explicit consent",
+        comment=(
+            "Overall consent flag (backward compat). True when ad_user_data OR "
+            "analytics_storage is granted, or when a plain consent:true bool is sent."
+        ),
+    )
+
+    # Consent Mode v2 granular signals stored verbatim after normalization.
+    # Shape: {"ad_storage": bool, "ad_user_data": bool,
+    #         "ad_personalization": bool, "analytics_storage": bool}
+    # NULL for events ingested before this column was added (treated as all-False
+    # at forwarding time — i.e. existing behaviour is preserved).
+    consent_signals: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+        comment=(
+            "Consent Mode v2 granular signals dict. "
+            "NULL for legacy events (treated as all-denied at forward time)."
+        ),
     )
 
     # "received" | "forwarded" | "failed" | "skipped_no_consent" | "duplicate" | "disabled"

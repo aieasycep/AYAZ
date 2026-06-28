@@ -78,6 +78,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 51 (tamamlandı):** Deploy hazırlığı — prod Dockerfile'lar + docker-compose.prod + Render blueprint + deploy rehberi (canlı link için turnkey).
 - **Dalga 52 (tamamlandı):** M7 Ölçümleme sağlık & olay istatistikleri backend (`/tracking/sources/.../stats`) — iletim sağlığı + olay-bazlı sayım/trend + debug filtreleri (SignalSight panel ilhamı).
 - **Dalga 53 (tamamlandı):** M7 olay-bazlı aç/kapa (`event-config`) — kapalı olay CAPI'ye iletilmez (disabled status, migration 0018); SignalSight Event Configuration toggle.
+- **Dalga 54 (tamamlandı):** M7 Consent Mode v2 — granular KVKK rıza (4 sinyal) + hedef-bazlı zorunlu sinyaller + cookie-değişkeni snippet + GA4 GCS (migration 0019); SignalSight Cookie Consent ilhamı.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

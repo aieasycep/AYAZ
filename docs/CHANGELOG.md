@@ -166,6 +166,13 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 54 — M7 Consent Mode v2 / Granular KVKK Rıza (backend)
+- Boolean rıza → 4 granular sinyal (ad_storage/ad_user_data/ad_personalization/analytics_storage).
+  Collect bool VEYA obje kabul eder (geri uyumlu); `consent_signals` JSON saklanır. Hedef-bazlı
+  `required_consent` (platform varsayılanları: meta/tiktok→ad_user_data, ga4→analytics_storage) →
+  sinyaller karşılanmazsa iletmez. `consent_cookie_var` (SignalSight cookie-değişkeni) snippet'e gömülü.
+  GA4 GCS passthrough (G1xx). Migration 0019. 44 yeni test (suite 1782).
+
 ## Dalga 53 — M7 Olay-bazlı Aç/Kapa (Event Configuration toggle, backend)
 - SignalSight Event Configuration STATUS anahtarı: `POST /tracking/sources/{id}/event-config`
   `{event_name, enabled}` → kapalı olaylar kaydedilir ama CAPI'ye **iletilmez** (status="disabled").

@@ -113,6 +113,8 @@ class TrackingSourcePatch(BaseModel):
     name: str | None = None
     domain: str | None = None
     is_active: bool | None = None
+    # Consent Mode v2: JS variable/cookie name read by the snippet
+    consent_cookie_var: str | None = None
 
 
 class TrackingSourceResponse(BaseModel):
@@ -122,6 +124,7 @@ class TrackingSourceResponse(BaseModel):
     domain: str | None
     public_token: str
     is_active: bool
+    consent_cookie_var: str | None = None
     created_at: str
     updated_at: str
 
@@ -136,6 +139,7 @@ class TrackingSourceResponse(BaseModel):
             domain=obj.domain,
             public_token=obj.public_token,
             is_active=obj.is_active,
+            consent_cookie_var=getattr(obj, "consent_cookie_var", None),
             created_at=obj.created_at.isoformat(),
             updated_at=obj.updated_at.isoformat(),
         )
@@ -146,6 +150,9 @@ class EventDestinationCreate(BaseModel):
     config: dict[str, Any] = {}
     vault_secret_ref: str = ""
     consent_required: bool = True
+    # Consent Mode v2: list of signal keys all required for forwarding.
+    # None → platform default is applied at runtime.
+    required_consent: list[str] | None = None
 
     @field_validator("platform")
     @classmethod
@@ -157,12 +164,23 @@ class EventDestinationCreate(BaseModel):
         return v
 
 
+_VALID_CONSENT_SIGNALS = {
+    "ad_storage",
+    "ad_user_data",
+    "ad_personalization",
+    "analytics_storage",
+}
+
+
 class EventDestinationPatch(BaseModel):
     platform: str | None = None
     config: dict[str, Any] | None = None
     vault_secret_ref: str | None = None
     consent_required: bool | None = None
     is_active: bool | None = None
+    # Consent Mode v2: update per-destination required signal keys.
+    # Pass an empty list to clear (will fall back to platform default at runtime).
+    required_consent: list[str] | None = None
 
     @field_validator("platform")
     @classmethod
@@ -171,6 +189,18 @@ class EventDestinationPatch(BaseModel):
             raise ValueError(
                 f"platform must be one of {sorted(_VALID_PLATFORMS)}"
             )
+        return v
+
+    @field_validator("required_consent")
+    @classmethod
+    def validate_required_consent(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None:
+            invalid = set(v) - _VALID_CONSENT_SIGNALS
+            if invalid:
+                raise ValueError(
+                    f"Invalid consent signal keys: {sorted(invalid)}. "
+                    f"Must be one of {sorted(_VALID_CONSENT_SIGNALS)}."
+                )
         return v
 
 
@@ -182,6 +212,7 @@ class EventDestinationResponse(BaseModel):
     config: dict[str, Any]
     vault_secret_ref: str
     consent_required: bool
+    required_consent: list[str] | None = None
     is_active: bool
     created_at: str
     updated_at: str
@@ -202,6 +233,7 @@ class EventDestinationResponse(BaseModel):
             config=safe_config,
             vault_secret_ref=obj.vault_secret_ref,
             consent_required=obj.consent_required,
+            required_consent=getattr(obj, "required_consent", None),
             is_active=obj.is_active,
             created_at=obj.created_at.isoformat(),
             updated_at=obj.updated_at.isoformat(),
@@ -218,6 +250,7 @@ class ConversionEventResponse(BaseModel):
     user_data: dict[str, Any]
     custom_data: dict[str, Any]
     consent: bool
+    consent_signals: dict[str, Any] | None = None
     status: str
     forwarded_count: int
     error: str | None
@@ -237,6 +270,7 @@ class ConversionEventResponse(BaseModel):
             user_data=obj.user_data,
             custom_data=obj.custom_data,
             consent=obj.consent,
+            consent_signals=getattr(obj, "consent_signals", None),
             status=obj.status,
             forwarded_count=obj.forwarded_count,
             error=obj.error,
@@ -480,6 +514,9 @@ def patch_source(
         src.domain = body.domain
     if body.is_active is not None:
         src.is_active = body.is_active
+    # consent_cookie_var: allow explicit None to clear (use model_fields_set)
+    if "consent_cookie_var" in body.model_fields_set:
+        src.consent_cookie_var = body.consent_cookie_var
     db.add(src)
     db.commit()
     db.refresh(src)
@@ -523,11 +560,29 @@ def get_snippet(
     base_url = str(request.base_url).rstrip("/")
     collect_url = f"{base_url}/api/v1/tracking/collect/{src.public_token}"
 
+    cookie_var: str | None = getattr(src, "consent_cookie_var", None)
+
+    if cookie_var:
+        # Consent Mode v2 snippet: reads window[consent_cookie_var] at fire time.
+        # The variable may be a boolean or a granular object:
+        #   {ad_storage: bool, ad_user_data: bool,
+        #    ad_personalization: bool, analytics_storage: bool}
+        # This mirrors the SignalSight "cookie variable → gate events" pattern.
+        consent_js = (
+            f"  var _ayazConsent = (typeof window['{cookie_var}'] !== 'undefined')\n"
+            f"    ? window['{cookie_var}']\n"
+            f"    : false;\n"
+        )
+    else:
+        # Legacy: static false — no consent unless the caller sets it in the payload.
+        consent_js = "  var _ayazConsent = false;\n"
+
     js_snippet = (
         f"<!-- AYAZ SignalSight — {src.name} -->\n"
         f"<script>\n"
-        f"(function(){{ \n"
+        f"(function(){{\n"
         f"  var _ayazCollect = '{collect_url}';\n"
+        f"{consent_js}"
         f"  fetch(_ayazCollect, {{\n"
         f"    method: 'POST',\n"
         f"    headers: {{'Content-Type': 'application/json'}},\n"
@@ -535,7 +590,7 @@ def get_snippet(
         f"      event_name: 'PageView',\n"
         f"      event_time: new Date().toISOString(),\n"
         f"      event_id: crypto.randomUUID(),\n"
-        f"      consent: false,\n"
+        f"      consent: _ayazConsent,\n"
         f"      user_data: {{}},\n"
         f"      custom_data: {{page: window.location.pathname}}\n"
         f"    }})\n"
@@ -781,6 +836,7 @@ def create_destination(
         config=body.config,
         vault_secret_ref=body.vault_secret_ref,
         consent_required=body.consent_required,
+        required_consent=body.required_consent,  # None → platform default at runtime
         is_active=True,
     )
     db.add(dest)
@@ -825,6 +881,9 @@ def patch_destination(
         dest.consent_required = body.consent_required
     if body.is_active is not None:
         dest.is_active = body.is_active
+    # required_consent: allow explicit [] to clear (falls back to platform default)
+    if "required_consent" in body.model_fields_set:
+        dest.required_consent = body.required_consent or None
     db.add(dest)
     db.commit()
     db.refresh(dest)

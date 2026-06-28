@@ -114,6 +114,32 @@ _VALID_STATUSES = {
     "disabled",
 }
 
+# Consent Mode v2 — the four canonical signal keys (Google / IAB TCF mapping).
+_CONSENT_SIGNAL_KEYS = (
+    "ad_storage",
+    "ad_user_data",
+    "ad_personalization",
+    "analytics_storage",
+)
+
+# Platform-level default required_consent when the column is NULL/empty.
+# Applied at code time so that existing rows behave sensibly without a data
+# migration.  Rationale:
+#   meta_capi, tiktok_events  → require ad_user_data  (user-level ad targeting)
+#   ga4_mp                    → require analytics_storage (analytics measurement)
+_PLATFORM_REQUIRED_CONSENT: dict[str, list[str]] = {
+    "meta_capi": ["ad_user_data"],
+    "tiktok_events": ["ad_user_data"],
+    "ga4_mp": ["analytics_storage"],
+}
+
+# GA4 Consent State → gcs parameter mapping (best-effort passthrough).
+# Sent in the GA4 MP payload when consent_signals is available.
+# Reference: https://developers.google.com/tag-platform/security/guides/consent
+_GA4_GCS_GRANTED = "G111"   # ad_storage=granted, analytics_storage=granted
+_GA4_GCS_DENIED  = "G100"   # ad_storage=denied,  analytics_storage=granted
+_GA4_GCS_ANALYTICS_ONLY = "G101"  # analytics_storage=granted, ad_storage=denied
+
 
 # ── Identity hashing ──────────────────────────────────────────────────────────
 
@@ -175,6 +201,126 @@ def hash_identity(raw: dict[str, Any]) -> dict[str, Any]:
 def _sha256(value: str) -> str:
     """Return the lowercase hex SHA-256 digest of a UTF-8 string."""
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+# ── Consent Mode v2 normalization ─────────────────────────────────────────────
+
+
+def normalize_consent(raw_consent: Any) -> tuple[bool, dict[str, bool]]:
+    """Normalize a raw consent value to a (overall_bool, signals_dict) pair.
+
+    Accepts two forms (Consent Mode v2 / backward compat):
+
+    Boolean (existing behaviour)
+    ----------------------------
+    ``True``  → all four signals granted; overall = True
+    ``False`` → all four signals denied;  overall = False
+
+    Granular object (Consent Mode v2)
+    ---------------------------------
+    A dict with any subset of the four signal keys.  Missing keys default to
+    False (denied).  Example::
+
+        {"ad_user_data": True, "analytics_storage": True}
+        # → ad_storage=False, ad_user_data=True, ad_personalization=False,
+        #   analytics_storage=True
+
+    Overall consent rule (documented)
+    ----------------------------------
+    ``overall = ad_user_data OR analytics_storage``
+
+    Rationale: ``ad_user_data`` covers ad-side targeting consent (Meta, TikTok)
+    and ``analytics_storage`` covers measurement consent (GA4).  If either is
+    granted the event carries meaningful consent and is not purely "no consent".
+    A plain ``consent: true`` maps all four to True, so overall stays True —
+    identical to the pre-existing behaviour.
+
+    Parameters
+    ----------
+    raw_consent:
+        The value of ``payload["consent"]`` — either a bool or a dict.
+
+    Returns
+    -------
+    (overall: bool, signals: dict[str, bool])
+        ``overall`` is the backward-compat consent bool.
+        ``signals`` is the canonical four-key dict.
+    """
+    if isinstance(raw_consent, dict):
+        signals: dict[str, bool] = {
+            k: bool(raw_consent.get(k, False)) for k in _CONSENT_SIGNAL_KEYS
+        }
+    else:
+        # Plain bool — expand to all four signals
+        granted = bool(raw_consent)
+        signals = {k: granted for k in _CONSENT_SIGNAL_KEYS}
+
+    overall = signals["ad_user_data"] or signals["analytics_storage"]
+    return overall, signals
+
+
+def _destination_required_signals(destination: EventDestination) -> list[str]:
+    """Return the effective required consent signal list for a destination.
+
+    Uses ``destination.required_consent`` when set and non-empty; otherwise
+    falls back to the platform default from ``_PLATFORM_REQUIRED_CONSENT``.
+
+    Parameters
+    ----------
+    destination:
+        The EventDestination ORM object (must have ``.platform`` and
+        ``.required_consent`` attributes after migration 0019).
+
+    Returns
+    -------
+    list[str]
+        Non-empty list of signal key strings that must all be granted.
+    """
+    required = getattr(destination, "required_consent", None)
+    if required:  # non-None, non-empty list
+        return list(required)
+    return _PLATFORM_REQUIRED_CONSENT.get(destination.platform, ["ad_user_data"])
+
+
+def _is_consent_satisfied(
+    destination: EventDestination,
+    consent_signals: dict[str, bool] | None,
+) -> bool:
+    """Return True if the event's consent satisfies the destination's requirements.
+
+    Logic
+    -----
+    1. If ``destination.consent_required`` is False → always satisfied (back-compat).
+    2. If ``consent_signals`` is None (legacy event without granular signals) →
+       fall back to the overall ``consent`` bool approach; satisfied only if the
+       destination has no required_consent (uses default) AND the caller must
+       have checked the overall bool upstream.  In practice, we treat None
+       signals as all-False (deny everything) so that old codepaths that didn't
+       store signals are not accidentally promoted to "granted".
+    3. Otherwise: ALL signal keys in ``_destination_required_signals`` must be
+       True in ``consent_signals``.
+
+    Parameters
+    ----------
+    destination:
+        The EventDestination to check.
+    consent_signals:
+        The normalized four-key dict from the inbound event, or None for
+        legacy events.
+
+    Returns
+    -------
+    bool
+    """
+    if not destination.consent_required:
+        return True
+
+    if consent_signals is None:
+        # Legacy path: no granular signals stored → deny (safest default)
+        return False
+
+    required_keys = _destination_required_signals(destination)
+    return all(consent_signals.get(k, False) for k in required_keys)
 
 
 # ── Event ingestion ───────────────────────────────────────────────────────────
@@ -255,7 +401,10 @@ def ingest_event(
 
     raw_user_data: dict[str, Any] = payload.get("user_data") or {}
     custom_data: dict[str, Any] = payload.get("custom_data") or {}
-    consent: bool = bool(payload.get("consent", False))
+
+    # Normalize consent — accepts bool OR granular dict (Consent Mode v2).
+    raw_consent = payload.get("consent", False)
+    consent, consent_signals = normalize_consent(raw_consent)
 
     # ── 2. Hash PII ───────────────────────────────────────────────────────────
     hashed_user_data = hash_identity(raw_user_data)
@@ -290,6 +439,7 @@ def ingest_event(
         user_data=hashed_user_data,
         custom_data=custom_data,
         consent=consent,
+        consent_signals=consent_signals,
         status="received",
         forwarded_count=0,
         error=None,
@@ -331,25 +481,32 @@ def ingest_event(
         # No destinations configured — event stays "received"
         return event
 
-    # ── 7a. Consent check ─────────────────────────────────────────────────────
-    consent_required_any = any(d.consent_required for d in destinations)
-    if consent_required_any and not consent:
+    # ── 7a. Granular consent check ────────────────────────────────────────────
+    # Per-destination satisfaction is computed using the granular consent_signals
+    # dict.  A destination is satisfied iff ALL its required_consent signal keys
+    # are granted.  If consent_required is False the destination is always
+    # satisfied.  If no destination is satisfied → skipped_no_consent (aggregate
+    # behaviour identical to the pre-existing boolean check).
+    satisfied_dests = [
+        d for d in destinations
+        if _is_consent_satisfied(d, event.consent_signals)
+    ]
+    if not satisfied_dests:
         event.status = "skipped_no_consent"
         db.add(event)
         db.commit()
         logger.info(
-            "Event %s skipped: no consent; source=%s", event.id, source.id
+            "Event %s skipped: no destination consent satisfied; source=%s",
+            event.id,
+            source.id,
         )
         return event
 
-    # ── 7b. Forward ───────────────────────────────────────────────────────────
+    # ── 7b. Forward (only to consent-satisfied destinations) ─────────────────
     errors: list[str] = []
     forwarded = 0
 
-    for dest in destinations:
-        # Skip individual destination if it requires consent and event has none
-        if dest.consent_required and not consent:
-            continue
+    for dest in satisfied_dests:
         try:
             forward_event(event, dest)
             forwarded += 1
@@ -645,14 +802,36 @@ def _forward_ga4_mp(
         ],
     }
 
+    # GCS (Google Consent State) passthrough — best-effort Consent Mode v2.
+    # When consent_signals is available, include the `gcs` query param so GA4
+    # can apply consent-mode modelling.  This is the standard way to communicate
+    # consent state to the Measurement Protocol.
+    # Reference: https://developers.google.com/tag-platform/security/guides/consent
+    signals: dict[str, bool] | None = getattr(event, "consent_signals", None)
+    gcs_param = ""
+    if signals is not None:
+        ad_granted = signals.get("ad_storage", False)
+        an_granted = signals.get("analytics_storage", False)
+        if ad_granted and an_granted:
+            gcs_param = "&gcs=G111"   # both granted
+        elif an_granted:
+            gcs_param = "&gcs=G101"   # analytics only
+        elif ad_granted:
+            gcs_param = "&gcs=G110"   # ad storage only
+        else:
+            gcs_param = "&gcs=G100"   # both denied
+
     url = (
         f"{_GA4_MP_URL}"
-        f"?measurement_id={measurement_id}&api_secret={api_secret}"
+        f"?measurement_id={measurement_id}&api_secret={api_secret}{gcs_param}"
     )
 
     _post_json(url, body, headers={}, http_client=http_client)
     logger.info(
-        "ga4_mp forward OK: event=%s measurement_id=%s", event.id, measurement_id
+        "ga4_mp forward OK: event=%s measurement_id=%s gcs=%s",
+        event.id,
+        measurement_id,
+        gcs_param.lstrip("&") or "not-set",
     )
 
 
