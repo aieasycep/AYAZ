@@ -1029,8 +1029,8 @@ def _event_profile(idx: int):
     for a given 0-based event index.
 
     Distribution (100 events target):
-      - event_name: PageView dominant (~40%), then ViewContent (~20%),
-                    AddToCart (~20%), InitiateCheckout (~10%), Purchase (~10%).
+      - event_name: descending funnel — PageView 40, ViewContent 26,
+                    AddToCart 18, InitiateCheckout 10, Purchase 6.
       - status:
           forwarded        — ~60 events (idx % 10 in {0,1,2,3,5,6})
           skipped_no_consent — ~20 events (idx % 10 in {4,8}, consent=False)
@@ -1044,23 +1044,26 @@ def _event_profile(idx: int):
         for the rest — producing realistic per-signal rate differences.
       - consent=False (skipped_no_consent) events: all 4 keys denied.
     """
-    # event_name: 7-step cycle giving roughly the right distribution
-    name_idx = (idx * 3 + idx // 7) % 10
-    if name_idx <= 3:
+    # event_name: 50-cycle mapping producing a descending funnel over 100 events.
+    # Target distribution: PageView 40, ViewContent 26, AddToCart 18,
+    #                      InitiateCheckout 10, Purchase 6  (sum = 100).
+    # Two complete cycles of 50 cover all 100 events deterministically.
+    #   idx % 50 in  0-19  → PageView        (20/cycle × 2 = 40)
+    #   idx % 50 in 20-32  → ViewContent     (13/cycle × 2 = 26)
+    #   idx % 50 in 33-41  → AddToCart       ( 9/cycle × 2 = 18)
+    #   idx % 50 in 42-46  → InitiateCheckout( 5/cycle × 2 = 10)
+    #   idx % 50 in 47-49  → Purchase        ( 3/cycle × 2 =  6)
+    slot = idx % 50
+    if slot <= 19:
         event_name = "PageView"
-    elif name_idx <= 5:
+    elif slot <= 32:
         event_name = "ViewContent"
-    elif name_idx <= 7:
+    elif slot <= 41:
         event_name = "AddToCart"
-    elif name_idx == 8:
+    elif slot <= 46:
         event_name = "InitiateCheckout"
     else:
         event_name = "Purchase"
-
-    # Override to ensure Purchase events are never skipped or failed
-    # (they must be forwarded or duplicate for realistic data)
-    if event_name == "Purchase" and (idx % 10 in {4, 7, 8}):
-        event_name = "AddToCart"
 
     # status
     if idx % 15 == 14:

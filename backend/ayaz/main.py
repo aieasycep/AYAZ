@@ -50,6 +50,7 @@ from ayaz.api.v1 import consent_center as consent_center_router
 from ayaz.api.v1 import ad_studio as ad_studio_router
 from ayaz.api.v1 import budget_simulator as budget_simulator_router
 from ayaz.api.v1 import role_views as role_views_router
+from ayaz.api.v1 import funnel as funnel_router
 from ayaz.config import settings
 from ayaz.observability import (
     RequestIDMiddleware,
@@ -130,6 +131,7 @@ app.include_router(consent_center_router.router, prefix=_PREFIX)
 app.include_router(ad_studio_router.router, prefix=_PREFIX)
 app.include_router(budget_simulator_router.router, prefix=_PREFIX)
 app.include_router(role_views_router.router, prefix=_PREFIX)
+app.include_router(funnel_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

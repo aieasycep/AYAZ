@@ -166,6 +166,18 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 76 — Müşteri Yolculuğu / Dönüşüm Hunisi (Conversion Funnel)
+- Görsel pazarlama analitiği farklılaştırıcısı: **Dönüşüm Hunisi** — 5 adımlı e-ticaret hunisi
+  (Sayfa Görüntüleme → Ürün Görüntüleme → Sepete Ekleme → Ödeme Başlatma → Satın Alma) adım-adım
+  dönüşüm + düşüş + en büyük düşüş tespiti. Mevcut ölçümleme (ConversionEvent) verisinden.
+- Backend: `GET /funnel/overview` (yeni tablo yok) — aşama sayıları + önceki adımdan dönüşüm % +
+  düşüş % + girişe oran + genel dönüşüm + en büyük düşüş; tüm sıfıra bölme korumalı. 33 yeni test.
+- Frontend: `/funnel` — genel dönüşüm + en büyük düşüş kahramanı, genişliği girişe-orana göre azalan
+  huni barları, adım başına dönüşüm/düşüş rozetleri + geçiş bağlayıcıları; açık/koyu tema. 13 yeni
+  test. Navigasyona **Huni** eklendi (Ölçümleme'den sonra).
+- Demo: ConversionEvent dağılımı temiz azalan huniye dengelendi (40/26/18/10/6).
+- Kalite: backend **2486 yeşil**, frontend **411 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 75 — Rol Görünümü (Role-based Views)
 - Vizyonun çekirdeği — "her ekip tek panelden kendi işini yapsın": **Rol Görünümü** her persona için
   (Performans / Marka & İçerik / Müşteri Hizmetleri / Planlama & Bütçe / Yönetim) ayrı kokpit sunar:

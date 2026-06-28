@@ -38,6 +38,7 @@ export const NAV_LINKS = [
   { href: '/budget-simulator', label: 'Bütçe Senaryosu' },
   { href: '/automation', label: 'Otomasyon' },
   { href: '/tracking', label: 'Ölçümleme' },
+  { href: '/funnel', label: 'Huni' },
   { href: '/consent', label: 'Rıza Merkezi' },
   { href: '/billing', label: 'Faturalama' },
   { href: '/workspaces', label: 'Çalışma Alanları' },
