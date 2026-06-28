@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 52 — M7 Ölçümleme Sağlık & Olay İstatistikleri (backend)
+- SignalSight panel ilhamı (Event Configuration + tracker report), AYAZ verisi üzerine (migration yok):
+  `GET /tracking/sources/{id}/stats` — Total Events/Errors + duruma göre kırılım + consent-bloklu +
+  **olay-bazlı sayım** (Add to cart vb.) + günlük trend (zero-filled). Olay listesine status/event_name
+  filtreleri (debug konsolu için). Saf `compute_tracking_stats`. 31 yeni test (suite 1717).
+
 ## Dalga 51 — Deploy Hazırlığı (canlı link için)
 - Turnkey deploy: `backend/Dockerfile` + `frontend/Dockerfile` (standalone) + `.dockerignore`'lar,
   tek-VPS `docker-compose.prod.yml` (postgres+redis+migrate+backend+frontend), Render blueprint

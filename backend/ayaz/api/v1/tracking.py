@@ -42,9 +42,10 @@ from __future__ import annotations
 
 import secrets
 import uuid
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -253,6 +254,128 @@ class SnippetResponse(BaseModel):
     js_snippet: str
 
 
+# ── Stats response schemas ─────────────────────────────────────────────────────
+
+
+class EventNameStat(BaseModel):
+    event_name: str
+    count: int
+    errors: int
+
+
+class DailyStat(BaseModel):
+    date: str  # "YYYY-MM-DD"
+    count: int
+    errors: int
+
+
+class StatsTotals(BaseModel):
+    total_events: int
+    total_errors: int
+    by_status: dict[str, int]
+    consent_blocked: int
+
+
+class SourceStatsResponse(BaseModel):
+    source_id: uuid.UUID
+    date_from: str  # "YYYY-MM-DD"
+    date_to: str    # "YYYY-MM-DD"
+    totals: StatsTotals
+    by_event: list[EventNameStat]
+    daily: list[DailyStat]
+
+
+# ── Pure stats aggregation helper (unit-testable without HTTP) ─────────────────
+
+
+def compute_tracking_stats(
+    events: list[ConversionEvent],
+    date_from: date,
+    date_to: date,
+) -> dict[str, Any]:
+    """Aggregate a list of ConversionEvent objects into delivery-health stats.
+
+    Parameters
+    ----------
+    events:
+        All ConversionEvent rows for the source within [date_from, date_to],
+        already filtered by the caller.
+    date_from, date_to:
+        Inclusive date range used to zero-fill the daily trend.
+
+    Returns
+    -------
+    dict matching SourceStatsResponse shape (without source_id/date fields).
+
+    Status mapping
+    --------------
+    total_errors    = count where status == "failed"
+    consent_blocked = count where status == "skipped_no_consent"
+    """
+    # ── Totals ─────────────────────────────────────────────────────────────────
+    total_events = len(events)
+    total_errors = sum(1 for e in events if e.status == "failed")
+    consent_blocked = sum(1 for e in events if e.status == "skipped_no_consent")
+
+    by_status: dict[str, int] = {}
+    for e in events:
+        by_status[e.status] = by_status.get(e.status, 0) + 1
+
+    # ── By event name ──────────────────────────────────────────────────────────
+    event_counts: dict[str, int] = {}
+    event_errors: dict[str, int] = {}
+    for e in events:
+        event_counts[e.event_name] = event_counts.get(e.event_name, 0) + 1
+        if e.status == "failed":
+            event_errors[e.event_name] = event_errors.get(e.event_name, 0) + 1
+
+    by_event = sorted(
+        [
+            {"event_name": name, "count": cnt, "errors": event_errors.get(name, 0)}
+            for name, cnt in event_counts.items()
+        ],
+        key=lambda x: x["count"],
+        reverse=True,
+    )
+
+    # ── Daily trend (zero-filled) ──────────────────────────────────────────────
+    daily_counts: dict[str, int] = {}
+    daily_errors: dict[str, int] = {}
+    for e in events:
+        # created_at is stored as ISO-8601 text; extract the date prefix
+        try:
+            day = e.created_at[:10]  # "YYYY-MM-DD"
+        except (TypeError, IndexError):
+            continue
+        daily_counts[day] = daily_counts.get(day, 0) + 1
+        if e.status == "failed":
+            daily_errors[day] = daily_errors.get(day, 0) + 1
+
+    daily: list[dict[str, Any]] = []
+    current = date_from
+    while current <= date_to:
+        day_str = current.isoformat()
+        daily.append(
+            {
+                "date": day_str,
+                "count": daily_counts.get(day_str, 0),
+                "errors": daily_errors.get(day_str, 0),
+            }
+        )
+        current += timedelta(days=1)
+
+    return {
+        "totals": {
+            "total_events": total_events,
+            "total_errors": total_errors,
+            "by_status": by_status,
+            "consent_blocked": consent_blocked,
+        },
+        "by_event": by_event,
+        "daily": daily,
+    }
+
+
 # ── TrackingSource CRUD ───────────────────────────────────────────────────────
 
 
@@ -401,23 +524,133 @@ def get_snippet(
 @router.get(
     "/sources/{source_id}/events",
     response_model=list[ConversionEventResponse],
-    summary="Event log for a tracking source (most recent first, limit 200)",
+    summary="Event log for a tracking source (most recent first; filterable debug console)",
 )
 def list_events(
     source_id: uuid.UUID,
     db: Session = Depends(get_db),
     membership: Membership = Depends(get_current_membership),
+    status_filter: str | None = Query(
+        default=None,
+        alias="status",
+        description="Filter by event status (e.g. forwarded, failed, skipped_no_consent)",
+    ),
+    event_name: str | None = Query(
+        default=None,
+        description="Filter by event name (exact match, case-sensitive)",
+    ),
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=500,
+        description="Maximum number of events to return (default 100, max 500)",
+    ),
 ) -> list[ConversionEventResponse]:
     src = _require_source(source_id, membership.tenant_id, db)
-    rows = list(
+    q = (
+        select(ConversionEvent)
+        .where(ConversionEvent.tracking_source_id == src.id)
+    )
+    if status_filter is not None:
+        q = q.where(ConversionEvent.status == status_filter)
+    if event_name is not None:
+        q = q.where(ConversionEvent.event_name == event_name)
+    q = q.order_by(ConversionEvent.created_at.desc()).limit(limit)
+    rows = list(db.scalars(q))
+    return [ConversionEventResponse.from_orm_obj(r) for r in rows]
+
+
+@router.get(
+    "/sources/{source_id}/stats",
+    response_model=SourceStatsResponse,
+    summary=(
+        "Delivery-health and per-event stats for a tracking source "
+        "(SignalSight-style Event Configuration + tracker report)"
+    ),
+)
+def get_source_stats(
+    source_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+    date_from: date | None = Query(
+        default=None,
+        description="Start date (inclusive, YYYY-MM-DD). Defaults to 30 days ago.",
+    ),
+    date_to: date | None = Query(
+        default=None,
+        description="End date (inclusive, YYYY-MM-DD). Defaults to today.",
+    ),
+) -> SourceStatsResponse:
+    """Return aggregated delivery-health and per-event statistics for a source.
+
+    Totals
+    ------
+    total_events    — all events ingested in the date range
+    total_errors    — events with status == "failed"
+    consent_blocked — events with status == "skipped_no_consent"
+    by_status       — breakdown of all status values
+
+    by_event
+    --------
+    Per-event-name counts and errors, sorted descending by count.
+    Mirrors the SignalSight "Event Configuration" view.
+
+    daily
+    -----
+    Day-by-day event and error counts, zero-filled across the full range,
+    ascending by date.  Powers the trend sparkline.
+
+    Date range
+    ----------
+    Uses ``created_at`` (ingest time, stored as ISO-8601 text).
+    If omitted, defaults to the last 30 days.
+    Returns 422 if date_from > date_to.
+    Returns 404 if the source does not belong to the requesting tenant.
+    """
+    # ── Defaults and validation ────────────────────────────────────────────────
+    today = datetime.now(timezone.utc).date()
+    if date_from is None:
+        date_from = today - timedelta(days=29)  # last 30 days inclusive
+    if date_to is None:
+        date_to = today
+
+    if date_from > date_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="date_from must not be later than date_to.",
+        )
+
+    # ── Tenant-scope check ─────────────────────────────────────────────────────
+    _require_source(source_id, membership.tenant_id, db)
+
+    # ── Fetch events in range ─────────────────────────────────────────────────
+    # created_at is stored as ISO-8601 text ("YYYY-MM-DDTHH:MM:SS...").
+    # String prefix comparison works correctly for ISO dates in SQLite and Postgres.
+    date_from_str = date_from.isoformat()      # "YYYY-MM-DD"
+    date_to_str = date_to.isoformat() + "T23:59:59"  # inclusive upper bound
+
+    events = list(
         db.scalars(
-            select(ConversionEvent)
-            .where(ConversionEvent.tracking_source_id == src.id)
-            .order_by(ConversionEvent.created_at.desc())
-            .limit(200)
+            select(ConversionEvent).where(
+                ConversionEvent.tracking_source_id == source_id,
+                ConversionEvent.tenant_id == membership.tenant_id,
+                ConversionEvent.created_at >= date_from_str,
+                ConversionEvent.created_at <= date_to_str,
+            )
         )
     )
-    return [ConversionEventResponse.from_orm_obj(r) for r in rows]
+
+    # ── Aggregate ─────────────────────────────────────────────────────────────
+    agg = compute_tracking_stats(events, date_from, date_to)
+
+    return SourceStatsResponse(
+        source_id=source_id,
+        date_from=date_from.isoformat(),
+        date_to=date_to.isoformat(),
+        totals=StatsTotals(**agg["totals"]),
+        by_event=[EventNameStat(**e) for e in agg["by_event"]],
+        daily=[DailyStat(**d) for d in agg["daily"]],
+    )
 
 
 # ── EventDestination CRUD ─────────────────────────────────────────────────────
