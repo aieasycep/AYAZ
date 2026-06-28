@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 58 — İçerik Takvimi (aylık görünüm, RADAAR imzası)
+- İçerik Planlayıcı'ya **Pano / Takvim** görünüm anahtarı + aylık takvim ızgarası (Pzt-Paz, TR ay adları).
+  Planlı içerikler `scheduled_at` tarihine göre renk-kodlu (durum bazlı) çiplerle yerleştirilir; çipe
+  tıklayınca composer açılır. Ay ileri/geri gezinme, bugünü vurgulama, "N planlı içerik" sayacı.
+  Frontend-only (API zaten tarih veriyor). RADAAR'ın imza özelliği; planlayıcı modülü tamamlandı.
+
 ## Dalga 57 — Kreatif → İçerik köprüsü (M6 → M11, AYAZ'a özgü farklılaştırıcı)
 - Araştırmanın işaret ettiği benzersiz köprü: **en iyi performans gösteren reklam kreatifini tek tıkla
   organik içerik taslağına çevir**. Ücretli performans içgörüsü → organik içerik döngüsünü kapatır

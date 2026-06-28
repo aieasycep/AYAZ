@@ -852,3 +852,199 @@
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* ------------------------------------------------------------------ */
+/* View toggle (Pano / Takvim)                                         */
+/* ------------------------------------------------------------------ */
+
+.viewToggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  align-self: flex-start;
+}
+
+.viewToggleBtn {
+  border: none;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.viewToggleBtn:hover {
+  color: var(--color-text);
+}
+
+.viewToggleBtnActive {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------ */
+/* Calendar (month) view                                               */
+/* ------------------------------------------------------------------ */
+
+.calendar {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  overflow: hidden;
+}
+
+.calHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.calNavBtn {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 1.1rem;
+  line-height: 1;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calNavBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.calMonthLabel {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  min-width: 9rem;
+  text-align: center;
+}
+
+.calHint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.calWeekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.calWeekday {
+  padding: 0.45rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.calCell {
+  min-height: 92px;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.calCellEmpty {
+  min-height: 92px;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+/* Remove the trailing right border on the last column */
+.calCell:nth-child(7n),
+.calCellEmpty:nth-child(7n) {
+  border-right: none;
+}
+
+.calCellToday {
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.calDayNum {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  align-self: flex-end;
+}
+
+.calCellToday .calDayNum {
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.calDayPosts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.calChip {
+  border: none;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+}
+
+.calChipDraft {
+  background: #94a3b8;
+}
+.calChipPending {
+  background: #f59e0b;
+}
+.calChipApproved {
+  background: #6366f1;
+}
+.calChipScheduled {
+  background: #0ea5e9;
+}
+.calChipPublished {
+  background: var(--color-success);
+}
+.calChipArchived {
+  background: #cbd5e1;
+  color: var(--color-text);
+}
+
+@media (max-width: 640px) {
+  .calCell,
+  .calCellEmpty {
+    min-height: 64px;
+  }
+  .calChip {
+    font-size: 0.6rem;
+  }
+}

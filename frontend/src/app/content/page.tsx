@@ -884,6 +884,158 @@ function CreativePickerModal({ onClose, onCreated }: CreativePickerProps) {
 }
 
 // -----------------------------------------------------------------------
+// Calendar (month) view
+// -----------------------------------------------------------------------
+
+const TR_MONTHS = [
+  'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+  'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
+];
+// Week starts Monday (TR convention)
+const TR_WEEKDAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+
+// Status → calendar chip colour class
+const CAL_STATUS_CLASS: Record<ContentStatus, string> = {
+  draft: styles.calChipDraft,
+  pending_approval: styles.calChipPending,
+  approved: styles.calChipApproved,
+  scheduled: styles.calChipScheduled,
+  published: styles.calChipPublished,
+  archived: styles.calChipArchived,
+};
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
+interface CalendarViewProps {
+  posts: ContentPost[];
+  onEdit: (post: ContentPost) => void;
+}
+
+function CalendarView({ posts, onEdit }: CalendarViewProps) {
+  // Default to the month of the most recent scheduled post, else current month.
+  const initial = (() => {
+    const scheduled = posts
+      .filter((p) => p.scheduled_at)
+      .map((p) => p.scheduled_at as string)
+      .sort()
+      .reverse();
+    const anchor = scheduled.length > 0 ? new Date(scheduled[0]) : new Date();
+    return { year: anchor.getFullYear(), month: anchor.getMonth() };
+  })();
+
+  const [year, setYear] = useState(initial.year);
+  const [month, setMonth] = useState(initial.month);
+
+  // Map posts to their scheduled date key (YYYY-MM-DD)
+  const byDate: Record<string, ContentPost[]> = {};
+  for (const p of posts) {
+    if (!p.scheduled_at) continue;
+    const key = p.scheduled_at.slice(0, 10);
+    (byDate[key] ||= []).push(p);
+  }
+
+  // Build the day grid. JS getDay(): 0=Sun..6=Sat → convert to Mon=0..Sun=6.
+  const firstWeekdayRaw = new Date(year, month, 1).getDay();
+  const leadingBlanks = (firstWeekdayRaw + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < leadingBlanks; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push(`${year}-${pad2(month + 1)}-${pad2(d)}`);
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const todayKey = (() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
+  })();
+
+  function prevMonth() {
+    if (month === 0) {
+      setYear(year - 1);
+      setMonth(11);
+    } else {
+      setMonth(month - 1);
+    }
+  }
+  function nextMonth() {
+    if (month === 11) {
+      setYear(year + 1);
+      setMonth(0);
+    } else {
+      setMonth(month + 1);
+    }
+  }
+
+  const scheduledCount = Object.values(byDate).reduce(
+    (acc, arr) => acc + arr.length,
+    0,
+  );
+
+  return (
+    <div className={styles.calendar}>
+      <div className={styles.calHeader}>
+        <button className={styles.calNavBtn} onClick={prevMonth} aria-label="Önceki ay">
+          ‹
+        </button>
+        <span className={styles.calMonthLabel}>
+          {TR_MONTHS[month]} {year}
+        </span>
+        <button className={styles.calNavBtn} onClick={nextMonth} aria-label="Sonraki ay">
+          ›
+        </button>
+        <span className={styles.calHint}>
+          {scheduledCount > 0
+            ? `${scheduledCount} planlı içerik`
+            : 'Bu içerikler yayın tarihine göre yerleştirildi'}
+        </span>
+      </div>
+
+      <div className={styles.calWeekdays}>
+        {TR_WEEKDAYS.map((w) => (
+          <div key={w} className={styles.calWeekday}>
+            {w}
+          </div>
+        ))}
+      </div>
+
+      <div className={styles.calGrid}>
+        {cells.map((key, i) => {
+          if (key === null) {
+            return <div key={`b-${i}`} className={styles.calCellEmpty} />;
+          }
+          const dayNum = Number(key.slice(8, 10));
+          const dayPosts = byDate[key] || [];
+          return (
+            <div
+              key={key}
+              className={`${styles.calCell} ${key === todayKey ? styles.calCellToday : ''}`}
+            >
+              <div className={styles.calDayNum}>{dayNum}</div>
+              <div className={styles.calDayPosts}>
+                {dayPosts.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`${styles.calChip} ${CAL_STATUS_CLASS[p.status] || ''}`}
+                    title={`${p.title} — ${STATUS_LABELS[p.status]}`}
+                    onClick={() => onEdit(p)}
+                  >
+                    {p.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------
 // Main page
 // -----------------------------------------------------------------------
 
@@ -903,6 +1055,7 @@ export default function ContentPage() {
   const [showComposer, setShowComposer] = useState(false);
   const [editingPost, setEditingPost] = useState<ContentPost | null>(null);
   const [showCreativePicker, setShowCreativePicker] = useState(false);
+  const [viewMode, setViewMode] = useState<'board' | 'calendar'>('board');
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -993,6 +1146,24 @@ export default function ContentPage() {
           </p>
         </div>
 
+        {/* View toggle: Pano (kanban) / Takvim (calendar) */}
+        {(loading || posts.length > 0) && (
+          <div className={styles.viewToggle}>
+            <button
+              className={`${styles.viewToggleBtn} ${viewMode === 'board' ? styles.viewToggleBtnActive : ''}`}
+              onClick={() => setViewMode('board')}
+            >
+              Pano
+            </button>
+            <button
+              className={`${styles.viewToggleBtn} ${viewMode === 'calendar' ? styles.viewToggleBtnActive : ''}`}
+              onClick={() => setViewMode('calendar')}
+            >
+              Takvim
+            </button>
+          </div>
+        )}
+
         {/* Error state */}
         {error && (
           <div className={styles.stateBoxSm}>
@@ -1026,7 +1197,7 @@ export default function ContentPage() {
         )}
 
         {/* Kanban board */}
-        {(loading || posts.length > 0) && (
+        {(loading || posts.length > 0) && viewMode === 'board' && (
           <div className={styles.board}>
             {STATUS_ORDER.map((status) => (
               <KanbanColumn
@@ -1039,6 +1210,11 @@ export default function ContentPage() {
               />
             ))}
           </div>
+        )}
+
+        {/* Calendar (month) view */}
+        {!loading && posts.length > 0 && viewMode === 'calendar' && (
+          <CalendarView posts={posts} onEdit={handleEdit} />
         )}
       </main>
 
