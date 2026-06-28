@@ -82,6 +82,8 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 55 (tamamlandı):** M7 Eşleşme Kalitesi (Event Match Quality) — ham payload'tan ağırlıklı 0-100 skor + tier + sinyal kapsama (migration 0020); `external_id` hash + `fbc`/`fbp` passthrough; KVKK için yalnızca alan-varlığı saklanır. Eşleşme Kalitesi paneli + iyileştirme önerileri. **M7 ölçümleme stüdyosu tamamlandı.**
 - **Dalga 56 (tamamlandı):** **M11 İçerik Planlayıcı** (RADAAR-esinli) — organik sosyal içerik takvimi/composer + onay akışı (taslak→onay→zamanlama) + AI açıklama/hashtag önerisi (migration 0021, 11 endpoint, 6 kanal). Canlı yayın bilinçli kimlik-kilitli (501). `/content` kanban panosu. AYAZ artık **ücretli + ölçümleme + organik** üçlüsünü tek açık-metrikli kokpitte topluyor.
 - **Dalga 57 (tamamlandı):** **Kreatif → İçerik köprüsü** (M6→M11) — en iyi reklam kreatifini tek tıkla organik içerik taslağına çevir (`POST /content/from-creative`; platform→kanal eşleme + AI altyazı uyarlama). Ücretli içgörü → organik içerik döngüsü; AYAZ'a özgü farklılaştırıcı. İçerik Planlayıcı'da "Kreatiften Oluştur" seçici.
+- **Dalga 58 (tamamlandı):** İçerik Takvimi — İçerik Planlayıcı'ya aylık takvim görünümü (Pano/Takvim anahtarı, durum-renkli çipler). RADAAR imza özelliği.
+- **Dalga 59 (tamamlandı):** Copilot İçerik Planlayıcı farkındalığı — `get_content_status` aracı; "kaç içerik onay bekliyor?" doğal dille yanıtlanır. Birleşik kokpit + Copilot vaadini derinleştirir.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

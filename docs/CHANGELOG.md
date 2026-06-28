@@ -166,6 +166,13 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 59 — Copilot İçerik Planlayıcı farkındalığı (birleşik kokpit)
+- AI Kopilot artık İçerik Planlayıcı'yı biliyor: yeni `get_content_status` aracı (durum bazlı sayılar +
+  yaklaşan zamanlanmış gönderiler) hem stub hem Claude yolunda. "Kaç içerik onay bekliyor?",
+  "sosyal medya gönderilerim ne durumda?", "yaklaşan yayınlar neler?" doğal dille yanıtlanır.
+  Tool registry + TOOL_SPECS + Türkçe özet (`_summarise_content`) + intent yönlendirme + yetenek
+  mesajı güncellendi. 7 yeni test (copilot suite 103 yeşil). Birleşik kokpit vaadini derinleştirir.
+
 ## Dalga 58 — İçerik Takvimi (aylık görünüm, RADAAR imzası)
 - İçerik Planlayıcı'ya **Pano / Takvim** görünüm anahtarı + aylık takvim ızgarası (Pzt-Paz, TR ay adları).
   Planlı içerikler `scheduled_at` tarihine göre renk-kodlu (durum bazlı) çiplerle yerleştirilir; çipe

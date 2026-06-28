@@ -362,6 +362,48 @@ def _get_feed_channels(
     return {"count": len(channels), "channels": channels}
 
 
+def _get_content_status(
+    db: Session,
+    tenant_id: uuid.UUID,
+) -> dict:
+    """Content planner status: counts by workflow status + upcoming scheduled posts."""
+    from ayaz.models.content import ContentPost
+    from sqlalchemy import select
+
+    rows = db.scalars(
+        select(ContentPost).where(ContentPost.tenant_id == tenant_id)
+    ).all()
+
+    by_status: dict[str, int] = {}
+    for p in rows:
+        by_status[p.status] = by_status.get(p.status, 0) + 1
+
+    # Upcoming scheduled posts, soonest first (top 5).
+    scheduled = sorted(
+        [p for p in rows if p.status == "scheduled" and p.scheduled_at],
+        key=lambda p: p.scheduled_at or "",
+    )
+    upcoming = [
+        {
+            "title": p.title,
+            "scheduled_at": p.scheduled_at,
+            "channels": p.channels if isinstance(p.channels, list) else [],
+        }
+        for p in scheduled[:5]
+    ]
+
+    return {
+        "total": len(rows),
+        "by_status": by_status,
+        "draft": by_status.get("draft", 0),
+        "pending_approval": by_status.get("pending_approval", 0),
+        "approved": by_status.get("approved", 0),
+        "scheduled": by_status.get("scheduled", 0),
+        "published": by_status.get("published", 0),
+        "upcoming": upcoming,
+    }
+
+
 def _draft_automation_rule(
     db: Session,
     tenant_id: uuid.UUID,
@@ -736,6 +778,7 @@ _TOOLS: dict[str, Any] = {
     "get_recommendations": _get_recommendations,
     "get_insights": _get_insights,
     "get_feed_channels": _get_feed_channels,
+    "get_content_status": _get_content_status,
     "draft_automation_rule": _draft_automation_rule,
     "get_top_movers": _get_top_movers,
     "get_subscription_status": _get_subscription_status,
@@ -900,6 +943,19 @@ TOOL_SPECS: list[dict] = [
         "description": (
             "Ürün feed kanallarını listeler (Google Shopping, Meta Catalog, vb.) "
             "ve son senkronizasyon bilgilerini gösterir."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_content_status",
+        "description": (
+            "İçerik Planlayıcı durumunu döndürür: iş akışı durumuna göre içerik "
+            "sayıları (taslak, onay bekleyen, onaylı, zamanlanmış, yayınlanmış) ve "
+            "yaklaşan zamanlanmış gönderiler. Sosyal medya içerik takvimi soruları için kullan."
         ),
         "input_schema": {
             "type": "object",

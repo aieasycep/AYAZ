@@ -217,6 +217,32 @@ def _summarise_feeds(result: dict) -> str:
     return f"Feed kanalları: {', '.join(names)}. Toplam {result.get('count', 0)} kanal."
 
 
+def _summarise_content(result: dict) -> str:
+    """Build a concise Turkish summary from get_content_status result."""
+    total = result.get("total", 0)
+    if total == 0:
+        return "Henüz planlanmış içerik bulunmuyor."
+
+    label = {
+        "draft": "taslak",
+        "pending_approval": "onay bekleyen",
+        "approved": "onaylı",
+        "scheduled": "zamanlanmış",
+        "published": "yayınlanmış",
+        "archived": "arşivlenmiş",
+    }
+    by_status = result.get("by_status", {})
+    segs = [f"{cnt} {label.get(k, k)}" for k, cnt in by_status.items() if cnt]
+    parts = [f"Toplam {total} içerik ({', '.join(segs)})."]
+
+    upcoming = result.get("upcoming", [])
+    if upcoming:
+        nxt = upcoming[0]
+        date = (nxt.get("scheduled_at") or "")[:10]
+        parts.append(f"Sıradaki yayın: '{nxt['title']}'{f' ({date})' if date else ''}.")
+    return " ".join(parts)
+
+
 def _summarise_subscription(result: dict) -> str:
     plan = result.get("plan_name", "?")
     status = result.get("status", "?")
@@ -553,6 +579,17 @@ def _stub_chat(
         tools_used.append(ToolUsed(name="get_feed_channels", summary=summary))
         reply_text = f"Ürün feed'leri: {summary}"
 
+    # ── intent: content planner ────────────────────────────────────────────
+    elif _keyword_match(
+        text_lower,
+        "içerik", "gönderi", "paylaşım", "sosyal medya", "içerik takvim",
+        "onay bekleyen içerik", "zamanlanmış içerik", "content",
+    ):
+        result = dispatch("get_content_status", db, tenant_id, {})
+        summary = _summarise_content(result)
+        tools_used.append(ToolUsed(name="get_content_status", summary=summary))
+        reply_text = f"İçerik planlayıcı durumu: {summary}"
+
     # ── intent: subscription / plan ───────────────────────────────────────
     elif _keyword_match(
         text_lower,
@@ -572,6 +609,7 @@ def _stub_chat(
             "• Optimizasyon önerileri "
             "• İçgörü ve anomali analizi "
             "• Ürün feed durumu "
+            "• İçerik planlayıcı durumu (taslak, onay bekleyen, zamanlanmış içerikler) "
             "• Otomasyon kuralı oluşturma ('kural oluştur') "
             "• Hedef belirleme ('hedef koy') "
             "• Abonelik ve limit bilgisi "
