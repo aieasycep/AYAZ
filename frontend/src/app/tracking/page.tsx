@@ -22,10 +22,12 @@ import {
   createDestination,
   deleteDestination,
   getCollectUrl,
+  toggleEventConfig,
   type TrackingSource,
   type TrackingDestination,
   type TrackingEvent,
   type TrackingStats,
+  type EventStat,
   type DestinationPlatform,
   type EventStatus,
   type SnippetInfo,
@@ -278,14 +280,53 @@ function EventSparkline({ daily, eventName }: { daily: import('@/lib/tracking-ap
 // --- Event Distribution table (like SignalSight "Event Configuration") ---
 
 function EventDistributionPanel({
+  sourceId,
   stats,
   loading,
   error,
+  onStatsRefetch,
 }: {
+  sourceId: string;
   stats: TrackingStats | null;
   loading: boolean;
   error: string | null;
+  onStatsRefetch: () => void;
 }) {
+  // Optimistic enabled-state overlay: event_name → boolean.
+  // When null the component reads directly from stats.by_event[].enabled.
+  const [enabledOverrides, setEnabledOverrides] = useState<Record<string, boolean>>({});
+  // Track which events are mid-toggle so we can disable the switch.
+  const [togglingEvents, setTogglingEvents] = useState<Set<string>>(new Set());
+
+  // When the source or stats change, clear stale overrides.
+  useEffect(() => {
+    setEnabledOverrides({});
+  }, [sourceId]);
+
+  async function handleToggle(ev: EventStat, newEnabled: boolean) {
+    const name = ev.event_name;
+
+    // Optimistic update
+    setEnabledOverrides((prev) => ({ ...prev, [name]: newEnabled }));
+    setTogglingEvents((prev) => new Set(prev).add(name));
+
+    try {
+      await toggleEventConfig(sourceId, name, newEnabled);
+      // Refresh stats in background so the `enabled` field from the server
+      // eventually reconciles with our optimistic state.
+      onStatsRefetch();
+    } catch {
+      // Revert on error
+      setEnabledOverrides((prev) => ({ ...prev, [name]: !newEnabled }));
+    } finally {
+      setTogglingEvents((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
+    }
+  }
+
   const sorted = stats
     ? [...stats.by_event].sort((a, b) => b.count - a.count)
     : [];
@@ -304,7 +345,7 @@ function EventDistributionPanel({
         </div>
       ) : sorted.length === 0 ? (
         <div className={styles.stateBoxSm}>
-          <span className={styles.muted}>Bu donemde olay verisi yok.</span>
+          <span className={styles.muted}>Bu dönemde olay verisi yok.</span>
         </div>
       ) : (
         <>
@@ -313,35 +354,88 @@ function EventDistributionPanel({
               <thead>
                 <tr>
                   <th>Olay</th>
+                  <th style={{ textAlign: 'center' }}>Durum</th>
                   <th style={{ textAlign: 'right' }}>Adet</th>
                   <th style={{ textAlign: 'right' }}>Hata</th>
                   <th>Günlük Trend</th>
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((ev) => (
-                  <tr key={ev.event_name}>
-                    <td className={styles.eventNameCell}>{ev.event_name}</td>
-                    <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                      {ev.count.toLocaleString('tr-TR')}
-                    </td>
-                    <td
-                      style={{
-                        textAlign: 'right',
-                        fontVariantNumeric: 'tabular-nums',
-                        color: ev.errors > 0 ? 'var(--color-danger)' : undefined,
-                      }}
+                {sorted.map((ev) => {
+                  // Use optimistic override if present; fall back to what the
+                  // backend told us (default true when field absent — old data).
+                  const isEnabled =
+                    ev.event_name in enabledOverrides
+                      ? enabledOverrides[ev.event_name]
+                      : (ev.enabled ?? true);
+                  const isToggling = togglingEvents.has(ev.event_name);
+
+                  return (
+                    <tr
+                      key={ev.event_name}
+                      className={isEnabled ? undefined : styles.eventRowDisabled}
                     >
-                      {ev.errors > 0 ? ev.errors.toLocaleString('tr-TR') : '—'}
-                    </td>
-                    <td>
-                      <EventSparkline
-                        daily={stats?.daily ?? []}
-                        eventName={ev.event_name}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                      <td className={styles.eventNameCell}>{ev.event_name}</td>
+
+                      {/* DURUM — toggle switch */}
+                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <div className={styles.eventToggleCell}>
+                          <button
+                            role="switch"
+                            aria-checked={isEnabled}
+                            aria-label={
+                              isEnabled
+                                ? `${ev.event_name} olayını CAPI'ye göndermeyi durdur`
+                                : `${ev.event_name} olayını CAPI'ye göndermeye başlat`
+                            }
+                            disabled={isToggling}
+                            className={`${styles.eventToggleSwitch} ${
+                              isEnabled ? styles.eventToggleSwitchOn : ''
+                            } ${isToggling ? styles.eventToggleSwitchBusy : ''}`}
+                            onClick={() => handleToggle(ev, !isEnabled)}
+                          >
+                            <span className={styles.eventToggleKnob} />
+                          </button>
+                          <span
+                            className={
+                              isEnabled
+                                ? styles.eventToggleLabelOn
+                                : styles.eventToggleLabelOff
+                            }
+                          >
+                            {isEnabled ? 'Açık' : 'Kapalı'}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td
+                        style={{
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                          opacity: isEnabled ? 1 : 0.45,
+                        }}
+                      >
+                        {ev.count.toLocaleString('tr-TR')}
+                      </td>
+                      <td
+                        style={{
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                          color: ev.errors > 0 ? 'var(--color-danger)' : undefined,
+                          opacity: isEnabled ? 1 : 0.45,
+                        }}
+                      >
+                        {ev.errors > 0 ? ev.errors.toLocaleString('tr-TR') : '—'}
+                      </td>
+                      <td style={{ opacity: isEnabled ? 1 : 0.35 }}>
+                        <EventSparkline
+                          daily={stats?.daily ?? []}
+                          eventName={ev.event_name}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -349,7 +443,7 @@ function EventDistributionPanel({
           {/* Daily events bar chart (aggregate) — matches SignalSight report bar chart */}
           {stats && stats.daily.length > 0 && (
             <div className={styles.dailyChartWrap}>
-              <div className={styles.dailyChartTitle}>Günlük Olay Grafigi</div>
+              <div className={styles.dailyChartTitle}>Günlük Olay Grafiği</div>
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart
                   data={stats.daily.map((d) => ({
@@ -625,7 +719,7 @@ function DestinationForm({
         <div>
           <div className={styles.consentLabel}>KVKK rıza gerekli</div>
           <div className={styles.consentDesc}>
-            Acik ise bu hedefe yalnizca riza veren kullanici olaylari iletilir.
+            Açık ise bu hedefe yalnızca rıza veren kullanıcı olayları iletilir.
           </div>
         </div>
       </div>
@@ -946,9 +1040,11 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
 
       {/* --- Event Distribution table + bar chart --- */}
       <EventDistributionPanel
+        sourceId={source.id}
         stats={stats}
         loading={statsLoading}
         error={statsError}
+        onStatsRefetch={fetchStats}
       />
 
       {/* --- Destinations --- */}

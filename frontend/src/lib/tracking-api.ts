@@ -146,6 +146,35 @@ export interface EventStat {
   event_name: string;
   count: number;
   errors: number;
+  /**
+   * False when the event is disabled in event-config and not forwarded to CAPI.
+   * Absent on old backend responses — treat missing as true (enabled).
+   */
+  enabled?: boolean;
+}
+
+// --- Event config ---
+
+export interface EventConfigResponse {
+  disabled_events: string[];
+}
+
+/**
+ * Enable or disable forwarding of a specific event name to CAPI.
+ * POST /api/v1/tracking/sources/{source_id}/event-config
+ */
+export function toggleEventConfig(
+  sourceId: string,
+  eventName: string,
+  enabled: boolean,
+): Promise<EventConfigResponse> {
+  return authFetch<EventConfigResponse>(
+    `/api/v1/tracking/sources/${sourceId}/event-config`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ event_name: eventName, enabled }),
+    },
+  );
 }
 
 export interface DailyPoint {

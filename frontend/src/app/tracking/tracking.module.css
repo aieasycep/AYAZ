@@ -787,6 +787,91 @@
   opacity: 1;
 }
 
+/* ---- Per-event DURUM toggle (Olay Dağılımı table) ---- */
+
+/* Muted row for disabled events */
+.eventRowDisabled td {
+  opacity: 0.5;
+}
+
+/* Reset opacity for the toggle cell itself so the switch stays fully visible */
+.eventRowDisabled .eventToggleCell {
+  opacity: 1;
+}
+
+/* Inline flex wrapper aligning switch + label */
+.eventToggleCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+/* The pill-shaped switch button */
+.eventToggleSwitch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  border-radius: 20px;
+  background: var(--color-border);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.eventToggleSwitch:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.eventToggleSwitchOn {
+  background: var(--color-success);
+}
+
+.eventToggleSwitchBusy {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The round knob inside the pill */
+.eventToggleKnob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  background: var(--color-toggle-knob, #fff);
+  border-radius: 50%;
+  transition: transform 0.2s;
+  pointer-events: none;
+}
+
+.eventToggleSwitchOn .eventToggleKnob {
+  transform: translateX(16px);
+}
+
+/* Açık / Kapalı label beside the switch */
+.eventToggleLabelOn {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-success);
+  white-space: nowrap;
+  min-width: 2.5rem;
+  text-align: left;
+}
+
+.eventToggleLabelOff {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  min-width: 2.5rem;
+  text-align: left;
+}
+
 /* Daily bar chart below the table */
 
 .dailyChartWrap {

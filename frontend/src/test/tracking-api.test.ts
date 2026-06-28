@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { TrackingStats, EventStat, DailyPoint, GetSourceStatsOptions } from '@/lib/tracking-api';
+import type { TrackingStats, EventStat, DailyPoint, GetSourceStatsOptions, EventConfigResponse } from '@/lib/tracking-api';
 
 // ---------------------------------------------------------------------------
 // Type contracts
@@ -55,11 +55,17 @@ describe('TrackingStats type', () => {
 });
 
 describe('EventStat type', () => {
-  it('carries event_name, count, errors', () => {
-    const ev: EventStat = { event_name: 'AddToCart', count: 1266, errors: 3 };
+  it('carries event_name, count, errors, and enabled', () => {
+    const ev: EventStat = { event_name: 'AddToCart', count: 1266, errors: 3, enabled: true };
     expect(ev.event_name).toBe('AddToCart');
     expect(ev.count).toBe(1266);
     expect(ev.errors).toBe(3);
+    expect(ev.enabled).toBe(true);
+  });
+
+  it('enabled can be false for a disabled event', () => {
+    const ev: EventStat = { event_name: 'PageView', count: 500, errors: 0, enabled: false };
+    expect(ev.enabled).toBe(false);
   });
 });
 
@@ -333,5 +339,120 @@ describe('getSourceEvents — filter options', () => {
     const events = await getSourceEvents('src-002');
 
     expect(events[0].status).toBe('no_consent');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// toggleEventConfig — fetch mock
+// ---------------------------------------------------------------------------
+
+describe('toggleEventConfig', () => {
+  beforeEach(() => {
+    // Stub localStorage so getToken() returns a predictable token.
+    vi.stubGlobal('localStorage', {
+      getItem: (_key: string) => 'test-token',
+      removeItem: vi.fn(),
+      setItem: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('POSTs to /api/v1/tracking/sources/{id}/event-config with enabled=true', async () => {
+    const mockResponse: EventConfigResponse = { disabled_events: [] };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { toggleEventConfig } = await import('@/lib/tracking-api');
+    const result = await toggleEventConfig('src-001', 'PageView', true);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/tracking/sources/src-001/event-config');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body as string)).toEqual({ event_name: 'PageView', enabled: true });
+    expect(result.disabled_events).toEqual([]);
+  });
+
+  it('POSTs with enabled=false and returns the disabled_events list from the server', async () => {
+    const mockResponse: EventConfigResponse = { disabled_events: ['PageView', 'AddToCart'] };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { toggleEventConfig } = await import('@/lib/tracking-api');
+    const result = await toggleEventConfig('src-001', 'PageView', false);
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(opts.body as string)).toEqual({ event_name: 'PageView', enabled: false });
+    expect(result.disabled_events).toContain('PageView');
+    expect(result.disabled_events).toHaveLength(2);
+  });
+
+  it('sends the Bearer token from localStorage in the Authorization header', async () => {
+    const mockResponse: EventConfigResponse = { disabled_events: [] };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { toggleEventConfig } = await import('@/lib/tracking-api');
+    await toggleEventConfig('src-999', 'Purchase', true);
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = opts.headers as Record<string, string>;
+    expect(headers['Authorization']).toBe('Bearer test-token');
+    expect(headers['Content-Type']).toBe('application/json');
+  });
+
+  it('throws when the server returns a non-ok response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      text: () => Promise.resolve('Geçersiz olay adı'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { toggleEventConfig } = await import('@/lib/tracking-api');
+    await expect(
+      toggleEventConfig('src-bad', 'UnknownEvent', false),
+    ).rejects.toThrow('Geçersiz olay adı');
+  });
+
+  it('uses the source_id from the argument in the URL, not a hardcoded value', async () => {
+    const mockResponse: EventConfigResponse = { disabled_events: [] };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { toggleEventConfig } = await import('@/lib/tracking-api');
+    await toggleEventConfig('src-unique-42', 'Checkout', true);
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('src-unique-42');
+    expect(url).not.toContain('src-001');
   });
 });

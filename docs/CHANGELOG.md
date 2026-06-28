@@ -171,6 +171,8 @@
   `{event_name, enabled}` → kapalı olaylar kaydedilir ama CAPI'ye **iletilmez** (status="disabled").
   `TrackingSource.disabled_events` (JSON, migration 0018); stats `by_event[].enabled` ile durum yansır.
   Ingest sırası: dedup → disabled → consent → forward. 21 yeni test (suite 1738).
+  Frontend: Olay Dağılımı tablosuna DURUM aç/kapa anahtarı (role=switch, Açık/Kapalı, optimistik) +
+  kapalı satır soluk. SignalSight Event Configuration STATUS anahtarı. 6 yeni frontend testi (156).
 
 ## Dalga 52 — M7 Ölçümleme Sağlık & Olay İstatistikleri (backend)
 - SignalSight panel ilhamı (Event Configuration + tracker report), AYAZ verisi üzerine (migration yok):
