@@ -47,6 +47,7 @@ from ayaz.api.v1 import audit as audit_router
 from ayaz.api.v1 import onboarding as onboarding_router
 from ayaz.api.v1 import recommendations as recommendations_router
 from ayaz.api.v1 import consent_center as consent_center_router
+from ayaz.api.v1 import ad_studio as ad_studio_router
 from ayaz.config import settings
 from ayaz.observability import (
     RequestIDMiddleware,
@@ -124,6 +125,7 @@ app.include_router(audit_router.router, prefix=_PREFIX)
 app.include_router(onboarding_router.router, prefix=_PREFIX)
 app.include_router(recommendations_router.router, prefix=_PREFIX)
 app.include_router(consent_center_router.router, prefix=_PREFIX)
+app.include_router(ad_studio_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

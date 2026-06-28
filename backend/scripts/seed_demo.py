@@ -1728,6 +1728,89 @@ def _seed_recommendation_states(db, tenant: Tenant) -> dict:
     return counts
 
 
+# ── Ad Copy Studio seeding (M15) ──────────────────────────────────────────────
+
+
+def _seed_ad_copy_drafts(db, tenant: Tenant) -> dict:
+    """Seed 3 saved AdCopyDraft rows for M15 AI Reklam Metni Stüdyosu.
+
+    Seeds one draft per platform (google_ads, meta_ads, tiktok_ads) using
+    realistic Turkish briefs for the demo e-commerce product (Kablosuz Kulaklık).
+
+    Idempotency: skip if the tenant already has any AdCopyDraft rows.
+    """
+    from sqlalchemy import func as _func
+    from ayaz.models.ad_studio import AdCopyDraft
+    from ayaz.services.ad_studio import generate_ad_copy, save_draft
+
+    counts = {"inserted": 0}
+
+    existing = db.scalar(
+        select(_func.count()).select_from(AdCopyDraft).where(
+            AdCopyDraft.tenant_id == tenant.id
+        )
+    ) or 0
+    if existing > 0:
+        print(f"  AdCopyDrafts already exist ({existing} rows) — skipping")
+        return counts
+
+    drafts_to_seed = [
+        {
+            "platform": "google_ads",
+            "title": "Kablosuz Kulaklık — Google Arama",
+            "brief": {
+                "platform": "google_ads",
+                "product": "Kablosuz Kulaklık Pro",
+                "value_prop": "30 saate kadar pil ömrü ve aktif gürültü engelleme",
+                "tone": "profesyonel",
+                "keywords": ["kablosuz kulaklık", "bluetooth kulaklık", "anc kulaklık"],
+                "audience": "Teknoloji meraklıları ve iş profesyonelleri",
+            },
+        },
+        {
+            "platform": "meta_ads",
+            "title": "Kablosuz Kulaklık — Meta Kampanya",
+            "brief": {
+                "platform": "meta_ads",
+                "product": "Kablosuz Kulaklık Pro",
+                "value_prop": "Kristal netliğinde ses, sınırsız özgürlük",
+                "tone": "heyecanli",
+                "keywords": ["kulaklık", "müzik", "ses kalitesi"],
+                "audience": "18-35 yaş, müzik ve teknoloji tutkunları",
+            },
+        },
+        {
+            "platform": "tiktok_ads",
+            "title": "Kablosuz Kulaklık — TikTok Tanıtım",
+            "brief": {
+                "platform": "tiktok_ads",
+                "product": "Kablosuz Kulaklık Pro",
+                "value_prop": "Viral ses deneyimi — herkesi etkile",
+                "tone": "heyecanli",
+                "keywords": ["kulaklık", "teknoloji", "ses"],
+                "audience": "Gen Z ve Millennial müzik severler",
+            },
+        },
+    ]
+
+    for item in drafts_to_seed:
+        brief = item["brief"]
+        result = generate_ad_copy(brief, n_variants=3)
+        save_draft(
+            db,
+            tenant.id,
+            platform=item["platform"],
+            title=item["title"],
+            brief=brief,
+            variants=result["variants"],
+            source=result["source"],
+        )
+        counts["inserted"] += 1
+
+    print(f"  Inserted {counts['inserted']} AdCopyDraft rows")
+    return counts
+
+
 # ── Report seeding ─────────────────────────────────────────────────────────────
 
 _REPORT_NAME = "AYAZ Demo — Aylik Performans Raporu"
@@ -2001,6 +2084,12 @@ def run_seed() -> None:
         rec_counts = _seed_recommendation_states(db, tenant)
         summary["recommendations"] = rec_counts
         print(f"  Recommendation states: inserted={rec_counts['inserted']}")
+
+        # ── Step 5h: Ad Copy Studio (M15) ────────────────────────────────────
+        print("\n[5h/7] Seeding M15 ad copy drafts (3 demo drafts)...")
+        ad_copy_counts = _seed_ad_copy_drafts(db, tenant)
+        summary["ad_copy_drafts"] = ad_copy_counts
+        print(f"  Ad copy drafts: inserted={ad_copy_counts['inserted']}")
 
         # ── Step 6: Feeds ─────────────────────────────────────────────────────
         print("\n[6/7] Seeding product feed (FeedSource + 2 FeedChannels + rules)...")

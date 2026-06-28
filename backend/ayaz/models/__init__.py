@@ -81,6 +81,9 @@ from ayaz.models.social_inbox import (  # noqa: F401
 from ayaz.models.recommendations import (  # noqa: F401
     RecommendationState,
 )
+from ayaz.models.ad_studio import (  # noqa: F401
+    AdCopyDraft,
+)
 
 __all__ = [
     "Base",
@@ -126,4 +129,5 @@ __all__ = [
     "SocialMessage",
     "SocialReply",
     "RecommendationState",
+    "AdCopyDraft",
 ]

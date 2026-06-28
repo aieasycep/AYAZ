@@ -166,6 +166,22 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 73 — AI Reklam Metni Stüdyosu (Ad Copy Studio)
+- Marcom/kreatif farklılaştırıcısı: **AI Reklam Metni Stüdyosu** — brief'ten (ürün, değer önerisi,
+  ton, anahtar kelime, hedef kitle) platforma özel reklam metinleri üretir (Google Ads / Meta /
+  TikTok) ve her alanı **karakter sınırına göre canlı doğrular**. Şablon üretici her zaman çalışır;
+  opsiyonel Claude (`settings.claude_narrator_model`) varsa "yapay zeka" kaynaklı üretir. Üretilenler
+  **taslak kütüphanesine** kaydedilebilir (kayıtlı/arşiv).
+- Backend: yeni `ad_copy_drafts` tablosu + `POST /ad-studio/generate`, `POST/GET/PATCH/DELETE
+  /ad-studio/drafts`. Platform-bağımsız tek-tip `fields` şekli (key/label/value/char_count/max_len/
+  within_limit) — frontend jenerik render eder. 4 ton (profesyonel/samimi/heyecanlı/bilgilendirici),
+  varyant başına farklı açı (fayda/aciliyet/sosyal kanıt). 52 yeni test.
+- Frontend: `/ad-studio` — brief formu + varyant kartları (alan başına karakter sayacı + kopyala) +
+  taslak kütüphanesi (görüntüle/arşivle/sil); açık/koyu tema. 23 yeni test. Navigasyona **Reklam
+  Stüdyosu** eklendi (Kreatif Lensi'nden sonra).
+- Demo: 3 kayıtlı taslak (Google/Meta/TikTok, demo ürün için) seed'lendi.
+- Kalite: backend **2293 yeşil**, frontend **372 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 72 — KVKK Rıza Yönetim Merkezi (Consent Center)
 - TR-first farklılaştırıcı: **KVKK Rıza Yönetim Merkezi** — tüm rıza ayarları, Consent Mode v2
   granüler sinyalleri ve KVKK uyumu **tek ekranda**. Rıza oranı + KVKK uyum skoru (0-100, uyumlu/

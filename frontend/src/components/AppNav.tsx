@@ -28,6 +28,7 @@ export const NAV_LINKS = [
   { href: '/ads', label: 'Reklam' },
   { href: '/creatives', label: 'Kreatifler' },
   { href: '/creative-lens', label: 'Kreatif Lensi' },
+  { href: '/ad-studio', label: 'Reklam Stüdyosu' },
   { href: '/content', label: 'İçerik' },
   { href: '/inbox', label: 'Gelen Kutusu' },
   { href: '/optimizer', label: 'Optimizasyon' },
