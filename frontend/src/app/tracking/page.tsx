@@ -2,6 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { getToken } from '@/lib/api';
 import {
   getTrackingSources,
@@ -9,16 +18,23 @@ import {
   getSourceSnippet,
   getSourceEvents,
   getSourceDestinations,
+  getSourceStats,
   createDestination,
   deleteDestination,
   getCollectUrl,
   type TrackingSource,
   type TrackingDestination,
   type TrackingEvent,
+  type TrackingStats,
   type DestinationPlatform,
   type EventStatus,
   type SnippetInfo,
 } from '@/lib/tracking-api';
+import DateRangePresets, {
+  computePreset,
+  detectPreset,
+  type PresetKey,
+} from '@/components/DateRangePresets';
 import AppNav from '@/components/AppNav';
 import styles from './tracking.module.css';
 
@@ -37,6 +53,8 @@ const STATUS_LABELS: Record<EventStatus, string> = {
   error: 'Hata',
 };
 
+const ALL_STATUSES: EventStatus[] = ['received', 'forwarded', 'no_consent', 'error'];
+
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '-';
   return new Date(iso).toLocaleString('tr-TR', {
@@ -47,6 +65,11 @@ function fmtDate(iso: string | null | undefined): string {
     minute: '2-digit',
     second: '2-digit',
   });
+}
+
+function fmtShortDate(iso: string): string {
+  // YYYY-MM-DD → MM/DD
+  return iso.slice(5).replace('-', '/');
 }
 
 // --- CopyButton (inline text) ---
@@ -124,6 +147,259 @@ function StatusBadge({ status }: { status: EventStatus }) {
     <span className={`${styles.statusBadge} ${cls[status] ?? ''}`}>
       {STATUS_LABELS[status] ?? status}
     </span>
+  );
+}
+
+// --- Delivery Health: big stat cards ---
+
+function DeliveryHealthPanel({
+  stats,
+  loading,
+  error,
+  dateFrom,
+  dateTo,
+  activePreset,
+  onSelectPreset,
+}: {
+  stats: TrackingStats | null;
+  loading: boolean;
+  error: string | null;
+  dateFrom: string;
+  dateTo: string;
+  activePreset: PresetKey | null;
+  onSelectPreset: (from: string, to: string) => void;
+}) {
+  return (
+    <div className={styles.healthPanel}>
+      <div className={styles.healthHeader}>
+        <span className={styles.sectionTitleInline}>İletim Sağlığı</span>
+        <DateRangePresets onSelect={onSelectPreset} activePreset={activePreset} />
+        <span className={styles.dateRangeLabel}>
+          {dateFrom} — {dateTo}
+        </span>
+      </div>
+
+      {loading ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.muted}>İstatistikler yükleniyor...</span>
+        </div>
+      ) : error ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.errorText}>{error}</span>
+        </div>
+      ) : stats ? (
+        <div className={styles.statCards}>
+          <div className={styles.statCard}>
+            <div className={styles.statValue}>
+              {stats.totals.total_events.toLocaleString('tr-TR')}
+            </div>
+            <div className={styles.statLabel}>Toplam Olay</div>
+          </div>
+
+          <div
+            className={`${styles.statCard} ${
+              stats.totals.total_errors > 0 ? styles.statCardError : ''
+            }`}
+          >
+            <div
+              className={`${styles.statValue} ${
+                stats.totals.total_errors > 0 ? styles.statValueError : ''
+              }`}
+            >
+              {stats.totals.total_errors.toLocaleString('tr-TR')}
+            </div>
+            <div className={styles.statLabel}>Hata</div>
+          </div>
+
+          <div className={styles.statCard}>
+            <div className={styles.statValue}>
+              {stats.totals.consent_blocked.toLocaleString('tr-TR')}
+            </div>
+            <div className={styles.statLabel}>Rıza ile Engellenen</div>
+          </div>
+
+          <div className={styles.statCardBreakdown}>
+            <div className={styles.statLabel} style={{ marginBottom: '0.5rem' }}>
+              Duruma Gore
+            </div>
+            {Object.entries(stats.totals.by_status).map(([status, count]) => (
+              <div key={status} className={styles.byStatusRow}>
+                <StatusBadge status={
+                  (status as EventStatus) in STATUS_LABELS
+                    ? (status as EventStatus)
+                    : 'received'
+                } />
+                <span className={styles.byStatusCount}>
+                  {(count as number).toLocaleString('tr-TR')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// --- Inline bar sparkline for a single event row ---
+
+function EventSparkline({ daily, eventName }: { daily: import('@/lib/tracking-api').DailyPoint[]; eventName: string }) {
+  // Filter to last 14 points max for the sparkline, show only count
+  const pts = daily.slice(-14).map((d) => ({
+    date: fmtShortDate(d.date),
+    count: d.count,
+  }));
+
+  if (pts.length === 0) return <span className={styles.muted}>—</span>;
+
+  const maxCount = Math.max(...pts.map((p) => p.count), 1);
+
+  return (
+    <div
+      className={styles.sparklineWrap}
+      title={`${eventName} günlük trend`}
+      aria-label={`${eventName} günlük trend`}
+    >
+      {pts.map((p, i) => {
+        const h = Math.max(2, Math.round((p.count / maxCount) * 28));
+        return (
+          <div
+            key={i}
+            className={styles.sparkBar}
+            style={{ height: `${h}px` }}
+            title={`${p.date}: ${p.count}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// --- Event Distribution table (like SignalSight "Event Configuration") ---
+
+function EventDistributionPanel({
+  stats,
+  loading,
+  error,
+}: {
+  stats: TrackingStats | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const sorted = stats
+    ? [...stats.by_event].sort((a, b) => b.count - a.count)
+    : [];
+
+  return (
+    <div className={styles.sectionBlock}>
+      <div className={styles.sectionTitle}>Olay Dağılımı</div>
+
+      {loading ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.muted}>Yükleniyor...</span>
+        </div>
+      ) : error ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.errorText}>{error}</span>
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.muted}>Bu donemde olay verisi yok.</span>
+        </div>
+      ) : (
+        <>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Olay</th>
+                  <th style={{ textAlign: 'right' }}>Adet</th>
+                  <th style={{ textAlign: 'right' }}>Hata</th>
+                  <th>Günlük Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((ev) => (
+                  <tr key={ev.event_name}>
+                    <td className={styles.eventNameCell}>{ev.event_name}</td>
+                    <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {ev.count.toLocaleString('tr-TR')}
+                    </td>
+                    <td
+                      style={{
+                        textAlign: 'right',
+                        fontVariantNumeric: 'tabular-nums',
+                        color: ev.errors > 0 ? 'var(--color-danger)' : undefined,
+                      }}
+                    >
+                      {ev.errors > 0 ? ev.errors.toLocaleString('tr-TR') : '—'}
+                    </td>
+                    <td>
+                      <EventSparkline
+                        daily={stats?.daily ?? []}
+                        eventName={ev.event_name}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Daily events bar chart (aggregate) — matches SignalSight report bar chart */}
+          {stats && stats.daily.length > 0 && (
+            <div className={styles.dailyChartWrap}>
+              <div className={styles.dailyChartTitle}>Günlük Olay Grafigi</div>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart
+                  data={stats.daily.map((d) => ({
+                    date: fmtShortDate(d.date),
+                    count: d.count,
+                    errors: d.errors,
+                  }))}
+                  margin={{ top: 4, right: 12, left: 0, bottom: 0 }}
+                  barCategoryGap="30%"
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
+                    tickLine={false}
+                    axisLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: 'var(--color-text-muted)' }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={36}
+                    tickFormatter={(v: number) =>
+                      v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: '1px solid var(--color-border)',
+                      fontSize: 12,
+                      background: 'var(--color-surface)',
+                      color: 'var(--color-text)',
+                    }}
+                    formatter={(value: number, name: string) => [
+                      value.toLocaleString('tr-TR'),
+                      name === 'count' ? 'Olay' : 'Hata',
+                    ]}
+                    labelFormatter={(label: string) => `Tarih: ${label}`}
+                  />
+                  <Bar dataKey="count" fill="var(--color-primary)" radius={[3, 3, 0, 0]} name="count" />
+                  <Bar dataKey="errors" fill="var(--color-danger)" radius={[3, 3, 0, 0]} name="errors" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -349,7 +625,7 @@ function DestinationForm({
         <div>
           <div className={styles.consentLabel}>KVKK rıza gerekli</div>
           <div className={styles.consentDesc}>
-            Açık ise bu hedefe yalnızca rıza veren kullanıcı olayları iletilir.
+            Acik ise bu hedefe yalnizca riza veren kullanici olaylari iletilir.
           </div>
         </div>
       </div>
@@ -368,10 +644,156 @@ function DestinationForm({
           }}
           disabled={submitting}
         >
-          İptal
+          Iptal
         </button>
       </div>
     </form>
+  );
+}
+
+// --- Debug Console: filterable event log ---
+
+function DebugConsole({
+  sourceId,
+  eventNames,
+}: {
+  sourceId: string;
+  eventNames: string[];
+}) {
+  const [events, setEvents] = useState<TrackingEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<EventStatus | ''>('');
+  const [filterEvent, setFilterEvent] = useState('');
+
+  const fetchEvents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getSourceEvents(sourceId, {
+        status: filterStatus || undefined,
+        event_name: filterEvent || undefined,
+        limit: 200,
+      });
+      setEvents(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Olaylar yüklenemedi');
+    } finally {
+      setLoading(false);
+    }
+  }, [sourceId, filterStatus, filterEvent]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  return (
+    <div className={styles.sectionBlock}>
+      <div className={styles.debugHeader}>
+        <span className={styles.sectionTitleInline}>Olay Gunlugu</span>
+        <div className={styles.debugFilters}>
+          <select
+            className={styles.selectSm}
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value as EventStatus | '')}
+            aria-label="Durum filtresi"
+          >
+            <option value="">Tüm Durumlar</option>
+            {ALL_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className={styles.selectSm}
+            value={filterEvent}
+            onChange={(e) => setFilterEvent(e.target.value)}
+            aria-label="Olay filtresi"
+          >
+            <option value="">Tüm Olaylar</option>
+            {eventNames.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+
+          <button
+            className={styles.secondaryBtn}
+            onClick={fetchEvents}
+            disabled={loading}
+            aria-label="Yenile"
+          >
+            {loading ? '...' : 'Yenile'}
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.muted}>Olaylar yükleniyor...</span>
+        </div>
+      ) : error ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.errorText}>{error}</span>
+          <br />
+          <button
+            className={styles.secondaryBtn}
+            style={{ marginTop: '0.75rem' }}
+            onClick={fetchEvents}
+          >
+            Tekrar Dene
+          </button>
+        </div>
+      ) : events.length === 0 ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.muted}>
+            {filterStatus || filterEvent
+              ? 'Bu filtreyle esleyen olay bulunamadi.'
+              : 'Henuz kayitli olay yok.'}
+          </span>
+        </div>
+      ) : (
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Olay Adi</th>
+                <th>Zaman</th>
+                <th>Durum</th>
+                <th>İletim</th>
+                <th>Hata Detayı</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((ev, idx) => (
+                <tr key={ev.id ?? idx}>
+                  <td>{ev.event_name}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(ev.event_time)}</td>
+                  <td>
+                    <StatusBadge status={ev.status} />
+                  </td>
+                  <td>{ev.forwarded_count}</td>
+                  <td>
+                    {ev.error_detail ? (
+                      <span className={styles.errorDetail} title={ev.error_detail}>
+                        {ev.error_detail.length > 60
+                          ? ev.error_detail.slice(0, 60) + '...'
+                          : ev.error_detail}
+                      </span>
+                    ) : (
+                      <span className={styles.muted}>—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -390,10 +812,15 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
   const [showDestForm, setShowDestForm] = useState(false);
   const [deletingDestId, setDeletingDestId] = useState<string | null>(null);
 
-  // Events
-  const [events, setEvents] = useState<TrackingEvent[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
-  const [eventsError, setEventsError] = useState<string | null>(null);
+  // Stats
+  const [stats, setStats] = useState<TrackingStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  // Date range for stats (default: last 30 days)
+  const defaultRange = computePreset('son30');
+  const [statsDateFrom, setStatsDateFrom] = useState(defaultRange.from);
+  const [statsDateTo, setStatsDateTo] = useState(defaultRange.to);
 
   const collectUrl = getCollectUrl(source.public_token);
 
@@ -423,24 +850,30 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
     }
   }, [source.id]);
 
-  const fetchEvents = useCallback(async () => {
-    setEventsLoading(true);
-    setEventsError(null);
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    setStatsError(null);
     try {
-      const data = await getSourceEvents(source.id);
-      setEvents(data);
+      const data = await getSourceStats(source.id, {
+        date_from: statsDateFrom,
+        date_to: statsDateTo,
+      });
+      setStats(data);
     } catch (err: unknown) {
-      setEventsError(err instanceof Error ? err.message : 'Olaylar yüklenemedi');
+      setStatsError(err instanceof Error ? err.message : 'İstatistikler yüklenemedi');
     } finally {
-      setEventsLoading(false);
+      setStatsLoading(false);
     }
-  }, [source.id]);
+  }, [source.id, statsDateFrom, statsDateTo]);
 
   useEffect(() => {
     fetchSnippet();
     fetchDestinations();
-    fetchEvents();
-  }, [fetchSnippet, fetchDestinations, fetchEvents]);
+  }, [fetchSnippet, fetchDestinations]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   async function handleDeleteDest(id: string) {
     setDeletingDestId(id);
@@ -453,6 +886,15 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
       setDeletingDestId(null);
     }
   }
+
+  function handleSelectPreset(from: string, to: string) {
+    setStatsDateFrom(from);
+    setStatsDateTo(to);
+  }
+
+  const activePreset = detectPreset(statsDateFrom, statsDateTo);
+  // Event names from by_event for the debug console dropdown
+  const eventNames = stats ? stats.by_event.map((e) => e.event_name) : [];
 
   return (
     <div className={styles.card}>
@@ -491,6 +933,24 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
         ) : null}
       </div>
 
+      {/* --- Delivery Health panel --- */}
+      <DeliveryHealthPanel
+        stats={stats}
+        loading={statsLoading}
+        error={statsError}
+        dateFrom={statsDateFrom}
+        dateTo={statsDateTo}
+        activePreset={activePreset}
+        onSelectPreset={handleSelectPreset}
+      />
+
+      {/* --- Event Distribution table + bar chart --- */}
+      <EventDistributionPanel
+        stats={stats}
+        loading={statsLoading}
+        error={statsError}
+      />
+
       {/* --- Destinations --- */}
       <div className={styles.sectionTitle}>Hedefler (Destinations)</div>
 
@@ -504,7 +964,7 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
         </div>
       ) : destinations.length === 0 && !showDestForm ? (
         <div className={styles.stateBoxSm}>
-          <span className={styles.muted}>Henüz hedef eklenmedi.</span>
+          <span className={styles.muted}>Henuz hedef eklenmedi.</span>
         </div>
       ) : (
         <div className={styles.destList}>
@@ -555,55 +1015,8 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
         </div>
       )}
 
-      {/* --- Event log --- */}
-      <div className={styles.sectionTitle}>Olay Günlüğü</div>
-
-      {eventsLoading ? (
-        <div className={styles.stateBoxSm}>
-          <span className={styles.muted}>Olaylar yükleniyor...</span>
-        </div>
-      ) : eventsError ? (
-        <div className={styles.stateBoxSm}>
-          <span className={styles.errorText}>{eventsError}</span>
-          <br />
-          <button
-            className={styles.secondaryBtn}
-            style={{ marginTop: '0.75rem' }}
-            onClick={fetchEvents}
-          >
-            Tekrar Dene
-          </button>
-        </div>
-      ) : events.length === 0 ? (
-        <div className={styles.stateBoxSm}>
-          <span className={styles.muted}>Henüz kayıtlı olay yok.</span>
-        </div>
-      ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Olay Adı</th>
-                <th>Zaman</th>
-                <th>Durum</th>
-                <th>İletim</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((ev, idx) => (
-                <tr key={ev.id ?? idx}>
-                  <td>{ev.event_name}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(ev.event_time)}</td>
-                  <td>
-                    <StatusBadge status={ev.status} />
-                  </td>
-                  <td>{ev.forwarded_count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* --- Debug Console (filterable event log) --- */}
+      <DebugConsole sourceId={source.id} eventNames={eventNames} />
     </div>
   );
 }
@@ -665,7 +1078,7 @@ export default function TrackingPage() {
       setNsDomain('');
       setShowNewSource(false);
     } catch (err: unknown) {
-      setNsError(err instanceof Error ? err.message : 'Kaynak oluşturulamadı');
+      setNsError(err instanceof Error ? err.message : 'Kaynak olusturulamadi');
     } finally {
       setNsSubmitting(false);
     }
@@ -679,10 +1092,10 @@ export default function TrackingPage() {
 
       <main className={styles.main}>
         <div>
-          <h1 className={styles.pageTitle}>Ölçümleme</h1>
+          <h1 className={styles.pageTitle}>Olcumleme</h1>
           <p className={styles.pageSubtitle}>
-            Sunucu tarafı izleme kaynaklarınızı yönetin, hedef platformlara olay iletin ve
-            KVKK uyumlu rıza akışlarını yapılandırın.
+            Sunucu tarafi izleme kaynaklarinizi yonetin, hedef platformlara olay iletin ve
+            KVKK uyumlu riza akislarini yapilandirin.
           </p>
         </div>
 
@@ -690,7 +1103,7 @@ export default function TrackingPage() {
           {/* Left: source list */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
-              <h2 className={styles.cardTitle}>İzleme Kaynakları</h2>
+              <h2 className={styles.cardTitle}>Izleme Kaynaklari</h2>
               {!showNewSource && (
                 <button
                   className={styles.secondaryBtn}
@@ -704,7 +1117,7 @@ export default function TrackingPage() {
             {showNewSource && (
               <form className={styles.formBox} onSubmit={handleCreateSource}>
                 <div className={styles.field}>
-                  <label className={styles.label}>Kaynak Adı</label>
+                  <label className={styles.label}>Kaynak Adi</label>
                   <input
                     className={styles.input}
                     placeholder="Web Sitesi Ana"
@@ -732,7 +1145,7 @@ export default function TrackingPage() {
                     className={styles.primaryBtn}
                     disabled={nsSubmitting}
                   >
-                    {nsSubmitting ? 'Oluşturuluyor...' : 'Oluştur'}
+                    {nsSubmitting ? 'Olusturuluyor...' : 'Olustur'}
                   </button>
                   <button
                     type="button"
@@ -743,7 +1156,7 @@ export default function TrackingPage() {
                     }}
                     disabled={nsSubmitting}
                   >
-                    İptal
+                    Iptal
                   </button>
                 </div>
               </form>
@@ -767,7 +1180,7 @@ export default function TrackingPage() {
               </div>
             ) : sources.length === 0 ? (
               <div className={styles.stateBox}>
-                <span className={styles.muted}>Henüz izleme kaynağı yok.</span>
+                <span className={styles.muted}>Henuz izleme kaynagi yok.</span>
               </div>
             ) : (
               <div className={styles.sourceList}>
@@ -809,7 +1222,7 @@ export default function TrackingPage() {
                   <span className={styles.muted}>
                     {sourcesLoading
                       ? 'Yükleniyor...'
-                      : 'Sol taraftan bir izleme kaynağı seçin.'}
+                      : 'Sol taraftan bir izleme kaynagi secin.'}
                   </span>
                 </div>
               </div>

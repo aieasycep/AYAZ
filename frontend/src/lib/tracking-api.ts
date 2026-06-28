@@ -140,6 +140,52 @@ export async function getSourceSnippet(sourceId: string): Promise<SnippetInfo> {
   };
 }
 
+// --- Stats types ---
+
+export interface EventStat {
+  event_name: string;
+  count: number;
+  errors: number;
+}
+
+export interface DailyPoint {
+  date: string; // YYYY-MM-DD
+  count: number;
+  errors: number;
+}
+
+export interface TrackingStats {
+  source_id: string;
+  date_from: string;
+  date_to: string;
+  totals: {
+    total_events: number;
+    total_errors: number;
+    by_status: Record<string, number>;
+    consent_blocked: number;
+  };
+  by_event: EventStat[];
+  daily: DailyPoint[];
+}
+
+export interface GetSourceStatsOptions {
+  date_from?: string;
+  date_to?: string;
+}
+
+export function getSourceStats(
+  sourceId: string,
+  options: GetSourceStatsOptions = {},
+): Promise<TrackingStats> {
+  const params = new URLSearchParams();
+  if (options.date_from) params.set('date_from', options.date_from);
+  if (options.date_to) params.set('date_to', options.date_to);
+  const qs = params.toString();
+  return authFetch<TrackingStats>(
+    `/api/v1/tracking/sources/${sourceId}/stats${qs ? `?${qs}` : ''}`,
+  );
+}
+
 // --- Events ---
 
 // Backend stores statuses {received, forwarded, duplicate, skipped_no_consent,
@@ -160,9 +206,23 @@ function normaliseEvent(e: TrackingEvent): TrackingEvent {
   return e;
 }
 
-export async function getSourceEvents(sourceId: string): Promise<TrackingEvent[]> {
+export interface GetSourceEventsOptions {
+  status?: EventStatus;
+  event_name?: string;
+  limit?: number;
+}
+
+export async function getSourceEvents(
+  sourceId: string,
+  options: GetSourceEventsOptions = {},
+): Promise<TrackingEvent[]> {
+  const params = new URLSearchParams();
+  if (options.status) params.set('status', options.status);
+  if (options.event_name) params.set('event_name', options.event_name);
+  if (options.limit !== undefined) params.set('limit', String(options.limit));
+  const qs = params.toString();
   const events = await authFetch<TrackingEvent[]>(
-    `/api/v1/tracking/sources/${sourceId}/events`,
+    `/api/v1/tracking/sources/${sourceId}/events${qs ? `?${qs}` : ''}`,
   );
   return events.map(normaliseEvent);
 }

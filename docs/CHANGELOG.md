@@ -171,6 +171,10 @@
   `GET /tracking/sources/{id}/stats` — Total Events/Errors + duruma göre kırılım + consent-bloklu +
   **olay-bazlı sayım** (Add to cart vb.) + günlük trend (zero-filled). Olay listesine status/event_name
   filtreleri (debug konsolu için). Saf `compute_tracking_stats`. 31 yeni test (suite 1717).
+  Frontend `/tracking`: **İletim Sağlığı** kartları (Toplam Olay/Hata/Rıza ile Engellenen) +
+  **Olay Dağılımı** tablosu (olay × adet × hata + satır içi sparkline + günlük bar grafiği) +
+  filtrelenebilir **debug konsolu** (durum/olay filtresi). DateRangePresets ile tarih aralığı.
+  20 yeni frontend testi (150). (TR diakritikleri elden geçirildi.)
 
 ## Dalga 51 — Deploy Hazırlığı (canlı link için)
 - Turnkey deploy: `backend/Dockerfile` + `frontend/Dockerfile` (standalone) + `.dockerignore`'lar,

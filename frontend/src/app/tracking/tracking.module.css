@@ -636,6 +636,220 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* ------------------------------------------------------------------ */
+/* Delivery Health panel                                               */
+/* ------------------------------------------------------------------ */
+
+.healthPanel {
+  border-top: 1px solid var(--color-border);
+  padding: 0.875rem 1.25rem 1rem;
+}
+
+.healthHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin-bottom: 0.875rem;
+}
+
+.sectionTitleInline {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.dateRangeLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Stat cards row */
+
+.statCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .statCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .statCards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statCard {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+}
+
+.statCardError {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.statValue {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.statValueError {
+  color: var(--color-danger);
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  margin-top: 0.3rem;
+}
+
+.statCardBreakdown {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  min-width: 140px;
+}
+
+.byStatusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.byStatusRow:last-child {
+  margin-bottom: 0;
+}
+
+.byStatusCount {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/* Event Distribution section                                          */
+/* ------------------------------------------------------------------ */
+
+.sectionBlock {
+  border-top: 1px solid var(--color-border);
+}
+
+.eventNameCell {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* Inline bar sparkline */
+
+.sparklineWrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 30px;
+  width: 80px;
+}
+
+.sparkBar {
+  flex: 1;
+  min-width: 3px;
+  background: var(--color-primary);
+  border-radius: 2px 2px 0 0;
+  opacity: 0.65;
+  transition: opacity 0.1s;
+}
+
+.sparkBar:hover {
+  opacity: 1;
+}
+
+/* Daily bar chart below the table */
+
+.dailyChartWrap {
+  padding: 0.5rem 1.25rem 1rem;
+}
+
+.dailyChartTitle {
+  font-size: 0.725rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  margin-bottom: 0.5rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Debug Console                                                        */
+/* ------------------------------------------------------------------ */
+
+.debugHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  padding: 0.875rem 1.25rem 0.625rem;
+}
+
+.debugFilters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.selectSm {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+  cursor: pointer;
+}
+
+.selectSm:focus {
+  border-color: var(--color-primary);
+}
+
+.errorDetail {
+  font-size: 0.775rem;
+  color: var(--color-danger);
+  font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsive tweaks                                                   */
+/* ------------------------------------------------------------------ */
+
 @media (max-width: 640px) {
   .main {
     padding: 1rem;
@@ -648,5 +862,17 @@
 
   .formBox {
     padding: 1rem;
+  }
+
+  .healthPanel {
+    padding: 0.75rem 1rem 0.875rem;
+  }
+
+  .statCards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .debugHeader {
+    padding: 0.75rem 1rem 0.5rem;
   }
 }
