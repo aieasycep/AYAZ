@@ -166,6 +166,16 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 69 — Kurulum Sihirbazı (Onboarding Wizard) — sellability
+- Yeni satılabilirlik özelliği: **Kurulum Sihirbazı** — yeni kurumsal müşteri birkaç adımda hazır olur.
+  Mevcut veriden hangi adımların tamamlandığını **otomatik tespit eder** ve kalanlara yönlendirir.
+- Backend: `GET /onboarding/status` (yeni tablo yok) — 5 adımın varlık kontrolü (hesap bağlama,
+  hedef, ölçümleme, bütçe planı, ilk içerik) → tamamlanma yüzdesi + her adım için CTA bağlantısı.
+  Kiracı-izole, adım-bazlı try/except dayanıklı. 18 yeni test.
+- Frontend: `/onboarding` — ilerleme kahramanı (yüzde barı) + adım listesi (tamamlandı ✓ / sıradaki
+  vurgulu + CTA butonu) + tamamlanınca kutlama kartı. 10 yeni test. Navigasyona **Kurulum** eklendi.
+- Kalite: backend **2111 yeşil**, frontend **300 yeşil**, build yeşil.
+
 ## Dalga 68 — Hesap Sağlık Taraması (Account Audit) — "tek tıkla ücretsiz denetim"
 - Yeni farklılaştırıcı: **Hesap Sağlık Taraması** — reklam/ölçümleme/bütçe/içerik/hedef/içgörü modüllerini
   tek tıkla tarar, **0-100 sağlık puanı** + kategorize edilmiş bulgu listesi (geç/uyarı/sorun) +

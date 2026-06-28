@@ -35,6 +35,7 @@ export const NAV_LINKS = [
   { href: '/tracking', label: 'Ölçümleme' },
   { href: '/billing', label: 'Faturalama' },
   { href: '/workspaces', label: 'Çalışma Alanları' },
+  { href: '/onboarding', label: 'Kurulum' },
   { href: '/settings', label: 'Ayarlar' },
 ];
 
