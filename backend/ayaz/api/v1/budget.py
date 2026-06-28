@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from ayaz.api.deps import get_current_membership, get_db
 from ayaz.models.oltp import Membership
 from ayaz.models.budget import BudgetPlan, VALID_OBJECTIVES, VALID_STATUSES
-from ayaz.services.budget_planner import allocate_budget
+from ayaz.services.budget_planner import allocate_budget, plan_actuals
 
 router = APIRouter(prefix="/budget", tags=["budget"])
 
@@ -395,3 +395,22 @@ def recompute_plan(
     db.commit()
     db.refresh(plan)
     return BudgetPlanResponse.from_orm_obj(plan)
+
+
+@router.get(
+    "/plans/{plan_id}/actuals",
+    summary="Planı gerçekleşen harcama/performansla karşılaştır (plan vs gerçekleşen)",
+)
+def get_plan_actuals(
+    plan_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> dict[str, Any]:
+    """Compare a saved plan against actual spend/performance in its month.
+
+    Returns per-channel planned-vs-actual budget, pace (% of planned spent),
+    share variance, actual ROAS/revenue/conversions, plus plan-level pacing
+    (spend pace vs time-elapsed pace) and a Turkish pacing note.
+    """
+    plan = _require_plan(plan_id, membership.tenant_id, db)
+    return plan_actuals(db, membership.tenant_id, plan)

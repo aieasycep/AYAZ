@@ -166,6 +166,17 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 66 — Bütçe: Plan vs Gerçekleşen (Planlama faz-2)
+- Bütçe planını ay içi **gerçekleşen** harcama/performansla karşılaştırır — planlama döngüsünü kapatır.
+- Backend: `GET /budget/plans/{id}/actuals` — planın `period_month`'u için gerçekleşen kanal metriklerini
+  (`_fetch_channel_metrics` reuse) çeker; kanal-bazlı planlanan vs gerçekleşen bütçe, **tempo** (gerçekleşen/
+  planlanan), pay sapması, gerçekleşen ROAS/gelir/dönüşüm + plan-seviyesi **harcama temposu vs süre temposu**
+  (erken/geç/uygun) Türkçe değerlendirmeyle. `_month_bounds` ile devam eden ay kısmi raporlanır. 9 yeni backend testi.
+- Frontend: `/planning`'de her kayıtlı planda **"Gerçekleşen"** butonu → Plan vs Gerçekleşen paneli
+  (tempo barı + süre işareti + değerlendirme + KPI kartları + kanal tablosu [tempo barı + sapma rozeti]). 3 yeni frontend testi.
+- Demo: ek bir **mevcut ay** planı (₺450.000, gerçek harcamaya yakın → "%94,4 / %93,3 plana uygun").
+- Kalite: backend **2026 yeşil**, frontend **270 yeşil**, build yeşil.
+
 ## Dalga 65 — Marcom Kreatif Lensi (Marcom/Kreatif personası)
 - Yeni sayfa: **Kreatif Lensi** — marka/marcom ekibi için kreatif performansını **etkileşim/trafik diliyle**
   (ROAS jargonu olmadan) gösteren görünüm. Salt-okunur; mevcut reklam verisinden (yeni tablo yok).

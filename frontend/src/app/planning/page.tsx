@@ -8,6 +8,7 @@ import {
   createBudgetPlan,
   getBudgetPlans,
   deleteBudgetPlan,
+  getPlanActuals,
   OBJECTIVE_LABELS,
   STATUS_LABELS,
   type AllocationResult,
@@ -15,6 +16,8 @@ import {
   type BudgetObjective,
   type BudgetStatus,
   type PlatformAllocation,
+  type PlanActuals,
+  type ActualChannel,
 } from '@/lib/budget-api';
 import AppNav from '@/components/AppNav';
 import styles from './planning.module.css';
@@ -254,6 +257,161 @@ function AllocationView({ result }: { result: AllocationResult }) {
   );
 }
 
+// --- Plan vs Actuals panel ---
+
+function PlanActualsPanel({
+  actuals,
+}: {
+  actuals: PlanActuals;
+}) {
+  const { totals, channels, notes, days_elapsed } = actuals;
+
+  const TRYfmt = new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: actuals.currency || 'TRY',
+    maximumFractionDigits: 0,
+  });
+
+  function fmtCurr(val: number) {
+    return TRYfmt.format(val);
+  }
+
+  const pacePct = Math.min(totals.pace_pct, 100);
+  const timePct = Math.min(totals.time_pace_pct, 100);
+
+  const verdict = notes[0] ?? null;
+
+  return (
+    <div className={styles.actualsPanel}>
+      {/* Pacing summary */}
+      <div className={styles.pacingSection}>
+        <div className={styles.pacingRow}>
+          <span className={styles.pacingLabel}>Harcama</span>
+          <span className={styles.pacingValue}>
+            {fmtCurr(totals.actual_spend)}
+            <span className={styles.pacingOf}> / {fmtCurr(totals.planned_budget)}</span>
+            <span className={styles.pacingPct}> (%{fmtNum(totals.pace_pct, 1)})</span>
+          </span>
+        </div>
+        <div className={styles.pacingBarTrack}>
+          <div
+            className={styles.pacingBarFill}
+            style={{ width: `${pacePct}%` }}
+            aria-label={`Harcama temposu %${fmtNum(totals.pace_pct, 1)}`}
+          />
+          {/* time marker */}
+          <div
+            className={styles.pacingTimeMarker}
+            style={{ left: `${timePct}%` }}
+            title={`Süre temposu: %${fmtNum(totals.time_pace_pct, 1)}`}
+          />
+        </div>
+        <div className={styles.pacingSubRow}>
+          <span className={styles.muted}>
+            Süre: %{fmtNum(totals.time_pace_pct, 1)} ({actuals.days_elapsed}/{actuals.days_in_month} gün)
+          </span>
+        </div>
+        {verdict && (
+          <p className={styles.actualsVerdict}>{verdict}</p>
+        )}
+      </div>
+
+      {/* Plan-level KPI cards */}
+      <div className={styles.actualsCards}>
+        <div className={styles.projCard}>
+          <div className={styles.projValue}>{fmtCurr(totals.planned_budget)}</div>
+          <div className={styles.projLabel}>Planlanan Bütçe</div>
+        </div>
+        <div className={styles.projCard}>
+          <div className={styles.projValue}>{fmtCurr(totals.actual_spend)}</div>
+          <div className={styles.projLabel}>Gerçekleşen Harcama</div>
+        </div>
+        <div className={styles.projCard}>
+          <div className={styles.projValue}>{fmtCurr(totals.actual_revenue)}</div>
+          <div className={styles.projLabel}>Gerçekleşen Gelir</div>
+        </div>
+        <div className={styles.projCard}>
+          <div className={styles.projValue}>{fmtNum(totals.actual_roas, 2)}x</div>
+          <div className={styles.projLabel}>Gerçekleşen ROAS</div>
+        </div>
+      </div>
+
+      {/* Per-channel table */}
+      {channels.length > 0 && (
+        <div style={{ overflowX: 'auto' }}>
+          <table className={styles.actualsTable}>
+            <thead>
+              <tr>
+                <th>Kanal</th>
+                <th style={{ textAlign: 'right' }}>Planlanan</th>
+                <th style={{ textAlign: 'right' }}>Gerçekleşen</th>
+                <th>Tempo</th>
+                <th style={{ textAlign: 'right' }}>ROAS</th>
+                <th style={{ textAlign: 'right' }}>Sapma</th>
+              </tr>
+            </thead>
+            <tbody>
+              {channels.map((ch: ActualChannel) => (
+                <ActualChannelRow key={ch.channel} ch={ch} fmtCurr={fmtCurr} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActualChannelRow({
+  ch,
+  fmtCurr,
+}: {
+  ch: ActualChannel;
+  fmtCurr: (v: number) => string;
+}) {
+  const barPct = Math.min(ch.pace_pct, 100);
+  const isAhead = ch.variance_pct > 0.5;
+  const isBehind = ch.variance_pct < -0.5;
+
+  return (
+    <tr>
+      <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{ch.label}</td>
+      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        {fmtCurr(ch.planned_budget)}
+      </td>
+      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        {fmtCurr(ch.actual_spend)}
+      </td>
+      <td style={{ minWidth: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div className={styles.channelBarTrack}>
+            <div
+              className={styles.channelBarFill}
+              style={{ width: `${barPct}%` }}
+            />
+          </div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+            %{fmtNum(ch.pace_pct, 1)}
+          </span>
+        </div>
+      </td>
+      <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        {fmtNum(ch.actual_roas, 2)}x
+      </td>
+      <td style={{ textAlign: 'right' }}>
+        <span
+          className={`${styles.deltaBadge} ${
+            isAhead ? styles.deltaUp : isBehind ? styles.deltaDown : styles.deltaFlat
+          }`}
+        >
+          {isAhead ? '▲' : isBehind ? '▼' : '—'}{' '}
+          {fmtNum(Math.abs(ch.variance_pct), 1)}%
+        </span>
+      </td>
+    </tr>
+  );
+}
+
 // --- Saved plans list ---
 
 function SavedPlansList({
@@ -263,6 +421,8 @@ function SavedPlansList({
   deletingId,
   onDelete,
   onLoad,
+  onActuals,
+  actualsLoadingId,
 }: {
   plans: BudgetPlan[];
   loading: boolean;
@@ -270,6 +430,8 @@ function SavedPlansList({
   deletingId: string | null;
   onDelete: (id: string) => void;
   onLoad: (plan: BudgetPlan) => void;
+  onActuals: (plan: BudgetPlan) => void;
+  actualsLoadingId: string | null;
 }) {
   if (loading) {
     return (
@@ -326,8 +488,17 @@ function SavedPlansList({
               </td>
               <td
                 onClick={(e) => e.stopPropagation()}
-                style={{ whiteSpace: 'nowrap' }}
+                style={{ whiteSpace: 'nowrap', display: 'flex', gap: '0.5rem', alignItems: 'center' }}
               >
+                <button
+                  className={styles.secondaryBtn}
+                  disabled={actualsLoadingId === plan.id}
+                  onClick={() => onActuals(plan)}
+                  aria-label={`${plan.name} için gerçekleşen verileri göster`}
+                  style={{ fontSize: '0.78rem', padding: '0.3rem 0.65rem' }}
+                >
+                  {actualsLoadingId === plan.id ? '...' : 'Gerçekleşen'}
+                </button>
                 <button
                   className={styles.dangerBtn}
                   disabled={deletingId === plan.id}
@@ -378,6 +549,12 @@ export default function PlanningPage() {
   const [plansLoading, setPlansLoading] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // ---- Plan vs Actuals ----
+  const [actualsLoadingId, setActualsLoadingId] = useState<string | null>(null);
+  const [actualsData, setActualsData] = useState<PlanActuals | null>(null);
+  const [actualsError, setActualsError] = useState<string | null>(null);
+  const [actualsPlanName, setActualsPlanName] = useState<string | null>(null);
 
   // ---- Debounce ref ----
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -489,6 +666,29 @@ export default function PlanningPage() {
       setAllocation(plan.allocations);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ---- Load plan actuals ----
+  async function handleActuals(plan: BudgetPlan) {
+    // Toggle off if already showing this plan's actuals
+    if (actualsData?.plan_id === plan.id && !actualsLoadingId) {
+      setActualsData(null);
+      setActualsError(null);
+      setActualsPlanName(null);
+      return;
+    }
+    setActualsLoadingId(plan.id);
+    setActualsError(null);
+    setActualsData(null);
+    setActualsPlanName(plan.name);
+    try {
+      const data = await getPlanActuals(plan.id);
+      setActualsData(data);
+    } catch (err: unknown) {
+      setActualsError(err instanceof Error ? err.message : 'Gerçekleşen veriler yüklenemedi');
+    } finally {
+      setActualsLoadingId(null);
+    }
   }
 
   const budgetNum = parseFloat(totalBudget);
@@ -669,8 +869,56 @@ export default function PlanningPage() {
             deletingId={deletingId}
             onDelete={handleDelete}
             onLoad={handleLoadPlan}
+            onActuals={handleActuals}
+            actualsLoadingId={actualsLoadingId}
           />
         </div>
+
+        {/* Plan vs Actuals panel */}
+        {(actualsLoadingId !== null || actualsData !== null || actualsError !== null) && (
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>
+                Plan vs Gerçekleşen
+                {actualsPlanName && (
+                  <span className={styles.actualsSubtitle}> — {actualsPlanName}</span>
+                )}
+              </span>
+              <button
+                className={styles.secondaryBtn}
+                onClick={() => {
+                  setActualsData(null);
+                  setActualsError(null);
+                  setActualsPlanName(null);
+                  setActualsLoadingId(null);
+                }}
+                aria-label="Gerçekleşen panelini kapat"
+                style={{ fontSize: '0.78rem', padding: '0.3rem 0.65rem' }}
+              >
+                Kapat
+              </button>
+            </div>
+
+            {actualsLoadingId !== null ? (
+              <div className={styles.previewLoading}>
+                <div className={styles.spinner} aria-hidden="true" />
+                Gerçekleşen veriler yükleniyor...
+              </div>
+            ) : actualsError ? (
+              <div className={styles.stateBoxSm}>
+                <span className={styles.errorText}>{actualsError}</span>
+              </div>
+            ) : actualsData && actualsData.days_elapsed === 0 ? (
+              <div className={styles.stateBoxSm}>
+                <span className={styles.muted}>
+                  {actualsData.notes[0] ?? 'Plan dönemi henüz başlamadı.'}
+                </span>
+              </div>
+            ) : actualsData ? (
+              <PlanActualsPanel actuals={actualsData} />
+            ) : null}
+          </div>
+        )}
       </main>
     </div>
   );

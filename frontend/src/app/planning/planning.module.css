@@ -673,3 +673,176 @@
     padding: 0.75rem 1rem;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Plan vs Actuals panel                                               */
+/* ------------------------------------------------------------------ */
+
+.actualsSubtitle {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.actualsPanel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Pacing section */
+.pacingSection {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pacingRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pacingLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.pacingValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pacingOf {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.pacingPct {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.pacingBarTrack {
+  position: relative;
+  height: 8px;
+  background: var(--color-surface-2, var(--color-border));
+  border-radius: 999px;
+  overflow: visible;
+  margin-top: 0.25rem;
+}
+
+.pacingBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-primary);
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+
+.pacingTimeMarker {
+  position: absolute;
+  top: -3px;
+  width: 3px;
+  height: 14px;
+  background: var(--color-text-muted);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.pacingSubRow {
+  font-size: 0.8125rem;
+}
+
+.actualsVerdict {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0.25rem 0 0;
+  line-height: 1.5;
+}
+
+/* Plan-level KPI cards row */
+.actualsCards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.875rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+@media (max-width: 900px) {
+  .actualsCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .actualsCards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Per-channel table */
+.actualsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.actualsTable th {
+  text-align: left;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  white-space: nowrap;
+}
+
+.actualsTable td {
+  padding: 0.55rem 1.25rem;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.actualsTable tr:last-child td {
+  border-bottom: none;
+}
+
+.actualsTable tr:hover td {
+  background: var(--color-surface-2);
+}
+
+/* Inline tempo bar in channel table */
+.channelBarTrack {
+  flex: 1;
+  height: 6px;
+  background: var(--color-surface-2, var(--color-border));
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 48px;
+}
+
+.channelBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+  min-width: 2px;
+}

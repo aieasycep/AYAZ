@@ -189,3 +189,46 @@ export function recomputeBudgetPlan(id: string): Promise<BudgetPlan> {
     method: 'POST',
   });
 }
+
+// --- Plan vs Actuals ---
+
+export interface ActualTotals {
+  planned_budget: number;
+  actual_spend: number;
+  pace_pct: number;
+  time_pace_pct: number;
+  planned_revenue: number;
+  actual_revenue: number;
+  actual_conversions: number;
+  actual_roas: number;
+}
+
+export interface ActualChannel {
+  channel: string;
+  label: string;
+  planned_budget: number;
+  planned_share: number;
+  actual_spend: number;
+  actual_share: number;
+  pace_pct: number;
+  actual_roas: number;
+  actual_revenue: number;
+  actual_conversions: number;
+  variance_pct: number;
+}
+
+export interface PlanActuals {
+  plan_id: string;
+  period_month: string;
+  currency: string;
+  as_of: string;
+  days_elapsed: number;
+  days_in_month: number;
+  totals: ActualTotals;
+  channels: ActualChannel[];
+  notes: string[];
+}
+
+export function getPlanActuals(planId: string): Promise<PlanActuals> {
+  return authFetch<PlanActuals>(`/api/v1/budget/plans/${planId}/actuals`);
+}

@@ -1503,9 +1503,36 @@ def _seed_budget(db, tenant: Tenant) -> dict:
     )
     db.add(plan)
     db.flush()
-    db.commit()
     counts["budget_plans"] = 1
-    print(f"  Created BudgetPlan: {plan.name} (₺{total_budget:,.0f})")
+
+    # Also seed the CURRENT month plan so Plan-vs-Gerçekleşen has real actuals.
+    # Budget sized near the month's real spend so pacing reads realistically.
+    current_month = f"{end.year}-{end.month:02d}"
+    current_budget = 450000.0
+    try:
+        cur_alloc = allocate_budget(
+            db, tenant.id, total_budget=current_budget, objective="balanced",
+            lookback_days=90, currency="TRY", as_of=end,
+        )
+    except Exception:  # pragma: no cover
+        cur_alloc = None
+    cur_plan = BudgetPlan(
+        tenant_id=tenant.id,
+        name=f"{current_month} Bütçe Planı",
+        period_month=current_month,
+        total_budget=current_budget,
+        currency="TRY",
+        objective="balanced",
+        lookback_days=90,
+        allocations=cur_alloc,
+        status="active",
+    )
+    db.add(cur_plan)
+    db.flush()
+    counts["budget_plans"] = 2
+
+    db.commit()
+    print(f"  Created 2 BudgetPlans: {plan.name}, {cur_plan.name}")
     return counts
 
 

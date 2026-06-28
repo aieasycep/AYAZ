@@ -349,6 +349,126 @@ describe('patchBudgetPlan', () => {
 });
 
 // ---------------------------------------------------------------------------
+// getPlanActuals
+// ---------------------------------------------------------------------------
+
+describe('getPlanActuals', () => {
+  beforeEach(stubLocalStorage);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('GETs /api/v1/budget/plans/{id}/actuals and returns a PlanActuals object', async () => {
+    const mockActuals = {
+      plan_id: 'plan-abc',
+      period_month: '2026-06',
+      currency: 'TRY',
+      as_of: '2026-06-28',
+      days_elapsed: 28,
+      days_in_month: 30,
+      totals: {
+        planned_budget: 50000,
+        actual_spend: 43000,
+        pace_pct: 86,
+        time_pace_pct: 93.3,
+        planned_revenue: 150000,
+        actual_revenue: 131000,
+        actual_conversions: 520,
+        actual_roas: 3.05,
+      },
+      channels: [
+        {
+          channel: 'google_ads',
+          label: 'Google Ads',
+          planned_budget: 30000,
+          planned_share: 60,
+          actual_spend: 26500,
+          actual_share: 61.6,
+          pace_pct: 88.3,
+          actual_roas: 3.2,
+          actual_revenue: 84800,
+          actual_conversions: 320,
+          variance_pct: -5.1,
+        },
+      ],
+      notes: ['Harcama zamanlamanın gerisinde.'],
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockActuals),
+      text: () => Promise.resolve(JSON.stringify(mockActuals)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getPlanActuals } = await import('@/lib/budget-api');
+    const result = await getPlanActuals('plan-abc');
+
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/budget/plans/plan-abc/actuals');
+    expect((opts.method ?? 'GET').toUpperCase()).toBe('GET');
+    expect(result.plan_id).toBe('plan-abc');
+    expect(result.totals.pace_pct).toBe(86);
+    expect(result.channels).toHaveLength(1);
+    expect(result.channels[0].label).toBe('Google Ads');
+  });
+
+  it('sends Bearer token in Authorization header for actuals request', async () => {
+    const mockActuals = {
+      plan_id: 'plan-xyz',
+      period_month: '2026-07',
+      currency: 'TRY',
+      as_of: '2026-06-28',
+      days_elapsed: 0,
+      days_in_month: 31,
+      totals: {
+        planned_budget: 70000,
+        actual_spend: 0,
+        pace_pct: 0,
+        time_pace_pct: 0,
+        planned_revenue: 210000,
+        actual_revenue: 0,
+        actual_conversions: 0,
+        actual_roas: 0,
+      },
+      channels: [],
+      notes: ['Plan dönemi henüz başlamadı.'],
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockActuals),
+      text: () => Promise.resolve(JSON.stringify(mockActuals)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getPlanActuals } = await import('@/lib/budget-api');
+    await getPlanActuals('plan-xyz');
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = opts.headers as Record<string, string>;
+    expect(headers['Authorization']).toBe('Bearer test-token');
+    expect(headers['Content-Type']).toBe('application/json');
+  });
+
+  it('throws when the actuals endpoint returns a non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: () => Promise.resolve('Plan bulunamadı'),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { getPlanActuals } = await import('@/lib/budget-api');
+    await expect(getPlanActuals('nonexistent-plan')).rejects.toThrow('Plan bulunamadı');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AllocationResult + PlatformAllocation + CampaignAllocation types
 // ---------------------------------------------------------------------------
 

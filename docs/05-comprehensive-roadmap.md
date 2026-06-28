@@ -90,6 +90,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 63 (tamamlandı):** **Yönetici (CMO) Görünümü** — `GET /executive/overview` ile KPI + MoM delta + kanal ROI + hedefler + kritik içgörüler + doğal-dil manşet (yeni tablo yok; mevcut servisler). `/executive` tek-ekran üst-düzey özet. CEO/CMO personasının çekirdek ihtiyacı. **Persona yol haritası 3/5: Bütçe + Inbox + CMO görünümü tamam.**
 - **Dalga 64 (tamamlandı):** **Copilot çapraz-modül farkındalığı** — `get_budget_status` + `get_inbox_summary` + `get_executive_summary` araçları; her persona bütçe/inbox/yönetici özetini tek Copilot'tan doğal dille sorgular. Birleşik kokpit + tek asistan vaadi tüm yeni modüllerde tam.
 - **Dalga 65 (tamamlandı):** **Marcom Kreatif Lensi** — `GET /marcom/creative-insights` (mevcut `ad_performance` reuse); kreatif performansı etkileşim/trafik diliyle + sade içgörü + "Organik içeriğe çevir" köprüsü. `/creative-lens` sayfası. **Persona seti tamam: Performans + Planlama + CS + CMO + Marcom, hepsi tek panel + tek Copilot.**
+- **Dalga 66 (tamamlandı):** **Bütçe Plan vs Gerçekleşen** (planlama faz-2) — `GET /budget/plans/{id}/actuals`; kanal-bazlı planlanan vs gerçekleşen + tempo + sapma + harcama/süre temposu değerlendirmesi. `/planning`'de "Gerçekleşen" paneli. Planlama döngüsü kapandı.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

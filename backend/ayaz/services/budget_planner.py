@@ -680,3 +680,143 @@ def allocate_budget(
         },
         "notes": notes,
     }
+
+
+# ── Plan vs Actual (faz 2) ─────────────────────────────────────────────────────
+
+
+def _month_bounds(period_month: str, as_of: date | None = None):
+    """Return (month_start, effective_end, days_in_month, days_elapsed) for a
+    'YYYY-MM' period. effective_end is clamped to as_of (today) so an in-progress
+    month reports partial actuals; a fully-past month uses the whole month.
+    """
+    import calendar as _cal
+    from datetime import datetime, timezone
+
+    year, month = int(period_month[:4]), int(period_month[5:7])
+    days_in_month = _cal.monthrange(year, month)[1]
+    month_start = date(year, month, 1)
+    month_end = date(year, month, days_in_month)
+    today = as_of or datetime.now(timezone.utc).date()
+    effective_end = min(month_end, today) if today >= month_start else month_start
+    if today < month_start:
+        days_elapsed = 0
+    elif today >= month_end:
+        days_elapsed = days_in_month
+    else:
+        days_elapsed = (today - month_start).days + 1
+    return month_start, effective_end, days_in_month, days_elapsed
+
+
+def plan_actuals(
+    db: "Session",
+    tenant_id: uuid.UUID,
+    plan: Any,
+    *,
+    as_of: date | None = None,
+) -> dict:
+    """Compare a saved budget plan against actual spend/performance in its month.
+
+    Pulls actual per-channel metrics for the plan's ``period_month`` (clamped to
+    today for in-progress months) and compares them to the plan's stored
+    allocation snapshot: per-channel pace (actual/planned), share variance, and
+    actual ROAS/revenue/conversions; plus plan-level pace vs time-elapsed pace.
+    """
+    month_start, eff_end, days_in_month, days_elapsed = _month_bounds(
+        plan.period_month, as_of=as_of
+    )
+    actuals = _fetch_channel_metrics(db, tenant_id, month_start, eff_end)
+
+    alloc = plan.allocations if isinstance(plan.allocations, dict) else {}
+    planned_platforms = alloc.get("platforms", []) if isinstance(alloc, dict) else []
+    planned_by_channel = {p.get("channel"): p for p in planned_platforms}
+
+    total_actual_spend = sum(_d(m["spend"]) for m in actuals.values())
+
+    channels: list[dict] = []
+    all_keys = set(planned_by_channel) | set(actuals.keys())
+    for key in all_keys:
+        planned = planned_by_channel.get(key, {})
+        act = actuals.get(key, {})
+        planned_budget = float(planned.get("recommended_budget", 0) or 0)
+        planned_share = float(planned.get("recommended_share", 0) or 0)
+        actual_spend = _d(act.get("spend", 0))
+        actual_rev = _d(act.get("conversion_value", 0))
+        actual_conv = _d(act.get("conversions", 0))
+        actual_roas = round(actual_rev / actual_spend, 2) if actual_spend > 0 else 0.0
+        actual_share = (
+            round(actual_spend / total_actual_spend * 100, 1)
+            if total_actual_spend > 0 else 0.0
+        )
+        pace_pct = (
+            round(actual_spend / planned_budget * 100, 1)
+            if planned_budget > 0 else 0.0
+        )
+        label = planned.get("label") or act.get("label") or key
+        channels.append({
+            "channel": key,
+            "label": label,
+            "planned_budget": round(planned_budget, 2),
+            "planned_share": round(planned_share, 1),
+            "actual_spend": round(actual_spend, 2),
+            "actual_share": actual_share,
+            "pace_pct": pace_pct,
+            "actual_roas": actual_roas,
+            "actual_revenue": round(actual_rev, 2),
+            "actual_conversions": round(actual_conv, 2),
+            "variance_pct": round(actual_share - planned_share, 1),
+        })
+    channels.sort(key=lambda c: c["planned_budget"], reverse=True)
+
+    planned_total = float(plan.total_budget or 0)
+    overall_pace = (
+        round(total_actual_spend / planned_total * 100, 1) if planned_total > 0 else 0.0
+    )
+    time_pace = (
+        round(days_elapsed / days_in_month * 100, 1) if days_in_month > 0 else 0.0
+    )
+    projection = alloc.get("projection", {}) if isinstance(alloc, dict) else {}
+    total_actual_rev = sum(c["actual_revenue"] for c in channels)
+    total_actual_conv = sum(c["actual_conversions"] for c in channels)
+
+    # Pacing verdict
+    if days_elapsed == 0:
+        pace_note = "Plan dönemi henüz başlamadı; gerçekleşen veri yok."
+    elif overall_pace > time_pace + 10:
+        pace_note = (
+            f"Harcama temposu zamanın önünde (%{overall_pace} bütçe / %{time_pace} süre) "
+            "— bütçe erken tükenebilir."
+        )
+    elif overall_pace < time_pace - 10:
+        pace_note = (
+            f"Harcama temposu zamanın gerisinde (%{overall_pace} bütçe / %{time_pace} süre) "
+            "— bütçe tam kullanılmayabilir."
+        )
+    else:
+        pace_note = (
+            f"Harcama temposu plana uygun (%{overall_pace} bütçe / %{time_pace} süre)."
+        )
+
+    return {
+        "plan_id": str(plan.id),
+        "period_month": plan.period_month,
+        "currency": plan.currency,
+        "as_of": eff_end.isoformat(),
+        "days_elapsed": days_elapsed,
+        "days_in_month": days_in_month,
+        "totals": {
+            "planned_budget": round(planned_total, 2),
+            "actual_spend": round(total_actual_spend, 2),
+            "pace_pct": overall_pace,
+            "time_pace_pct": time_pace,
+            "planned_revenue": float(projection.get("expected_revenue", 0) or 0),
+            "actual_revenue": round(total_actual_rev, 2),
+            "actual_conversions": round(total_actual_conv, 2),
+            "actual_roas": (
+                round(total_actual_rev / total_actual_spend, 2)
+                if total_actual_spend > 0 else 0.0
+            ),
+        },
+        "channels": channels,
+        "notes": [pace_note],
+    }
