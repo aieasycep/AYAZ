@@ -569,3 +569,91 @@ class TestGenerateCaptionUnit:
         result_fun = generate_caption("İçerik üretimi", tone="eğlenceli")
         # Tones should produce different captions
         assert result_pro["caption"] != result_fun["caption"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Creative → content bridge (Kreatif → İçerik köprüsü)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestCreativeBridgeHelpers:
+    """Pure unit tests for the service-layer bridge helpers."""
+
+    def test_map_ad_channel_to_social_known(self) -> None:
+        from ayaz.services.content import map_ad_channel_to_social
+
+        assert map_ad_channel_to_social("meta") == ["instagram", "facebook"]
+        assert map_ad_channel_to_social("tiktok") == ["tiktok"]
+        assert map_ad_channel_to_social("google") == ["youtube"]
+        assert map_ad_channel_to_social("LinkedIn") == ["linkedin"]
+
+    def test_map_ad_channel_to_social_unknown_and_empty(self) -> None:
+        from ayaz.services.content import map_ad_channel_to_social
+
+        assert map_ad_channel_to_social(None) == ["instagram", "facebook"]
+        assert map_ad_channel_to_social("") == ["instagram", "facebook"]
+        assert map_ad_channel_to_social("pinterest") == ["instagram", "facebook"]
+
+    def test_clean_ad_name_strips_jargon(self) -> None:
+        from ayaz.services.content import clean_ad_name
+
+        assert "karusel" not in clean_ad_name("Yaz İndirimi - Karusel v2").lower()
+        assert "Yaz" in clean_ad_name("Yaz İndirimi - Karusel v2")
+
+    def test_clean_ad_name_falls_back_when_all_jargon(self) -> None:
+        from ayaz.services.content import clean_ad_name
+
+        # Stripping everything would be empty → fall back to the original
+        assert clean_ad_name("video kopya v1").strip() != ""
+
+    def test_build_creative_brief_includes_theme(self) -> None:
+        from ayaz.services.content import build_creative_brief
+
+        brief = build_creative_brief("Yaz İndirimi - Karusel", "Yaz Kampanyası", "meta")
+        assert "Yaz" in brief
+
+
+class TestCreativeBridgeEndpoint:
+    def test_from_creative_creates_draft(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/v1/content/from-creative",
+            json={
+                "ad_name": "Yaz İndirimi - Karusel v2",
+                "campaign_name": "Yaz Kampanyası",
+                "channel": "meta",
+            },
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["status"] == "draft"
+        assert data["channels"] == ["instagram", "facebook"]
+        assert data["body"]  # non-empty caption
+        assert "karusel" not in data["title"].lower()
+
+    def test_from_creative_maps_tiktok(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/v1/content/from-creative",
+            json={"ad_name": "Dans Challenge", "channel": "tiktok"},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["channels"] == ["tiktok"]
+
+    def test_from_creative_unknown_channel_defaults(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/v1/content/from-creative",
+            json={"ad_name": "Genel Kampanya"},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["channels"] == ["instagram", "facebook"]
+
+    def test_from_creative_appends_hashtags_to_body(self, client: TestClient) -> None:
+        resp = client.post(
+            "/api/v1/content/from-creative",
+            json={"ad_name": "Sürdürülebilir Moda Koleksiyonu", "channel": "instagram"},
+        )
+        assert resp.status_code == 201
+        assert "#" in resp.json()["body"]
+
+    def test_from_creative_requires_ad_name(self, client: TestClient) -> None:
+        resp = client.post("/api/v1/content/from-creative", json={})
+        assert resp.status_code == 422

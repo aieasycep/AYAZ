@@ -707,3 +707,59 @@ describe('schedulePost', () => {
     expect(result.scheduled_at).toBe(scheduledAt);
   });
 });
+
+// ---------------------------------------------------------------------------
+// createFromCreative — Kreatif → İçerik köprüsü
+// ---------------------------------------------------------------------------
+
+describe('createFromCreative', () => {
+  beforeEach(stubLocalStorage);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('POSTs ad context to /api/v1/content/from-creative and returns a draft', async () => {
+    const mockPost: ContentPost = {
+      id: 'cr-001',
+      tenant_id: 't-1',
+      title: 'Yaz İndirimi',
+      body: 'Samimi bir dille: Yaz İndirimi\n\n#yaz #indirim',
+      channels: ['instagram', 'facebook'],
+      scheduled_at: null,
+      status: 'draft',
+      approval_note: null,
+      media_url: null,
+      ai_assisted: false,
+      created_at: '2026-06-28T10:00:00Z',
+      updated_at: '2026-06-28T10:00:00Z',
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve(mockPost),
+      text: () => Promise.resolve(JSON.stringify(mockPost)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { createFromCreative } = await import('@/lib/content-api');
+    const result = await createFromCreative({
+      ad_name: 'Yaz İndirimi - Karusel',
+      campaign_name: 'Yaz Kampanyası',
+      channel: 'meta',
+      tone: 'samimi',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/content/from-creative');
+    expect(opts.method).toBe('POST');
+    const body = JSON.parse(opts.body as string);
+    expect(body.ad_name).toBe('Yaz İndirimi - Karusel');
+    expect(body.channel).toBe('meta');
+    expect(result.status).toBe('draft');
+    expect(result.channels).toEqual(['instagram', 'facebook']);
+  });
+});

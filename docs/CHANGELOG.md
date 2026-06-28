@@ -166,6 +166,18 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 57 — Kreatif → İçerik köprüsü (M6 → M11, AYAZ'a özgü farklılaştırıcı)
+- Araştırmanın işaret ettiği benzersiz köprü: **en iyi performans gösteren reklam kreatifini tek tıkla
+  organik içerik taslağına çevir**. Ücretli performans içgörüsü → organik içerik döngüsünü kapatır
+  (hiçbir rakipte yok). Tamamen kimliksiz.
+- Backend: `POST /content/from-creative` — reklam temasını (ad_name + kampanya) organik altyazıya uyarlar
+  (AI/şablon caption), reklam platformunu organik kanallara eşler (`map_ad_channel_to_social`: meta→IG+FB,
+  google→YouTube, tiktok→TikTok…), hashtag ekler, **taslak** olarak oluşturur. ROAS/harcama yalnızca
+  kreatif seçiminde kullanılır, asla altyazıya yazılmaz. `clean_ad_name` reklam jargonunu temizler. 10 yeni test.
+- Frontend: İçerik Planlayıcı'da **"✨ Kreatiften Oluştur"** butonu + seçici modal — `/creatives/performance`
+  top kreatiflerini ROAS ile listeler, tek tıkla taslak üretir. 1 yeni frontend testi.
+- Kalite: backend content suite **46 yeşil**, frontend **203 yeşil**, build yeşil.
+
 ## Dalga 56 — M11 İçerik Planlayıcı (RADAAR-esinli organik sosyal içerik)
 - Yeni modül: **İçerik Planlayıcı** — organik sosyal içerik takvimi/composer + onay akışı + AI açıklama.
   RADAAR araştırmasındaki birincil **kimliksiz** dilim. Kategori köprüsü: AYAZ artık ücretli reklam +

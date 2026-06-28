@@ -92,6 +92,86 @@ def is_valid_status(status: str) -> bool:
     return status in VALID_STATUSES
 
 
+# ── Creative → organic content bridge ─────────────────────────────────────────
+#
+# Map an ad platform / channel label (M6 DimAd.channel) to the organic social
+# channels where that creative's theme naturally belongs.  Best-effort; unknown
+# values fall back to the broad Instagram + Facebook default.
+_AD_CHANNEL_TO_SOCIAL: dict[str, list[str]] = {
+    "meta": ["instagram", "facebook"],
+    "meta_ads": ["instagram", "facebook"],
+    "facebook": ["instagram", "facebook"],
+    "facebook_ads": ["instagram", "facebook"],
+    "instagram": ["instagram", "facebook"],
+    "google": ["youtube"],
+    "google_ads": ["youtube"],
+    "youtube": ["youtube"],
+    "tiktok": ["tiktok"],
+    "tiktok_ads": ["tiktok"],
+    "linkedin": ["linkedin"],
+    "linkedin_ads": ["linkedin"],
+    "x": ["x"],
+    "twitter": ["x"],
+}
+
+# Ad-naming jargon stripped when turning an ad name into an organic post title.
+_AD_NAME_JARGON: frozenset[str] = frozenset(
+    {
+        "karusel", "carousel", "video", "tek", "single", "image", "görsel",
+        "kopya", "copy", "reklam", "ad", "ads", "set", "v1", "v2", "v3",
+        "test", "a", "b", "abtest", "story", "stories", "reels", "reel",
+    }
+)
+
+
+def map_ad_channel_to_social(channel: str | None) -> list[str]:
+    """Map an ad platform label to organic social channel keys.
+
+    Unknown / empty values fall back to ``["instagram", "facebook"]``.
+    """
+    if not channel:
+        return ["instagram", "facebook"]
+    return _AD_CHANNEL_TO_SOCIAL.get(channel.strip().lower(), ["instagram", "facebook"])
+
+
+def clean_ad_name(ad_name: str) -> str:
+    """Turn a raw ad name into a clean content theme for caption generation.
+
+    Strips separators and common ad-naming jargon (karusel, video, kopya, v1…)
+    while preserving the meaningful campaign words.  Falls back to the original
+    name when stripping would leave nothing.
+    """
+    # Normalise separators to spaces
+    text = re.sub(r"[|/_\-–—]+", " ", ad_name)
+    text = re.sub(r"\s+", " ", text).strip()
+    kept = [
+        w for w in text.split()
+        if w.lower() not in _AD_NAME_JARGON and not w.isdigit()
+    ]
+    cleaned = " ".join(kept).strip()
+    return cleaned or ad_name.strip()
+
+
+def build_creative_brief(
+    ad_name: str,
+    campaign_name: str | None = None,
+    channel: str | None = None,
+) -> str:
+    """Build the caption brief (content theme) from a top ad creative.
+
+    The brief is the marketing THEME, not the performance metadata — ROAS and
+    spend are used by the caller to choose the creative, never written into the
+    public caption.
+    """
+    theme = clean_ad_name(ad_name)
+    if campaign_name:
+        camp = clean_ad_name(campaign_name)
+        # Only add the campaign theme when it adds new words
+        if camp and camp.lower() not in theme.lower():
+            theme = f"{theme} — {camp}"
+    return theme
+
+
 # ── Hashtag derivation helper ─────────────────────────────────────────────────
 
 

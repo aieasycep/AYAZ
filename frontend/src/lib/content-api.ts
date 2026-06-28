@@ -279,3 +279,27 @@ export function generateCaption(
     body: JSON.stringify(payload),
   });
 }
+
+// --- Kreatif → İçerik köprüsü (turn a top ad creative into a draft) ---
+
+export interface CreateFromCreativePayload {
+  ad_name: string;
+  campaign_name?: string;
+  channel?: string; // ad platform label (meta, google, tiktok, ...)
+  media_url?: string;
+  tone?: string;
+}
+
+/**
+ * Create an organic content draft from a high-performing ad creative.
+ * The ad's theme is adapted into an organic caption and the ad platform is
+ * mapped to the matching social channels. Returns a new draft ContentPost.
+ */
+export function createFromCreative(
+  payload: CreateFromCreativePayload,
+): Promise<ContentPost> {
+  return authFetch<ContentPost>('/api/v1/content/from-creative', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

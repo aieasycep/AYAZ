@@ -40,7 +40,12 @@ from sqlalchemy.orm import Session
 from ayaz.api.deps import get_current_membership, get_db
 from ayaz.models.content import VALID_CHANNELS, VALID_STATUSES, ContentPost
 from ayaz.models.oltp import Membership
-from ayaz.services.content import generate_caption
+from ayaz.services.content import (
+    build_creative_brief,
+    clean_ad_name,
+    generate_caption,
+    map_ad_channel_to_social,
+)
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -168,6 +173,16 @@ class ScheduleBody(BaseModel):
     scheduled_at: str
 
 
+class FromCreativeRequest(BaseModel):
+    """Turn a top-performing ad creative (M6) into an organic content draft."""
+
+    ad_name: str
+    campaign_name: str | None = None
+    channel: str | None = None  # ad platform label (e.g. "meta", "google")
+    media_url: str | None = None
+    tone: str = "samimi"
+
+
 class AICaptionRequest(BaseModel):
     brief: str
     channel: str | None = None
@@ -263,6 +278,63 @@ def create_post(
         scheduled_at=body.scheduled_at,
         media_url=body.media_url,
         ai_assisted=body.ai_assisted,
+        status="draft",
+    )
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+    return ContentPostResponse.from_orm_obj(post)
+
+
+# ── Create from creative (Kreatif → İçerik köprüsü) ───────────────────────────
+
+
+@router.post(
+    "/from-creative",
+    response_model=ContentPostResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="En iyi reklam kreatifinden organik içerik taslağı oluştur",
+)
+def create_from_creative(
+    body: FromCreativeRequest,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> ContentPostResponse:
+    """Turn a high-performing ad creative (M6) into an organic content draft.
+
+    The ad's THEME (name + campaign) is adapted into an organic social caption
+    via the AI/template caption generator; the ad platform is mapped to the
+    matching organic channels.  Performance metrics (ROAS/spend) are only used
+    upstream to pick the creative — they never appear in the public caption.
+
+    The new post is created in ``draft`` status (and ``ai_assisted`` reflects
+    whether the AI path produced the caption), so the user can review and edit
+    before submitting it through the approval workflow.
+
+    This is the unique AYAZ bridge: paid-performance insight → organic content,
+    closing the loop between M6 (creatives) and M11 (content planner).
+    """
+    brief = build_creative_brief(body.ad_name, body.campaign_name, body.channel)
+    channels = map_ad_channel_to_social(body.channel)
+
+    result = generate_caption(brief=brief, channel=channels[0], tone=body.tone)
+    caption = result["caption"]
+    hashtags = result.get("hashtags") or []
+
+    post_body = caption
+    if hashtags:
+        post_body = f"{caption}\n\n{' '.join(hashtags)}"
+
+    title = clean_ad_name(body.ad_name)
+
+    post = ContentPost(
+        tenant_id=membership.tenant_id,
+        title=title,
+        body=post_body,
+        channels=channels,
+        scheduled_at=None,
+        media_url=body.media_url,
+        ai_assisted=bool(result.get("ai_assisted", False)),
         status="draft",
     )
     db.add(post)

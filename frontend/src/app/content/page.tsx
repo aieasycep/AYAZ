@@ -14,6 +14,7 @@ import {
   schedulePost,
   publishPost,
   generateCaption,
+  createFromCreative,
   CHANNEL_LABELS,
   ALL_CHANNELS,
   STATUS_LABELS,
@@ -25,6 +26,10 @@ import {
   type PatchContentPostPayload,
   type PublishGatedResult,
 } from '@/lib/content-api';
+import {
+  getCreativesPerformance,
+  type AdPerformance,
+} from '@/lib/creatives-api';
 import AppNav from '@/components/AppNav';
 import styles from './content.module.css';
 
@@ -750,6 +755,135 @@ function KanbanColumn({
 }
 
 // -----------------------------------------------------------------------
+// Creative → content picker (Kreatif → İçerik köprüsü)
+// -----------------------------------------------------------------------
+
+function isoDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+interface CreativePickerProps {
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function CreativePickerModal({ onClose, onCreated }: CreativePickerProps) {
+  const [creatives, setCreatives] = useState<AdPerformance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [creatingId, setCreatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getCreativesPerformance({
+          date_from: isoDaysAgo(30),
+          date_to: isoDaysAgo(0),
+          sort: 'roas',
+        });
+        if (!cancelled) {
+          // Prefer the top picks; fall back to the first few ads
+          const list = data.top.length > 0 ? data.top : data.ads.slice(0, 6);
+          setCreatives(list);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Kreatifler yüklenemedi.',
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleCreate(ad: AdPerformance) {
+    setCreatingId(ad.ad_id);
+    setError(null);
+    try {
+      await createFromCreative({
+        ad_name: ad.ad_name,
+        campaign_name: ad.campaign_name,
+        channel: ad.channel,
+        tone: 'samimi',
+      });
+      onCreated();
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Taslak oluşturulamadı.');
+      setCreatingId(null);
+    }
+  }
+
+  return (
+    <div
+      className={styles.overlay}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className={styles.composerModal}>
+        <div className={styles.composerHeader}>
+          <span className={styles.composerTitle}>Kreatiften İçerik Oluştur</span>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Kapat">
+            &times;
+          </button>
+        </div>
+
+        <div className={styles.pickerBody}>
+        <p className={styles.pickerHint}>
+          En iyi performans gösteren reklam kreatiflerinizi tek tıkla organik
+          içerik taslağına çevirin. Başlık ve açıklama yapay zeka ile uyarlanır;
+          taslağı düzenleyip onaya gönderebilirsiniz.
+        </p>
+
+        {error && <div className={styles.formError}>{error}</div>}
+
+        {loading ? (
+          <div className={styles.stateBoxSm}>
+            <span className={styles.muted}>Kreatifler yükleniyor...</span>
+          </div>
+        ) : creatives.length === 0 ? (
+          <div className={styles.stateBoxSm}>
+            <span className={styles.muted}>
+              Uygun reklam kreatifi bulunamadı.
+            </span>
+          </div>
+        ) : (
+          <div className={styles.creativeList}>
+            {creatives.map((ad) => (
+              <div key={ad.ad_id} className={styles.creativeRow}>
+                <div className={styles.creativeInfo}>
+                  <span className={styles.creativeName}>{ad.ad_name}</span>
+                  <span className={styles.creativeMeta}>
+                    {ad.channel} · ROAS {ad.roas.toFixed(2)}x
+                  </span>
+                </div>
+                <button
+                  className={styles.secondaryBtn}
+                  disabled={creatingId !== null}
+                  onClick={() => handleCreate(ad)}
+                >
+                  {creatingId === ad.ad_id ? 'Oluşturuluyor...' : 'Taslak Oluştur'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------
 // Main page
 // -----------------------------------------------------------------------
 
@@ -768,6 +902,7 @@ export default function ContentPage() {
 
   const [showComposer, setShowComposer] = useState(false);
   const [editingPost, setEditingPost] = useState<ContentPost | null>(null);
+  const [showCreativePicker, setShowCreativePicker] = useState(false);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -827,15 +962,23 @@ export default function ContentPage() {
               ve yayına hazırlayın.
             </p>
           </div>
-          <button
-            className={styles.primaryBtn}
-            onClick={() => {
-              setEditingPost(null);
-              setShowComposer(true);
-            }}
-          >
-            + Yeni İçerik
-          </button>
+          <div className={styles.pageHeaderActions}>
+            <button
+              className={styles.secondaryBtn}
+              onClick={() => setShowCreativePicker(true)}
+            >
+              ✨ Kreatiften Oluştur
+            </button>
+            <button
+              className={styles.primaryBtn}
+              onClick={() => {
+                setEditingPost(null);
+                setShowComposer(true);
+              }}
+            >
+              + Yeni İçerik
+            </button>
+          </div>
         </div>
 
         {/* Credential gate banner */}
@@ -905,6 +1048,14 @@ export default function ContentPage() {
           post={editingPost}
           onClose={handleCloseComposer}
           onSaved={fetchPosts}
+        />
+      )}
+
+      {/* Kreatif → İçerik picker */}
+      {showCreativePicker && (
+        <CreativePickerModal
+          onClose={() => setShowCreativePicker(false)}
+          onCreated={fetchPosts}
         />
       )}
     </div>
