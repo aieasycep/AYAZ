@@ -87,6 +87,7 @@ from ayaz.models.tracking import (
     EventDestination,
     TrackingSource,
 )
+from ayaz.models.content import ContentPost
 from ayaz.models.oltp import (
     ConnectedAccount,
     Membership,
@@ -1322,6 +1323,129 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
     return counts
 
 
+# ── Content Planner seeding (M11 — İçerik Planlayıcı) ───────────────────────────
+
+# Demo content posts across the workflow statuses and channels.  scheduled_at
+# is anchored to the rich demo window so the calendar shows realistic dates.
+_CONTENT_POSTS = [
+    {
+        "title": "Yaz indirimi duyurusu",
+        "body": (
+            "☀️ Yaz geldi, fırsatlar kapıda! Seçili ürünlerde %40'a varan "
+            "indirim hafta sonuna kadar EasyCep'te. Kaçırmayın!"
+        ),
+        "channels": ["instagram", "facebook"],
+        "status": "scheduled",
+        "day_offset": -2,
+        "ai_assisted": True,
+    },
+    {
+        "title": "Yeni sezon koleksiyonu",
+        "body": (
+            "Yeni sezon ürünleri raflardaki yerini aldı. En sevdiğin parçaları "
+            "keşfetmek için profildeki bağlantıya göz at. 🛍️"
+        ),
+        "channels": ["instagram", "x", "tiktok"],
+        "status": "approved",
+        "day_offset": 1,
+        "ai_assisted": False,
+    },
+    {
+        "title": "Müşteri yorumu öne çıkarma",
+        "body": (
+            "\"Siparişim ertesi gün elimdeydi, paketleme harikaydı!\" — "
+            "Mutlu müşterilerimizden biri daha. Sen de deneyimini paylaş. ⭐"
+        ),
+        "channels": ["facebook", "linkedin"],
+        "status": "pending_approval",
+        "day_offset": 3,
+        "ai_assisted": False,
+    },
+    {
+        "title": "Kargo bedava kampanyası",
+        "body": (
+            "📦 Bu hafta 250 TL ve üzeri tüm siparişlerde kargo ücretsiz! "
+            "Sepetini doldur, fırsatı kaçırma."
+        ),
+        "channels": ["instagram", "facebook", "x"],
+        "status": "draft",
+        "day_offset": 5,
+        "ai_assisted": True,
+    },
+    {
+        "title": "Hafta sonu blog paylaşımı",
+        "body": (
+            "Bu hafta blogda: \"E-ticarette dönüşümü artıran 5 ürün fotoğrafı "
+            "ipucu\". Tüm detaylar sitemizde. 📷"
+        ),
+        "channels": ["linkedin", "x"],
+        "status": "draft",
+        "day_offset": 7,
+        "ai_assisted": False,
+    },
+    {
+        "title": "Anneler Günü teşekkürü",
+        "body": (
+            "Tüm annelerin Anneler Günü kutlu olsun! 💐 Bu özel günde "
+            "sevdiklerinize EasyCep ile ulaşın."
+        ),
+        "channels": ["instagram", "facebook"],
+        "status": "published",
+        "day_offset": -10,
+        "ai_assisted": True,
+    },
+]
+
+
+def _seed_content(db, tenant: Tenant) -> dict:
+    """Seed M11 Content Planner demo data: a handful of ContentPosts across the
+    full workflow (draft → pending_approval → approved → scheduled → published)
+    and multiple social channels.
+
+    Idempotency: skip entirely if the tenant already has any ContentPost.
+    """
+    from sqlalchemy import func as _func
+
+    counts = {"content_posts": 0}
+
+    existing = db.scalar(
+        select(_func.count()).select_from(ContentPost).where(
+            ContentPost.tenant_id == tenant.id
+        )
+    ) or 0
+    if existing > 0:
+        print(f"  ContentPosts already exist ({existing} rows) — skipping")
+        return counts
+
+    for spec in _CONTENT_POSTS:
+        day_offset = spec["day_offset"]
+        sched_date = _RICH_END_DATE + timedelta(days=day_offset)
+        scheduled_at = (
+            datetime(
+                sched_date.year, sched_date.month, sched_date.day,
+                10, 30, 0, tzinfo=timezone.utc,
+            ).isoformat()
+            if spec["status"] in ("scheduled", "published")
+            else None
+        )
+        post = ContentPost(
+            tenant_id=tenant.id,
+            title=spec["title"],
+            body=spec["body"],
+            channels=list(spec["channels"]),
+            scheduled_at=scheduled_at,
+            status=spec["status"],
+            ai_assisted=spec["ai_assisted"],
+        )
+        db.add(post)
+        counts["content_posts"] += 1
+
+    db.flush()
+    db.commit()
+    print(f"  Inserted {counts['content_posts']} ContentPosts")
+    return counts
+
+
 # ── Report seeding ─────────────────────────────────────────────────────────────
 
 _REPORT_NAME = "AYAZ Demo — Aylik Performans Raporu"
@@ -1571,6 +1695,12 @@ def run_seed() -> None:
             f"destinations={tracking_counts['destinations']}  "
             f"events_inserted={tracking_counts['events_inserted']}"
         )
+
+        # ── Step 5d: Content Planner (M11) demo data ─────────────────────────
+        print("\n[5d/7] Seeding M11 content planner data (ContentPosts)...")
+        content_counts = _seed_content(db, tenant)
+        summary["content"] = content_counts
+        print(f"  Content: posts={content_counts['content_posts']}")
 
         # ── Step 6: Feeds ─────────────────────────────────────────────────────
         print("\n[6/7] Seeding product feed (FeedSource + 2 FeedChannels + rules)...")

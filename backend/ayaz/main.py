@@ -36,6 +36,7 @@ from ayaz.api.v1 import report_builder as report_builder_router
 from ayaz.api.v1 import reports as reports_router
 from ayaz.api.v1 import tracking as tracking_router
 from ayaz.api.v1 import workspaces as workspaces_router
+from ayaz.api.v1 import content as content_router
 from ayaz.config import settings
 from ayaz.observability import (
     RequestIDMiddleware,
@@ -102,6 +103,7 @@ app.include_router(report_builder_router.router, prefix=_PREFIX)
 app.include_router(creatives_router.router, prefix=_PREFIX)
 app.include_router(briefing_router.router, prefix=_PREFIX)
 app.include_router(notifications_router.router, prefix=_PREFIX)
+app.include_router(content_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

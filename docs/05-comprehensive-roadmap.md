@@ -80,6 +80,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 53 (tamamlandı):** M7 olay-bazlı aç/kapa (`event-config`) — kapalı olay CAPI'ye iletilmez (disabled status, migration 0018); SignalSight Event Configuration toggle.
 - **Dalga 54 (tamamlandı):** M7 Consent Mode v2 — granular KVKK rıza (4 sinyal) + hedef-bazlı zorunlu sinyaller + cookie-değişkeni snippet + GA4 GCS (migration 0019); SignalSight Cookie Consent ilhamı.
 - **Dalga 55 (tamamlandı):** M7 Eşleşme Kalitesi (Event Match Quality) — ham payload'tan ağırlıklı 0-100 skor + tier + sinyal kapsama (migration 0020); `external_id` hash + `fbc`/`fbp` passthrough; KVKK için yalnızca alan-varlığı saklanır. Eşleşme Kalitesi paneli + iyileştirme önerileri. **M7 ölçümleme stüdyosu tamamlandı.**
+- **Dalga 56 (tamamlandı):** **M11 İçerik Planlayıcı** (RADAAR-esinli) — organik sosyal içerik takvimi/composer + onay akışı (taslak→onay→zamanlama) + AI açıklama/hashtag önerisi (migration 0021, 11 endpoint, 6 kanal). Canlı yayın bilinçli kimlik-kilitli (501). `/content` kanban panosu. AYAZ artık **ücretli + ölçümleme + organik** üçlüsünü tek açık-metrikli kokpitte topluyor.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

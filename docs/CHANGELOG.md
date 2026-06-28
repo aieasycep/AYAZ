@@ -166,6 +166,21 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 56 — M11 İçerik Planlayıcı (RADAAR-esinli organik sosyal içerik)
+- Yeni modül: **İçerik Planlayıcı** — organik sosyal içerik takvimi/composer + onay akışı + AI açıklama.
+  RADAAR araştırmasındaki birincil **kimliksiz** dilim. Kategori köprüsü: AYAZ artık ücretli reklam +
+  ölçümleme + **organik içerik planlamayı** tek açık-metrikli kokpitte topluyor (hiçbir rakip 3'ünü birden yapmıyor).
+- Backend: `ContentPost` modeli (title/body/channels/scheduled_at/status/approval_note/media_url/ai_assisted;
+  migration 0021). 11 endpoint (`/content/*`): CRUD + iş akışı geçişleri (submit→pending_approval,
+  approve, reject, schedule) + `POST /content/ai-caption` (AI açıklama+hashtag, anahtar yoksa deterministik
+  Türkçe şablon — her zaman çalışır). **Canlı `publish` bilinçli olarak 501 ile kilitli** (her ağ için ayrı
+  OAuth + app review gerekir). 6 kanal (instagram/facebook/x/linkedin/tiktok/youtube). 36 yeni backend testi.
+- Frontend: `/content` sayfası — 5 sütunlu **durum panosu (kanban)** (Taslak/Onay Bekliyor/Onaylandı/
+  Zamanlandı/Yayınlandı), composer modal (başlık/açıklama/kanal seçimi/yayın tarihi/görsel + "AI ile
+  Açıklama Öner"), duruma göre kart aksiyonları, "Yayınla" kimlik-gerekli rozetiyle kilitli. Navigasyona
+  **İçerik** eklendi. 28 yeni frontend testi. Demo seed: 6 örnek içerik (tüm durumlar/kanallar).
+- Toplam: backend suite **1836 yeşil**, frontend **202 yeşil**, build yeşil.
+
 ## Dalga 55 — M7 Eşleşme Kalitesi (Event Match Quality / EMQ)
 - SignalSight-esinli **eşleşme kalitesi skoru**: her olay ingest anında **ham** payload'tan
   (hash'lemeden ÖNCE) puanlanır → `compute_match_quality` ağırlıklı 0-100 skor + tier
