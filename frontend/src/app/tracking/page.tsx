@@ -63,6 +63,24 @@ const STATUS_LABELS: Record<EventStatus, string> = {
 
 const ALL_STATUSES: EventStatus[] = ['received', 'forwarded', 'no_consent', 'error'];
 
+// Raw backend status keys (as returned by the stats by_status breakdown) → TR label + color bucket.
+const RAW_STATUS_LABELS: Record<string, string> = {
+  received: 'Alındı',
+  forwarded: 'İletildi',
+  failed: 'Hata',
+  skipped_no_consent: 'Rıza Engellendi',
+  duplicate: 'Yinelenen',
+  disabled: 'Kapalı',
+};
+const RAW_STATUS_NORM: Record<string, EventStatus> = {
+  received: 'received',
+  forwarded: 'forwarded',
+  failed: 'error',
+  skipped_no_consent: 'no_consent',
+  duplicate: 'received',
+  disabled: 'received',
+};
+
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '-';
   return new Date(iso).toLocaleString('tr-TR', {
@@ -144,7 +162,7 @@ function SnippetCopyButton({ text }: { text: string }) {
 
 // --- Status badge ---
 
-function StatusBadge({ status }: { status: EventStatus }) {
+function StatusBadge({ status, label }: { status: EventStatus; label?: string }) {
   const cls: Record<EventStatus, string> = {
     received: styles.statusReceived,
     forwarded: styles.statusForwarded,
@@ -153,7 +171,7 @@ function StatusBadge({ status }: { status: EventStatus }) {
   };
   return (
     <span className={`${styles.statusBadge} ${cls[status] ?? ''}`}>
-      {STATUS_LABELS[status] ?? status}
+      {label ?? STATUS_LABELS[status] ?? status}
     </span>
   );
 }
@@ -480,15 +498,14 @@ function DeliveryHealthPanel({
 
           <div className={styles.statCardBreakdown}>
             <div className={styles.statLabel} style={{ marginBottom: '0.5rem' }}>
-              Duruma Gore
+              Duruma Göre
             </div>
             {Object.entries(stats.totals.by_status).map(([status, count]) => (
               <div key={status} className={styles.byStatusRow}>
-                <StatusBadge status={
-                  (status as EventStatus) in STATUS_LABELS
-                    ? (status as EventStatus)
-                    : 'received'
-                } />
+                <StatusBadge
+                  status={RAW_STATUS_NORM[status] ?? 'received'}
+                  label={RAW_STATUS_LABELS[status] ?? status}
+                />
                 <span className={styles.byStatusCount}>
                   {(count as number).toLocaleString('tr-TR')}
                 </span>
