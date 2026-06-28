@@ -19,7 +19,7 @@ Gelen Kutusu), CMO (Yönetici Görünümü), Marcom (İçerik + Takvim + Kreatif
    kreatif/ölçümleme/consent/bütçe tara → skorlu sorun + çözüm listesi.
    Pazarlama açısı: "ücretsiz hesap denetimi". (Dalga 68)
 3. **Rol-bazlı görünümler & izinler** — her ekip kendi ekranına düşer; ince
-   izin. (Dalga 69)
+   izin. ✅ rol görünümü (Dalga 75); ince-izin/RBAC ileride.
 4. **AI Haftalık Strateji / Proaktif Öneri Merkezi** — haftalık doğal-dil
    strateji + öneri kuyruğu (kabul/ertele/reddet). ✅ (Dalga 71)
 5. **KVKK / Consent Yönetim Merkezi** — TR-first: tüm consent ayarları + rıza
@@ -33,9 +33,9 @@ Gelen Kutusu), CMO (Yönetici Görünümü), Marcom (İçerik + Takvim + Kreatif
 
 > Not: gerçekleşen sıra — Dalga 67 Komuta Merkezi, 68 Denetim, 69 Onboarding,
 > 70 Kıyaslama, 71 Öneri Merkezi, 72 KVKK Rıza Merkezi, 73 AI Reklam Metni
-> Stüdyosu, 74 Bütçe Senaryo Simülatörü. Bildirim/Alarm Merkezi (9) zaten mevcut
-> (NotificationBell + /notifications + notifications_center). Kalan no-cred
-> adaylar: Çoklu-dil (7), Veri dışa aktarma (10), rol-bazlı görünümler (3).
+> Stüdyosu, 74 Bütçe Senaryo Simülatörü, 75 Rol Görünümü. Bildirim/Alarm Merkezi
+> (9) zaten mevcut (NotificationBell + /notifications + notifications_center).
+> Kalan no-cred adaylar: Çoklu-dil (7), Veri dışa aktarma (10), RBAC ince-izin (3).
 
 ## Kurallar
 - Sadece no-cred; canlı/kimlik gerektiren kısımlar net "kimlik bekliyor" gate'li.

@@ -166,6 +166,20 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 75 — Rol Görünümü (Role-based Views)
+- Vizyonun çekirdeği — "her ekip tek panelden kendi işini yapsın": **Rol Görünümü** her persona için
+  (Performans / Marka & İçerik / Müşteri Hizmetleri / Planlama & Bütçe / Yönetim) ayrı kokpit sunar:
+  role-özel KPI'lar + dikkat gerektirenler + öncelikli ekranlar + hızlı işlemler.
+- Backend: `GET /role-views/roles` + `GET /role-views/{role}` (yeni tablo yok) — mevcut okuma
+  fonksiyonlarını (copilot_tools + recommendations) role göre sentezler; her metric-builder ayrı
+  try/except ile dayanıklı. 104 yeni test.
+- Frontend: `/roles` — rol seçici kartlar (localStorage'da kalıcı) + role-özel metrik kutuları,
+  dikkat listesi (önem rozetli), öncelikli ekran kartları (neden açıklamalı), hızlı işlem butonları;
+  açık/koyu tema. 16 yeni test. Navigasyona **Rol Görünümü** eklendi (Komuta Merkezi'nden sonra).
+- Düzeltme: TO (CTR) yüzde olarak (×100) gösterilir; marcom öncelikli ekranı geçerli `/creative-lens`'e
+  yönlendirilir.
+- Kalite: backend **2453 yeşil**, frontend **398 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 74 — Bütçe Senaryo Simülatörü (Budget Scenario Simulator)
 - Planlama farklılaştırıcısı: **Bütçe Senaryo Simülatörü** — kanallar arası bütçeyi kaydırın,
   geçmiş verimliliğe göre tahmini Gösterim/Tıklama/Dönüşüm/Gelir/ROAS'ı **anında** görün. "Temmuz

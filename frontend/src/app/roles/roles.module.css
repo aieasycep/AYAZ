@@ -1,0 +1,416 @@
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Page header */
+
+.pageTitle {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.pageSubtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+/* Role picker */
+
+.rolePickerLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.625rem;
+}
+
+.rolePicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.roleCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  flex: 1 1 180px;
+  min-width: 160px;
+  max-width: 240px;
+  text-align: left;
+}
+
+.roleCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow);
+}
+
+.roleCardActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle, rgba(59, 91, 219, 0.07));
+  box-shadow: 0 0 0 2px var(--color-primary-alpha, rgba(59, 91, 219, 0.18));
+}
+
+.roleCardIcon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-border);
+  color: var(--color-primary);
+}
+
+.roleCardActive .roleCardIcon {
+  background: var(--color-primary-alpha, rgba(59, 91, 219, 0.15));
+}
+
+.roleCardBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.roleCardLabel {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.roleCardDesc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.2rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* View sections */
+
+.viewGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sectionTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Metric tiles */
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.875rem;
+}
+
+.metricCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metricLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metricValue {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.metricHint {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: 0.1rem;
+}
+
+/* Attention section */
+
+.attentionList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.attentionItem {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.severityDot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 0.3rem;
+}
+
+.severityHigh {
+  background: var(--color-danger, #dc2626);
+}
+
+.severityMedium {
+  background: var(--color-warning, #d97706);
+}
+
+.severityLow {
+  background: var(--color-text-muted);
+}
+
+.attentionBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.attentionTitle {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.attentionDetail {
+  font-size: 0.775rem;
+  color: var(--color-text-muted);
+  margin-top: 0.2rem;
+  line-height: 1.5;
+}
+
+.attentionLink {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-primary);
+  transition: background 0.15s;
+  align-self: center;
+}
+
+.attentionLink:hover {
+  background: var(--color-primary-alpha, rgba(59, 91, 219, 0.1));
+}
+
+/* Priority screens */
+
+.priorityGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.priorityCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.priorityCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow);
+}
+
+.priorityLabel {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.priorityWhy {
+  font-size: 0.775rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* Quick actions */
+
+.quickActionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.quickActionBtn {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  padding: 0.45rem 0.875rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--color-primary);
+  background: transparent;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.quickActionBtn:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* Empty state */
+
+.emptyState {
+  padding: 1.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+/* Error + retry */
+
+.errorBox {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--color-danger, #dc2626);
+}
+
+.retryBtn {
+  font-size: 0.825rem;
+  font-weight: 600;
+  padding: 0.4rem 0.875rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.retryBtn:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* Skeletons */
+
+.skeleton {
+  background: var(--color-border);
+  border-radius: var(--radius);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.skeletonRolePicker {
+  height: 80px;
+  width: 100%;
+}
+
+.skeletonMetrics {
+  height: 90px;
+  width: 100%;
+}
+
+.skeletonSection {
+  height: 120px;
+  width: 100%;
+}
+
+/* Section card wrapper */
+
+.sectionCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+
+/* Responsive */
+
+@media (max-width: 640px) {
+  .rolePicker {
+    flex-direction: column;
+  }
+
+  .roleCard {
+    max-width: 100%;
+    flex: none;
+  }
+
+  .metricsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .priorityGrid {
+    grid-template-columns: 1fr;
+  }
+}
