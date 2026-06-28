@@ -166,6 +166,16 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 64 — Copilot çapraz-modül farkındalığı (birleşik kokpit)
+- AI Kopilot artık **tüm yeni modülleri** biliyor: bütçe planı, sosyal gelen kutusu ve yönetici özeti.
+  3 yeni araç (`get_budget_status`, `get_inbox_summary`, `get_executive_summary`) hem stub hem Claude
+  yolunda (TOOL_SPECS). "Bütçe planım ne durumda?", "Gelen kutusunda kaç açık mesaj var?",
+  "Yönetici özeti ver / genel durum nasıl?" doğal dille yanıtlanır. Türkçe özetler + intent yönlendirme
+  (yeni intent'ler performans intent'inden ÖNCE, çakışma yok) + yetenek mesajı güncellendi. 12 yeni test.
+- Böylece her persona (planlama/CS/yönetici) kendi modülünü **tek Copilot'tan** sorgulayabiliyor —
+  birleşik kokpit + tek asistan vaadi tüm yeni modüllerde tam.
+- Kalite: backend **1998 yeşil**, frontend 256 yeşil.
+
 ## Dalga 63 — Yönetici (CMO) Görünümü (CEO/CMO personası)
 - Yeni sayfa: **Yönetici Görünümü** — CEO/CMO için "pazarlamada neler oluyor"un tek-ekran üst-düzey özeti.
   Salt-okunur; mevcut veriden derlenir (yeni tablo/migration yok).

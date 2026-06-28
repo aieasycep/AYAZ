@@ -243,6 +243,67 @@ def _summarise_content(result: dict) -> str:
     return " ".join(parts)
 
 
+def _summarise_budget(result: dict) -> str:
+    """Build a concise Turkish summary from get_budget_status result."""
+    if not result.get("has_plan"):
+        return "Henüz bir bütçe planı oluşturulmamış. 'Planlama' bölümünden oluşturabilirsiniz."
+    obj_label = {
+        "balanced": "dengeli",
+        "maximize_roas": "ROAS odaklı",
+        "maximize_conversions": "dönüşüm odaklı",
+    }.get(result.get("objective", ""), result.get("objective", ""))
+    parts = [
+        f"En güncel plan: '{result.get('name')}' ({result.get('period_month')}), "
+        f"toplam {result.get('total_budget', 0):,.0f} {result.get('currency', 'TRY')}, "
+        f"{obj_label} dağılım."
+    ]
+    top = result.get("top_platforms", [])
+    if top:
+        segs = [
+            f"{p.get('label')} %{p.get('recommended_share')}"
+            for p in top if p.get("label")
+        ]
+        if segs:
+            parts.append("Önerilen dağılım: " + ", ".join(segs) + ".")
+    proj = result.get("projection", {})
+    if proj.get("expected_revenue"):
+        parts.append(
+            f"Beklenen gelir: {proj['expected_revenue']:,.0f}, "
+            f"ROAS: {proj.get('expected_roas', 0)}x."
+        )
+    return " ".join(parts)
+
+
+def _summarise_inbox(result: dict) -> str:
+    """Build a concise Turkish summary from get_inbox_summary result."""
+    total = result.get("total", 0)
+    if total == 0:
+        return "Sosyal gelen kutusunda mesaj bulunmuyor."
+    sentiment = result.get("by_sentiment", {})
+    parts = [
+        f"Toplam {total} mesaj — {result.get('open', 0)} açık, "
+        f"{result.get('pending', 0)} beklemede, {result.get('resolved', 0)} çözüldü."
+    ]
+    neg = sentiment.get("negative", 0)
+    if neg:
+        parts.append(f"{neg} olumsuz mesaj öncelik bekliyor.")
+    return " ".join(parts)
+
+
+def _summarise_executive(result: dict) -> str:
+    """Build a concise Turkish summary from get_executive_summary result."""
+    headline = result.get("headline")
+    if headline:
+        return headline
+    kpis = result.get("kpis", {})
+    if not kpis:
+        return "Bu dönemde yeterli veri yok."
+    return (
+        f"Son 30 gün: harcama {kpis.get('spend', 0):,.0f}, "
+        f"gelir {kpis.get('revenue', 0):,.0f}, ROAS {kpis.get('roas', 0)}x."
+    )
+
+
 def _summarise_subscription(result: dict) -> str:
     plan = result.get("plan_name", "?")
     status = result.get("status", "?")
@@ -505,6 +566,38 @@ def _stub_chat(
     ):
         reply_text = _handle_create_goal_intent(db, tenant_id, user_text, tools_used)
 
+    # ── intent: budget plan ────────────────────────────────────────────────
+    elif _keyword_match(
+        text_lower,
+        "bütçe", "budget", "alokasyon", "bütçe planı", "harcama planı",
+    ):
+        result = dispatch("get_budget_status", db, tenant_id, {})
+        summary = _summarise_budget(result)
+        tools_used.append(ToolUsed(name="get_budget_status", summary=summary))
+        reply_text = f"Bütçe planı durumu: {summary}"
+
+    # ── intent: social inbox ───────────────────────────────────────────────
+    elif _keyword_match(
+        text_lower,
+        "gelen kutusu", "inbox", "gelen mesaj", "müşteri mesaj",
+        "müşteri hizmet", "açık mesaj", "kaç mesaj", "sosyal mesaj",
+    ):
+        result = dispatch("get_inbox_summary", db, tenant_id, {})
+        summary = _summarise_inbox(result)
+        tools_used.append(ToolUsed(name="get_inbox_summary", summary=summary))
+        reply_text = f"Sosyal gelen kutusu: {summary}"
+
+    # ── intent: executive overview ─────────────────────────────────────────
+    elif _keyword_match(
+        text_lower,
+        "yönetici", "cmo", "ceo", "üst düzey", "genel bakış",
+        "executive", "pazarlama özet", "yönetici özet",
+    ):
+        result = dispatch("get_executive_summary", db, tenant_id, {})
+        summary = _summarise_executive(result)
+        tools_used.append(ToolUsed(name="get_executive_summary", summary=summary))
+        reply_text = summary
+
     # ── intent: performance summary ────────────────────────────────────────
     elif _keyword_match(
         text_lower,
@@ -610,6 +703,9 @@ def _stub_chat(
             "• İçgörü ve anomali analizi "
             "• Ürün feed durumu "
             "• İçerik planlayıcı durumu (taslak, onay bekleyen, zamanlanmış içerikler) "
+            "• Aylık bütçe planı (dağılım ve beklenen sonuç) "
+            "• Sosyal gelen kutusu özeti (açık/beklemede/çözüldü mesajlar) "
+            "• Yönetici özeti (üst düzey KPI ve genel durum) "
             "• Otomasyon kuralı oluşturma ('kural oluştur') "
             "• Hedef belirleme ('hedef koy') "
             "• Abonelik ve limit bilgisi "

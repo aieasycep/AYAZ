@@ -404,6 +404,79 @@ def _get_content_status(
     }
 
 
+def _get_budget_status(
+    db: Session,
+    tenant_id: uuid.UUID,
+) -> dict:
+    """Latest budget plan summary: total, objective, period, top channel allocation."""
+    from ayaz.models.budget import BudgetPlan
+    from sqlalchemy import select
+
+    plan = db.scalar(
+        select(BudgetPlan)
+        .where(BudgetPlan.tenant_id == tenant_id)
+        .order_by(BudgetPlan.created_at.desc())
+    )
+    if plan is None:
+        return {"has_plan": False}
+
+    alloc = plan.allocations if isinstance(plan.allocations, dict) else {}
+    platforms = alloc.get("platforms", []) if isinstance(alloc, dict) else []
+    top = [
+        {
+            "label": p.get("label"),
+            "recommended_budget": p.get("recommended_budget"),
+            "recommended_share": p.get("recommended_share"),
+        }
+        for p in platforms[:3]
+    ]
+    projection = alloc.get("projection", {}) if isinstance(alloc, dict) else {}
+    return {
+        "has_plan": True,
+        "name": plan.name,
+        "period_month": plan.period_month,
+        "total_budget": float(plan.total_budget or 0),
+        "currency": plan.currency,
+        "objective": plan.objective,
+        "status": plan.status,
+        "top_platforms": top,
+        "projection": projection,
+    }
+
+
+def _get_inbox_summary(
+    db: Session,
+    tenant_id: uuid.UUID,
+) -> dict:
+    """Social inbox summary: open/pending/resolved counts + sentiment + channel mix."""
+    from ayaz.models.social_inbox import SocialMessage
+    from ayaz.services.social_inbox import compute_inbox_stats
+    from sqlalchemy import select
+
+    rows = db.scalars(
+        select(SocialMessage).where(SocialMessage.tenant_id == tenant_id)
+    ).all()
+    return compute_inbox_stats(rows)
+
+
+def _get_executive_summary(
+    db: Session,
+    tenant_id: uuid.UUID,
+) -> dict:
+    """High-level executive overview for the last 30 days (KPIs + headline)."""
+    from datetime import datetime, timedelta, timezone
+    from ayaz.services.executive import build_overview
+
+    today = datetime.now(timezone.utc).date()
+    overview = build_overview(db, tenant_id, today - timedelta(days=29), today)
+    # Return a compact subset for the assistant
+    return {
+        "kpis": overview.get("kpis", {}),
+        "channels": overview.get("channels", [])[:3],
+        "headline": overview.get("headline", ""),
+    }
+
+
 def _draft_automation_rule(
     db: Session,
     tenant_id: uuid.UUID,
@@ -779,6 +852,9 @@ _TOOLS: dict[str, Any] = {
     "get_insights": _get_insights,
     "get_feed_channels": _get_feed_channels,
     "get_content_status": _get_content_status,
+    "get_budget_status": _get_budget_status,
+    "get_inbox_summary": _get_inbox_summary,
+    "get_executive_summary": _get_executive_summary,
     "draft_automation_rule": _draft_automation_rule,
     "get_top_movers": _get_top_movers,
     "get_subscription_status": _get_subscription_status,
@@ -962,6 +1038,33 @@ TOOL_SPECS: list[dict] = [
             "properties": {},
             "required": [],
         },
+    },
+    {
+        "name": "get_budget_status",
+        "description": (
+            "En güncel aylık bütçe planını döndürür: dönem, toplam bütçe, hedef, "
+            "platform bazlı önerilen dağılım ve beklenen sonuç projeksiyonu. "
+            "Bütçe planı / harcama planı soruları için kullan."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "get_inbox_summary",
+        "description": (
+            "Sosyal gelen kutusu özetini döndürür: açık/beklemede/çözüldü mesaj "
+            "sayıları, kanal ve duygu dağılımı. Müşteri hizmetleri / sosyal mesaj "
+            "soruları için kullan."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "get_executive_summary",
+        "description": (
+            "Son 30 günün üst düzey yönetici özetini döndürür: toplam harcama, "
+            "gelir, ROAS, dönüşüm KPI'ları + doğal dil manşet. CEO/CMO tipi "
+            "'pazarlamada genel durum ne' soruları için kullan."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "draft_automation_rule",
