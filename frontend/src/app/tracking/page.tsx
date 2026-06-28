@@ -21,8 +21,13 @@ import {
   getSourceStats,
   createDestination,
   deleteDestination,
+  patchTrackingSource,
+  patchDestination,
   getCollectUrl,
   toggleEventConfig,
+  CONSENT_SIGNAL_LABELS,
+  ALL_CONSENT_SIGNALS,
+  PLATFORM_DEFAULT_CONSENT,
   type TrackingSource,
   type TrackingDestination,
   type TrackingEvent,
@@ -31,6 +36,7 @@ import {
   type DestinationPlatform,
   type EventStatus,
   type SnippetInfo,
+  type ConsentSignal,
 } from '@/lib/tracking-api';
 import DateRangePresets, {
   computePreset,
@@ -149,6 +155,258 @@ function StatusBadge({ status }: { status: EventStatus }) {
     <span className={`${styles.statusBadge} ${cls[status] ?? ''}`}>
       {STATUS_LABELS[status] ?? status}
     </span>
+  );
+}
+
+// --- Çerez Rıza Değişkeni card ---
+
+function CookieConsentCard({
+  source,
+  onSaved,
+}: {
+  source: TrackingSource;
+  onSaved: (updated: TrackingSource) => void;
+}) {
+  const [value, setValue] = useState(source.consent_cookie_var ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Reset local state when source changes
+  useEffect(() => {
+    setValue(source.consent_cookie_var ?? '');
+    setSaveError(null);
+    setSaveSuccess(false);
+  }, [source.id, source.consent_cookie_var]);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      const updated = await patchTrackingSource(source.id, {
+        consent_cookie_var: value.trim() || null,
+      });
+      onSaved(updated);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Kaydedilemedi');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isSet = Boolean(source.consent_cookie_var);
+
+  return (
+    <div className={styles.consentCookieCard}>
+      <div className={styles.consentCookieHeader}>
+        <span className={styles.consentCookieTitle}>Çerez Rıza Değişkeni</span>
+        {isSet && (
+          <span className={styles.consentCookieSetBadge}>Ayarlı</span>
+        )}
+      </div>
+      <p className={styles.consentCookieDesc}>
+        Sitenizin çerez/rıza durumunu tutan JavaScript değişkeninin adını girin; AYAZ bu
+        değişkeni okuyup yalnızca rıza verildiğinde olayları iletir. Değişken{' '}
+        <code className={styles.consentCookieCode}>&apos;true&apos;</code> veya{' '}
+        <code className={styles.consentCookieCode}>&apos;1&apos;</code> ise rıza verilmiş
+        kabul edilir; yok ya da{' '}
+        <code className={styles.consentCookieCode}>&apos;false&apos;</code>/{' '}
+        <code className={styles.consentCookieCode}>&apos;0&apos;</code> ise olay
+        iletilmez.
+      </p>
+      <form className={styles.consentCookieForm} onSubmit={handleSave}>
+        <input
+          className={styles.input}
+          placeholder="örn. window.cookieConsent"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          disabled={saving}
+          aria-label="Çerez rıza değişkeni adı"
+        />
+        <button
+          type="submit"
+          className={styles.primaryBtn}
+          disabled={saving}
+          aria-label="Çerez rıza değişkenini kaydet"
+        >
+          {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        </button>
+      </form>
+      {saveError && (
+        <span className={styles.formError} role="alert">
+          {saveError}
+        </span>
+      )}
+      {saveSuccess && (
+        <span className={styles.consentCookieSuccess} role="status">
+          Kaydedildi.{' '}
+          {value.trim()
+            ? 'Snippet artık bu değişkeni okuyacak.'
+            : 'Rıza değişkeni kaldırıldı.'}
+        </span>
+      )}
+      {!value.trim() && !saveSuccess && (
+        <span className={styles.consentCookieEmpty}>
+          Henüz bir değişken tanımlanmadı — tüm olaylar platform varsayılanına göre iletilir.
+        </span>
+      )}
+    </div>
+  );
+}
+
+// --- Per-destination Zorunlu Rıza Sinyalleri panel ---
+
+function DestConsentSignals({
+  dest,
+  onSaved,
+}: {
+  dest: TrackingDestination;
+  onSaved: (updated: TrackingDestination) => void;
+}) {
+  // Effective consent: null/empty means platform default is used
+  const platformDefaults = PLATFORM_DEFAULT_CONSENT[dest.platform] ?? [];
+  const isUsingDefault = !dest.required_consent || dest.required_consent.length === 0;
+
+  // Local checkbox state — initialise from current required_consent or defaults
+  const [selected, setSelected] = useState<Set<ConsentSignal>>(
+    () => new Set(isUsingDefault ? platformDefaults : (dest.required_consent ?? [])),
+  );
+  const [isCustom, setIsCustom] = useState(!isUsingDefault);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Sync when dest prop changes (e.g. after a save from parent)
+  useEffect(() => {
+    const usingDefault = !dest.required_consent || dest.required_consent.length === 0;
+    setIsCustom(!usingDefault);
+    setSelected(
+      new Set(usingDefault ? platformDefaults : (dest.required_consent ?? [])),
+    );
+    setSaveError(null);
+    setSaveSuccess(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dest.id, dest.required_consent]);
+
+  function toggleSignal(signal: ConsentSignal) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(signal)) {
+        next.delete(signal);
+      } else {
+        next.add(signal);
+      }
+      return next;
+    });
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      // When "use default" mode: send null/empty to restore platform default
+      const payload: ConsentSignal[] | null = isCustom
+        ? (Array.from(selected) as ConsentSignal[])
+        : null;
+      const updated = await patchDestination(dest.id, { required_consent: payload });
+      onSaved(updated);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Kaydedilemedi');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className={styles.destConsentPanel}>
+      <div className={styles.destConsentTitle}>Zorunlu Rıza Sinyalleri</div>
+      <form onSubmit={handleSave}>
+        <div className={styles.destConsentModeRow}>
+          <label className={styles.destConsentModeLabel}>
+            <input
+              type="radio"
+              name={`consent-mode-${dest.id}`}
+              checked={!isCustom}
+              onChange={() => {
+                setIsCustom(false);
+                setSelected(new Set(platformDefaults));
+              }}
+              disabled={saving}
+            />
+            <span>Varsayılan</span>
+          </label>
+          <label className={styles.destConsentModeLabel}>
+            <input
+              type="radio"
+              name={`consent-mode-${dest.id}`}
+              checked={isCustom}
+              onChange={() => setIsCustom(true)}
+              disabled={saving}
+            />
+            <span>Özel</span>
+          </label>
+        </div>
+
+        <div className={styles.destConsentSignalGrid}>
+          {ALL_CONSENT_SIGNALS.map((signal) => {
+            const isDefault = platformDefaults.includes(signal);
+            const checked = isCustom ? selected.has(signal) : isDefault;
+            const isDefaultIndicator = !isCustom && isDefault;
+            return (
+              <label
+                key={signal}
+                className={`${styles.destConsentSignalLabel} ${
+                  isDefaultIndicator ? styles.destConsentSignalDefault : ''
+                } ${!isCustom ? styles.destConsentSignalReadonly : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => isCustom && toggleSignal(signal)}
+                  disabled={saving || !isCustom}
+                  aria-label={CONSENT_SIGNAL_LABELS[signal]}
+                />
+                <span className={styles.destConsentSignalText}>
+                  {CONSENT_SIGNAL_LABELS[signal]}
+                  {isDefaultIndicator && (
+                    <span className={styles.destConsentVarsayilan}> (varsayılan)</span>
+                  )}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className={styles.destConsentActions}>
+          <button
+            type="submit"
+            className={styles.primaryBtn}
+            disabled={saving}
+            aria-label="Rıza sinyallerini kaydet"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+          {saveSuccess && (
+            <span className={styles.consentCookieSuccess} role="status">
+              Kaydedildi.
+            </span>
+          )}
+          {saveError && (
+            <span className={styles.formError} role="alert">
+              {saveError}
+            </span>
+          )}
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -893,7 +1151,20 @@ function DebugConsole({
 
 // --- Source detail panel (right pane) ---
 
-function SourceDetailPanel({ source }: { source: TrackingSource }) {
+function SourceDetailPanel({
+  source: initialSource,
+  onSourceUpdated,
+}: {
+  source: TrackingSource;
+  onSourceUpdated?: (updated: TrackingSource) => void;
+}) {
+  // Keep a local copy of the source so cookie consent saves update the view
+  // without requiring a full refetch of the sources list.
+  const [source, setSource] = useState<TrackingSource>(initialSource);
+  useEffect(() => {
+    setSource(initialSource);
+  }, [initialSource]);
+
   // Snippet
   const [snippetInfo, setSnippetInfo] = useState<SnippetInfo | null>(null);
   const [snippetLoading, setSnippetLoading] = useState(true);
@@ -930,6 +1201,14 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
       setSnippetLoading(false);
     }
   }, [source.id]);
+
+  // Called by CookieConsentCard after a successful save
+  function handleSourceSaved(updated: TrackingSource) {
+    setSource(updated);
+    onSourceUpdated?.(updated);
+    // Refetch snippet so it reflects the new consent variable
+    fetchSnippet();
+  }
 
   const fetchDestinations = useCallback(async () => {
     setDestLoading(true);
@@ -1027,6 +1306,9 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
         ) : null}
       </div>
 
+      {/* --- Çerez Rıza Değişkeni --- */}
+      <CookieConsentCard source={source} onSaved={handleSourceSaved} />
+
       {/* --- Delivery Health panel --- */}
       <DeliveryHealthPanel
         stats={stats}
@@ -1065,27 +1347,39 @@ function SourceDetailPanel({ source }: { source: TrackingSource }) {
       ) : (
         <div className={styles.destList}>
           {destinations.map((dest) => (
-            <div key={dest.id} className={styles.destRow}>
-              <span className={styles.destPlatformBadge}>
-                {PLATFORM_LABELS[dest.platform] ?? dest.platform}
-              </span>
-              <span className={styles.destConfig}>
-                {destConfigSummary(dest.platform, dest.config)}
-              </span>
-              <span
-                className={`${styles.consentBadge} ${
-                  dest.consent_required ? styles.consentOn : styles.consentOff
-                }`}
-              >
-                {dest.consent_required ? 'KVKK rıza' : 'Rıza yok'}
-              </span>
-              <button
-                className={styles.dangerBtn}
-                disabled={deletingDestId === dest.id}
-                onClick={() => handleDeleteDest(dest.id)}
-              >
-                {deletingDestId === dest.id ? '...' : 'Sil'}
-              </button>
+            <div key={dest.id} className={styles.destCard}>
+              {/* Top row: platform badge + config summary + consent badge + delete */}
+              <div className={styles.destRow}>
+                <span className={styles.destPlatformBadge}>
+                  {PLATFORM_LABELS[dest.platform] ?? dest.platform}
+                </span>
+                <span className={styles.destConfig}>
+                  {destConfigSummary(dest.platform, dest.config)}
+                </span>
+                <span
+                  className={`${styles.consentBadge} ${
+                    dest.consent_required ? styles.consentOn : styles.consentOff
+                  }`}
+                >
+                  {dest.consent_required ? 'KVKK rıza' : 'Rıza yok'}
+                </span>
+                <button
+                  className={styles.dangerBtn}
+                  disabled={deletingDestId === dest.id}
+                  onClick={() => handleDeleteDest(dest.id)}
+                >
+                  {deletingDestId === dest.id ? '...' : 'Sil'}
+                </button>
+              </div>
+              {/* Zorunlu Rıza Sinyalleri */}
+              <DestConsentSignals
+                dest={dest}
+                onSaved={(updated) =>
+                  setDestinations((prev) =>
+                    prev.map((d) => (d.id === updated.id ? updated : d)),
+                  )
+                }
+              />
             </div>
           ))}
         </div>

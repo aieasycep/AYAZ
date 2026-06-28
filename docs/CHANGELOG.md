@@ -172,6 +172,8 @@
   `required_consent` (platform varsayılanları: meta/tiktok→ad_user_data, ga4→analytics_storage) →
   sinyaller karşılanmazsa iletmez. `consent_cookie_var` (SignalSight cookie-değişkeni) snippet'e gömülü.
   GA4 GCS passthrough (G1xx). Migration 0019. 44 yeni test (suite 1782).
+  Frontend: kaynakta **Çerez Rıza Değişkeni** kartı (SignalSight Cookie Consent) + her hedefte
+  **Zorunlu Rıza Sinyalleri** (4 sinyal, platform varsayılanı gösterimli). 18 yeni frontend testi (174).
 
 ## Dalga 53 — M7 Olay-bazlı Aç/Kapa (Event Configuration toggle, backend)
 - SignalSight Event Configuration STATUS anahtarı: `POST /tracking/sources/{id}/event-config`

@@ -1,5 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { TrackingStats, EventStat, DailyPoint, GetSourceStatsOptions, EventConfigResponse } from '@/lib/tracking-api';
+import type {
+  TrackingStats,
+  EventStat,
+  DailyPoint,
+  GetSourceStatsOptions,
+  EventConfigResponse,
+  TrackingSource,
+  TrackingDestination,
+  ConsentSignal,
+} from '@/lib/tracking-api';
+import {
+  ALL_CONSENT_SIGNALS,
+  CONSENT_SIGNAL_LABELS,
+  PLATFORM_DEFAULT_CONSENT,
+} from '@/lib/tracking-api';
 
 // ---------------------------------------------------------------------------
 // Type contracts
@@ -454,5 +468,351 @@ describe('toggleEventConfig', () => {
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('src-unique-42');
     expect(url).not.toContain('src-001');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Consent signal constants
+// ---------------------------------------------------------------------------
+
+describe('CONSENT_SIGNAL_LABELS', () => {
+  it('maps all four Consent Mode v2 signals to Turkish labels', () => {
+    expect(CONSENT_SIGNAL_LABELS.ad_storage).toBe('Reklam Depolama');
+    expect(CONSENT_SIGNAL_LABELS.ad_user_data).toBe('Reklam Kullanıcı Verisi');
+    expect(CONSENT_SIGNAL_LABELS.ad_personalization).toBe('Reklam Kişiselleştirme');
+    expect(CONSENT_SIGNAL_LABELS.analytics_storage).toBe('Analitik Depolama');
+  });
+
+  it('covers exactly the four standard signals', () => {
+    const keys = Object.keys(CONSENT_SIGNAL_LABELS);
+    expect(keys).toHaveLength(4);
+    expect(keys).toContain('ad_storage');
+    expect(keys).toContain('ad_user_data');
+    expect(keys).toContain('ad_personalization');
+    expect(keys).toContain('analytics_storage');
+  });
+});
+
+describe('ALL_CONSENT_SIGNALS', () => {
+  it('contains all four signals', () => {
+    expect(ALL_CONSENT_SIGNALS).toHaveLength(4);
+    expect(ALL_CONSENT_SIGNALS).toContain('ad_storage');
+    expect(ALL_CONSENT_SIGNALS).toContain('ad_user_data');
+    expect(ALL_CONSENT_SIGNALS).toContain('ad_personalization');
+    expect(ALL_CONSENT_SIGNALS).toContain('analytics_storage');
+  });
+});
+
+describe('PLATFORM_DEFAULT_CONSENT', () => {
+  it('meta_capi defaults to [ad_user_data]', () => {
+    expect(PLATFORM_DEFAULT_CONSENT.meta_capi).toEqual(['ad_user_data']);
+  });
+
+  it('tiktok_events defaults to [ad_user_data]', () => {
+    expect(PLATFORM_DEFAULT_CONSENT.tiktok_events).toEqual(['ad_user_data']);
+  });
+
+  it('ga4_mp defaults to [analytics_storage]', () => {
+    expect(PLATFORM_DEFAULT_CONSENT.ga4_mp).toEqual(['analytics_storage']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TrackingSource — consent_cookie_var field
+// ---------------------------------------------------------------------------
+
+describe('TrackingSource type — consent_cookie_var', () => {
+  it('accepts consent_cookie_var as a string', () => {
+    const src: TrackingSource = {
+      id: 'src-1',
+      name: 'Test',
+      domain: 'example.com',
+      public_token: 'tok-1',
+      created_at: '2026-01-01T00:00:00Z',
+      consent_cookie_var: 'window.cookieConsent',
+    };
+    expect(src.consent_cookie_var).toBe('window.cookieConsent');
+  });
+
+  it('accepts consent_cookie_var as null', () => {
+    const src: TrackingSource = {
+      id: 'src-2',
+      name: 'Test2',
+      domain: 'example.com',
+      public_token: 'tok-2',
+      created_at: '2026-01-01T00:00:00Z',
+      consent_cookie_var: null,
+    };
+    expect(src.consent_cookie_var).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TrackingDestination — required_consent field
+// ---------------------------------------------------------------------------
+
+describe('TrackingDestination type — required_consent', () => {
+  it('accepts required_consent as an array of signals', () => {
+    const dest: TrackingDestination = {
+      id: 'dest-1',
+      tracking_source_id: 'src-1',
+      platform: 'meta_capi',
+      config: { pixel_id: '12345', access_token: 'EAA' },
+      consent_required: true,
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      required_consent: ['ad_user_data', 'ad_storage'],
+    };
+    expect(dest.required_consent).toEqual(['ad_user_data', 'ad_storage']);
+  });
+
+  it('accepts required_consent as null (platform default)', () => {
+    const dest: TrackingDestination = {
+      id: 'dest-2',
+      tracking_source_id: 'src-1',
+      platform: 'ga4_mp',
+      config: { measurement_id: 'G-XXX', api_secret: 'secret' },
+      consent_required: false,
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      required_consent: null,
+    };
+    expect(dest.required_consent).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// patchTrackingSource — consent_cookie_var
+// ---------------------------------------------------------------------------
+
+describe('patchTrackingSource — consent_cookie_var', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', {
+      getItem: (_key: string) => 'test-token',
+      removeItem: vi.fn(),
+      setItem: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('sends consent_cookie_var as a string in the PATCH body', async () => {
+    const mockSource: TrackingSource = {
+      id: 'src-1',
+      name: 'Test',
+      domain: 'example.com',
+      public_token: 'tok-1',
+      created_at: '2026-01-01T00:00:00Z',
+      consent_cookie_var: 'window.cookieConsent',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockSource),
+      text: () => Promise.resolve(JSON.stringify(mockSource)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { patchTrackingSource } = await import('@/lib/tracking-api');
+    const result = await patchTrackingSource('src-1', {
+      consent_cookie_var: 'window.cookieConsent',
+    });
+
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/tracking/sources/src-1');
+    expect(opts.method).toBe('PATCH');
+    const body = JSON.parse(opts.body as string);
+    expect(body.consent_cookie_var).toBe('window.cookieConsent');
+    expect(result.consent_cookie_var).toBe('window.cookieConsent');
+  });
+
+  it('sends consent_cookie_var as null to clear the variable', async () => {
+    const mockSource: TrackingSource = {
+      id: 'src-2',
+      name: 'Test2',
+      domain: 'example.com',
+      public_token: 'tok-2',
+      created_at: '2026-01-01T00:00:00Z',
+      consent_cookie_var: null,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockSource),
+      text: () => Promise.resolve(JSON.stringify(mockSource)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { patchTrackingSource } = await import('@/lib/tracking-api');
+    await patchTrackingSource('src-2', { consent_cookie_var: null });
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(opts.body as string);
+    expect(body.consent_cookie_var).toBeNull();
+  });
+
+  it('does not include consent_cookie_var when not provided', async () => {
+    const mockSource: TrackingSource = {
+      id: 'src-3',
+      name: 'Test3',
+      domain: 'example.com',
+      public_token: 'tok-3',
+      created_at: '2026-01-01T00:00:00Z',
+      consent_cookie_var: null,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockSource),
+      text: () => Promise.resolve(JSON.stringify(mockSource)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { patchTrackingSource } = await import('@/lib/tracking-api');
+    await patchTrackingSource('src-3', { name: 'Updated' });
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(opts.body as string);
+    expect('consent_cookie_var' in body).toBe(false);
+    expect(body.name).toBe('Updated');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// patchDestination — required_consent
+// ---------------------------------------------------------------------------
+
+describe('patchDestination — required_consent', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', {
+      getItem: (_key: string) => 'test-token',
+      removeItem: vi.fn(),
+      setItem: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  function makeMockDest(overrides: Partial<TrackingDestination> = {}): TrackingDestination {
+    return {
+      id: 'dest-1',
+      tracking_source_id: 'src-1',
+      platform: 'meta_capi',
+      config: { pixel_id: '12345', access_token: 'EAA' },
+      consent_required: true,
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      required_consent: null,
+      ...overrides,
+    };
+  }
+
+  it('sends required_consent array in the PATCH body', async () => {
+    const signals: ConsentSignal[] = ['ad_user_data', 'ad_personalization'];
+    const mockDest = makeMockDest({ required_consent: signals });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockDest),
+      text: () => Promise.resolve(JSON.stringify(mockDest)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { patchDestination } = await import('@/lib/tracking-api');
+    const result = await patchDestination('dest-1', { required_consent: signals });
+
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/tracking/destinations/dest-1');
+    expect(opts.method).toBe('PATCH');
+    const body = JSON.parse(opts.body as string);
+    expect(body.required_consent).toEqual(['ad_user_data', 'ad_personalization']);
+    expect(result.required_consent).toEqual(signals);
+  });
+
+  it('sends required_consent as null to restore platform default', async () => {
+    const mockDest = makeMockDest({ required_consent: null });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockDest),
+      text: () => Promise.resolve(JSON.stringify(mockDest)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { patchDestination } = await import('@/lib/tracking-api');
+    await patchDestination('dest-1', { required_consent: null });
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(opts.body as string);
+    expect(body.required_consent).toBeNull();
+  });
+
+  it('sends required_consent as empty array when user deselects all', async () => {
+    const mockDest = makeMockDest({ required_consent: [] });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockDest),
+      text: () => Promise.resolve(JSON.stringify(mockDest)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { patchDestination } = await import('@/lib/tracking-api');
+    await patchDestination('dest-1', { required_consent: [] });
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(opts.body as string);
+    expect(body.required_consent).toEqual([]);
+  });
+
+  it('sends all four signals when full custom consent is set', async () => {
+    const allSignals: ConsentSignal[] = [
+      'ad_storage',
+      'ad_user_data',
+      'ad_personalization',
+      'analytics_storage',
+    ];
+    const mockDest = makeMockDest({ required_consent: allSignals });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockDest),
+      text: () => Promise.resolve(JSON.stringify(mockDest)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { patchDestination } = await import('@/lib/tracking-api');
+    await patchDestination('dest-1', { required_consent: allSignals });
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(opts.body as string);
+    expect(body.required_consent).toHaveLength(4);
+    expect(body.required_consent).toContain('analytics_storage');
+  });
+
+  it('can patch required_consent independently of other fields', async () => {
+    const signals: ConsentSignal[] = ['analytics_storage'];
+    const mockDest = makeMockDest({ platform: 'ga4_mp', required_consent: signals });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(mockDest),
+      text: () => Promise.resolve(JSON.stringify(mockDest)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { patchDestination } = await import('@/lib/tracking-api');
+    await patchDestination('dest-ga4', { required_consent: signals });
+
+    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(opts.body as string);
+    // Only required_consent in body — no other fields
+    expect(Object.keys(body)).toEqual(['required_consent']);
   });
 });

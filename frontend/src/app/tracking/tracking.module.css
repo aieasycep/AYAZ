@@ -961,3 +961,192 @@
     padding: 0.75rem 1rem 0.5rem;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Çerez Rıza Değişkeni card                                           */
+/* ------------------------------------------------------------------ */
+
+.consentCookieCard {
+  margin: 0 1.25rem 0.875rem;
+  padding: 1rem 1.125rem;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.consentCookieHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.consentCookieTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.consentCookieSetBadge {
+  font-size: 0.675rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 5px;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-success);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.consentCookieDesc {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.consentCookieCode {
+  font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
+  font-size: 0.8em;
+  background: var(--color-surface-2);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
+  color: var(--color-text);
+}
+
+.consentCookieForm {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.consentCookieForm .input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.consentCookieSuccess {
+  font-size: 0.8125rem;
+  color: var(--color-success);
+}
+
+.consentCookieEmpty {
+  font-size: 0.775rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------------ */
+/* Destination card (wraps existing destRow + DestConsentSignals)      */
+/* ------------------------------------------------------------------ */
+
+.destCard {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.destCard:last-child {
+  border-bottom: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Per-destination Zorunlu Rıza Sinyalleri                             */
+/* ------------------------------------------------------------------ */
+
+.destConsentPanel {
+  padding: 0.625rem 1.25rem 0.875rem;
+  border-top: 1px dashed var(--color-border);
+  background: var(--color-bg);
+}
+
+.destConsentTitle {
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 0.5rem;
+}
+
+.destConsentModeRow {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.625rem;
+}
+
+.destConsentModeLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.destConsentModeLabel input[type='radio'] {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.destConsentSignalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.375rem 1rem;
+  margin-bottom: 0.625rem;
+}
+
+@media (max-width: 520px) {
+  .destConsentSignalGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.destConsentSignalLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.destConsentSignalLabel input[type='checkbox'] {
+  accent-color: var(--color-primary);
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.destConsentSignalReadonly {
+  cursor: default;
+}
+
+.destConsentSignalReadonly input[type='checkbox'] {
+  cursor: default;
+}
+
+.destConsentSignalDefault {
+  color: var(--color-text);
+}
+
+.destConsentSignalText {
+  flex: 1;
+}
+
+.destConsentVarsayilan {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.destConsentActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}

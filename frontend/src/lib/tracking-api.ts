@@ -54,7 +54,37 @@ export interface TrackingSource {
   domain: string;
   public_token: string;
   created_at: string;
+  consent_cookie_var: string | null;
 }
+
+// Consent Mode v2 signal keys
+export type ConsentSignal =
+  | 'ad_storage'
+  | 'ad_user_data'
+  | 'ad_personalization'
+  | 'analytics_storage';
+
+export const CONSENT_SIGNAL_LABELS: Record<ConsentSignal, string> = {
+  ad_storage: 'Reklam Depolama',
+  ad_user_data: 'Reklam Kullanıcı Verisi',
+  ad_personalization: 'Reklam Kişiselleştirme',
+  analytics_storage: 'Analitik Depolama',
+};
+
+// All four signals in display order
+export const ALL_CONSENT_SIGNALS: ConsentSignal[] = [
+  'ad_storage',
+  'ad_user_data',
+  'ad_personalization',
+  'analytics_storage',
+];
+
+// Platform defaults when required_consent is null/empty
+export const PLATFORM_DEFAULT_CONSENT: Record<string, ConsentSignal[]> = {
+  meta_capi: ['ad_user_data'],
+  tiktok_events: ['ad_user_data'],
+  ga4_mp: ['analytics_storage'],
+};
 
 export interface SnippetInfo {
   collect_url: string;
@@ -70,6 +100,7 @@ export interface TrackingDestination {
   consent_required: boolean;
   is_active: boolean;
   created_at: string;
+  required_consent: ConsentSignal[] | null;
 }
 
 export interface TrackingEvent {
@@ -109,6 +140,7 @@ export function getTrackingSource(id: string): Promise<TrackingSource> {
 export interface UpdateTrackingSourcePayload {
   name?: string;
   domain?: string;
+  consent_cookie_var?: string | null;
 }
 
 export function patchTrackingSource(
@@ -287,6 +319,7 @@ export interface UpdateDestinationPayload {
   config?: Record<string, string>;
   consent_required?: boolean;
   is_active?: boolean;
+  required_consent?: ConsentSignal[] | null;
 }
 
 export function patchDestination(
