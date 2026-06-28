@@ -1,0 +1,779 @@
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ============================================================
+   Page header
+   ============================================================ */
+
+.pageTitle {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.pageSubtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   Hero — two stat blocks side by side
+   ============================================================ */
+
+.heroRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.heroCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.75rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Score ring — reused from audit idiom */
+
+.scoreRing {
+  flex-shrink: 0;
+  position: relative;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scoreRingCircle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.scoreRingTrack {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 8;
+}
+
+.scoreRingFillGreen {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.scoreRingFillAmber {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.scoreRingFillRed {
+  fill: none;
+  stroke: var(--color-danger);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.scoreNumber {
+  position: relative;
+  font-size: 1.875rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.scoreOutOf {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Consent rate block */
+
+.heroStatBlock {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.heroStatLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.heroStatValue {
+  font-size: 2.25rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.heroStatCaption {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* Progress bar */
+
+.progressTrack {
+  width: 100%;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-success);
+  transition: width 0.5s ease;
+}
+
+.progressFillAmber {
+  background: var(--color-accent);
+}
+
+.progressFillRed {
+  background: var(--color-danger);
+}
+
+/* Grade badge */
+
+.gradeBadge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.gradeUyumlu {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.gradeKismi {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.gradeEksik {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+/* Counts row */
+
+.countsRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.countItem {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.countPass {
+  color: var(--color-success);
+}
+
+.countWarn {
+  color: var(--color-warning-text);
+}
+
+.countFail {
+  color: var(--color-danger);
+}
+
+.countDivider {
+  color: var(--color-border);
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   Section card — generic wrapper for all sections
+   ============================================================ */
+
+.sectionCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  gap: 0.75rem;
+}
+
+.sectionTitle {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.sectionBody {
+  padding: 1.25rem;
+}
+
+/* ============================================================
+   Consent Mode v2 signals grid
+   ============================================================ */
+
+.signalsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.signalCard {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.signalLabel {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.signalRate {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.signalCounts {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.signalDesc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Destinations table
+   ============================================================ */
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.table th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+  padding: 0.625rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 0.75rem 1rem;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover td {
+  background: var(--color-surface-2);
+}
+
+/* Posture badges */
+
+.postureKati {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  white-space: nowrap;
+}
+
+.postureGevsek {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Consent signal chips */
+
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.chip {
+  font-size: 0.675rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-badge-channel-bg, rgba(107, 140, 255, 0.12));
+  color: var(--color-badge-channel-text, var(--color-primary));
+  white-space: nowrap;
+}
+
+.numCell {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ============================================================
+   Sources list
+   ============================================================ */
+
+.sourceList {
+  display: flex;
+  flex-direction: column;
+}
+
+.sourceRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.sourceRow:last-child {
+  border-bottom: none;
+}
+
+.sourceName {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 120px;
+}
+
+.sourceCookieVar {
+  font-size: 0.75rem;
+  font-family: monospace;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  color: var(--color-text-muted);
+}
+
+.sourceEvents {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.configuredBadge {
+  font-size: 0.675rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.unconfiguredBadge {
+  font-size: 0.675rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+/* ============================================================
+   Compliance checklist — mirrors audit page check rows
+   ============================================================ */
+
+.checkList {
+  display: flex;
+  flex-direction: column;
+}
+
+.checkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.checkRow:last-child {
+  border-bottom: none;
+}
+
+.checkRowWarn {
+  background: rgba(245, 158, 11, 0.03);
+}
+
+.checkRowFail {
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.severityIcon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.675rem;
+  font-weight: 800;
+}
+
+.severityPass {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.severityWarn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.severityFail {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.checkContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.checkTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.checkFinding {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.checkRecommendation {
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  line-height: 1.5;
+  padding: 0.375rem 0.625rem;
+  background: rgba(59, 91, 219, 0.05);
+  border-left: 2.5px solid var(--color-primary);
+  border-radius: 0 4px 4px 0;
+  margin-top: 0.2rem;
+}
+
+.checkRecommendationLabel {
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-right: 0.3rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+/* ============================================================
+   Audit trail table
+   ============================================================ */
+
+.auditTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.auditTable th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+  padding: 0.625rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.auditTable td {
+  padding: 0.625rem 1rem;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.auditTable tr:last-child td {
+  border-bottom: none;
+}
+
+.auditTable tr:hover td {
+  background: var(--color-surface-2);
+}
+
+.consentYes {
+  color: var(--color-success);
+  font-weight: 700;
+}
+
+.consentNo {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+.statusBadgeForwarded {
+  display: inline-block;
+  font-size: 0.675rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  white-space: nowrap;
+}
+
+.statusBadgeSkipped {
+  display: inline-block;
+  font-size: 0.675rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  white-space: nowrap;
+}
+
+.statusBadgeDefault {
+  display: inline-block;
+  font-size: 0.675rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.signalsSummaryCell {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Loading skeleton
+   ============================================================ */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface-2, rgba(148, 163, 184, 0.2)) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.skeletonHero {
+  border-radius: var(--radius);
+  height: 136px;
+}
+
+.skeletonSection {
+  border-radius: var(--radius);
+  height: 180px;
+}
+
+/* ============================================================
+   States (error / empty)
+   ============================================================ */
+
+.stateBox {
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+.errorText {
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+
+.retryBtn {
+  margin-top: 0.75rem;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.retryBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 720px) {
+  .heroRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .heroCard {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .scoreRing {
+    width: 90px;
+    height: 90px;
+  }
+
+  .scoreNumber {
+    font-size: 1.5rem;
+  }
+
+  .signalsGrid {
+    grid-template-columns: 1fr 1fr;
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .checkRow {
+    padding: 0.75rem;
+  }
+
+  .sectionHeader {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .signalsGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -35,6 +35,7 @@ export const NAV_LINKS = [
   { href: '/planning', label: 'Planlama' },
   { href: '/automation', label: 'Otomasyon' },
   { href: '/tracking', label: 'Ölçümleme' },
+  { href: '/consent', label: 'Rıza Merkezi' },
   { href: '/billing', label: 'Faturalama' },
   { href: '/workspaces', label: 'Çalışma Alanları' },
   { href: '/onboarding', label: 'Kurulum' },

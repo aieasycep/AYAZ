@@ -166,6 +166,22 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 72 — KVKK Rıza Yönetim Merkezi (Consent Center)
+- TR-first farklılaştırıcı: **KVKK Rıza Yönetim Merkezi** — tüm rıza ayarları, Consent Mode v2
+  granüler sinyalleri ve KVKK uyumu **tek ekranda**. Rıza oranı + KVKK uyum skoru (0-100, uyumlu/
+  kısmi/eksik) + 4 sinyal kırılımı + hedef-noktası rıza duruşu + 7 maddelik uyum kontrol listesi +
+  rıza denetim izi. Global araçların sunmadığı, Türkçe ve KVKK çerçeveli bir uyum vitrini.
+- Backend: `GET /consent/center` (yeni tablo yok) — mevcut ölçümleme/rıza altyapısını sentezler
+  (`consent_signals`, `consent_required`, `consent_cookie_var`, `skipped_no_consent`). Granüler
+  sinyal kırılımı (legacy fallback) + duruş etiketleri + uyum skoru/notu + son 15 olay denetim izi.
+  50 yeni test.
+- Frontend: `/consent` — rıza oranı + uyum skoru kahramanı, 4 sinyal kartı (oran barı), hedef duruş
+  tablosu, kaynak yapılandırması, denetim-tarzı uyum kontrol listesi, rıza denetim izi tablosu;
+  açık/koyu tema. 14 yeni test. Navigasyona **Rıza Merkezi** eklendi (Ölçümleme'den sonra).
+- Demo: kaynak `consent_cookie_var` yapılandırıldı + olaylara `consent_signals` granüler veri
+  eklendi (ad_personalization daha düşük onay oranıyla gerçekçi kırılım); skor **100 / uyumlu**.
+- Kalite: backend **2241 yeşil**, frontend **349 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 71 — Proaktif Öneri Merkezi + AI Haftalık Strateji
 - Yeni "birleşik zeka" katmanı: **Öneri Merkezi** — denetim, bütçe tempo, kıyaslama, hedef, gelen
   kutusu ve içerik sinyalleri **tek bir önceliklendirilmiş aksiyon akışında** birleşir. Her öneri:

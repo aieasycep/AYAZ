@@ -1023,9 +1023,9 @@ _TRACKING_EVENT_NAMES = [
     "Purchase",        # index % 20 == 9
 ]
 
-# Map a 0-based event index to (event_name, status, consent, forwarded_count, error)
+# Map a 0-based event index to (event_name, status, consent, forwarded_count, error, consent_signals)
 def _event_profile(idx: int):
-    """Return deterministic (event_name, status, consent, forwarded_count, error)
+    """Return deterministic (event_name, status, consent, forwarded_count, error, consent_signals)
     for a given 0-based event index.
 
     Distribution (100 events target):
@@ -1037,6 +1037,12 @@ def _event_profile(idx: int):
           failed           — ~10 events (idx % 10 == 7)
           duplicate        — ~7 events  (idx % 15 == 14)
           received         — ~3 events  (idx % 30 == 29)
+
+    consent_signals (Consent Mode v2 granular dict):
+      - consent=True events: ad_storage, analytics_storage, ad_user_data all
+        granted; ad_personalization granted for ~70% (idx % 10 < 7), denied
+        for the rest — producing realistic per-signal rate differences.
+      - consent=False (skipped_no_consent) events: all 4 keys denied.
     """
     # event_name: 7-step cycle giving roughly the right distribution
     name_idx = (idx * 3 + idx // 7) % 10
@@ -1091,7 +1097,27 @@ def _event_profile(idx: int):
         forwarded_count = 2 if idx % 3 != 0 else 1
         error = None
 
-    return event_name, status, consent, forwarded_count, error
+    # Consent Mode v2 granular signals — populated deterministically so the
+    # dashboard granular breakdown renders richly with realistic per-signal rates.
+    if consent:
+        # ad_personalization granted for ~70% of consented events (idx % 10 < 7)
+        ad_personalization = (idx % 10) < 7
+        consent_signals = {
+            "ad_storage": True,
+            "analytics_storage": True,
+            "ad_user_data": True,
+            "ad_personalization": ad_personalization,
+        }
+    else:
+        # All signals denied for no-consent events
+        consent_signals = {
+            "ad_storage": False,
+            "analytics_storage": False,
+            "ad_user_data": False,
+            "ad_personalization": False,
+        }
+
+    return event_name, status, consent, forwarded_count, error, consent_signals
 
 
 def _identity_profile(event_name: str, idx: int) -> dict:
@@ -1173,6 +1199,9 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
             domain="easycep.com",
             public_token=_TRACKING_PUBLIC_TOKEN,
             is_active=True,
+            # KVKK açık rıza: snippet reads the CMP's consent cookie/dataLayer key,
+            # so seeded consent=true events are coherent with a wired consent signal.
+            consent_cookie_var="ayaz_consent",
         )
         db.add(source)
         db.flush()
@@ -1262,7 +1291,7 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
         # Deterministic event_id — seed uses source token + index
         event_id = f"demo-evt-{_TRACKING_PUBLIC_TOKEN[:10]}-{idx:04d}"
 
-        event_name, status, consent, forwarded_count, error = _event_profile(idx)
+        event_name, status, consent, forwarded_count, error, consent_signals = _event_profile(idx)
 
         # Identity signals → hashed user_data (no raw PII persisted) + match
         # quality score computed from the RAW profile, exactly as production does.
@@ -1310,6 +1339,7 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
             user_data=user_data,
             custom_data=custom_data,
             consent=consent,
+            consent_signals=consent_signals,
             match_quality=match_quality,
             status=status,
             forwarded_count=forwarded_count,
