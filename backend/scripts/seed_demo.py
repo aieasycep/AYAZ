@@ -82,6 +82,11 @@ from ayaz.models.analytics import (  # noqa: F401 — ensure tables known
 )
 from ayaz.models.base import Base
 from ayaz.models.feeds import FeedChannel, FeedProduct, FeedRule, FeedSource
+from ayaz.models.tracking import (
+    ConversionEvent,
+    EventDestination,
+    TrackingSource,
+)
 from ayaz.models.oltp import (
     ConnectedAccount,
     Membership,
@@ -997,6 +1002,285 @@ def _seed_feeds(db, tenant: Tenant) -> dict:
     return counts
 
 
+# ── Tracking (M7) seeding ─────────────────────────────────────────────────────
+
+# Stable token — deterministic so re-runs stay idempotent and the snippet
+# embed URL never changes across seed invocations.
+_TRACKING_SOURCE_NAME = "EasyCep Web"
+_TRACKING_PUBLIC_TOKEN = "ayaz-demo-tracking-token-0000000001"
+
+# Event distribution across the last 14 days.
+# Index-based, fully deterministic — no random module used.
+_TRACKING_EVENT_NAMES = [
+    "PageView",        # index % 5 == 0,1,2  → most frequent
+    "ViewContent",     # index % 5 == 3
+    "AddToCart",       # index % 10 == 4
+    "InitiateCheckout",# index % 10 == 7
+    "Purchase",        # index % 20 == 9
+]
+
+# Map a 0-based event index to (event_name, status, consent, forwarded_count, error)
+def _event_profile(idx: int):
+    """Return deterministic (event_name, status, consent, forwarded_count, error)
+    for a given 0-based event index.
+
+    Distribution (100 events target):
+      - event_name: PageView dominant (~40%), then ViewContent (~20%),
+                    AddToCart (~20%), InitiateCheckout (~10%), Purchase (~10%).
+      - status:
+          forwarded        — ~60 events (idx % 10 in {0,1,2,3,5,6})
+          skipped_no_consent — ~20 events (idx % 10 in {4,8}, consent=False)
+          failed           — ~10 events (idx % 10 == 7)
+          duplicate        — ~7 events  (idx % 15 == 14)
+          received         — ~3 events  (idx % 30 == 29)
+    """
+    # event_name: 7-step cycle giving roughly the right distribution
+    name_idx = (idx * 3 + idx // 7) % 10
+    if name_idx <= 3:
+        event_name = "PageView"
+    elif name_idx <= 5:
+        event_name = "ViewContent"
+    elif name_idx <= 7:
+        event_name = "AddToCart"
+    elif name_idx == 8:
+        event_name = "InitiateCheckout"
+    else:
+        event_name = "Purchase"
+
+    # Override to ensure Purchase events are never skipped or failed
+    # (they must be forwarded or duplicate for realistic data)
+    if event_name == "Purchase" and (idx % 10 in {4, 7, 8}):
+        event_name = "AddToCart"
+
+    # status
+    if idx % 15 == 14:
+        status = "duplicate"
+        consent = True
+        forwarded_count = 0
+        error = None
+    elif idx % 30 == 29:
+        status = "received"
+        consent = True
+        forwarded_count = 0
+        error = None
+    elif idx % 10 == 7:
+        status = "failed"
+        consent = True
+        forwarded_count = 0
+        # Deterministic error messages
+        _errors = [
+            "[meta_capi] HTTP 400: Invalid pixel_id",
+            "[ga4_mp] HTTP 500: Internal Server Error",
+            "[meta_capi] HTTP 403: Access token expired",
+            "[ga4_mp] HTTP 429: Rate limit exceeded",
+        ]
+        error = _errors[idx % len(_errors)]
+    elif idx % 10 in {4, 8}:
+        status = "skipped_no_consent"
+        consent = False
+        forwarded_count = 0
+        error = None
+    else:
+        status = "forwarded"
+        consent = True
+        # forwarded_count: 1 or 2 depending on which destinations matched consent
+        forwarded_count = 2 if idx % 3 != 0 else 1
+        error = None
+
+    return event_name, status, consent, forwarded_count, error
+
+
+def _seed_tracking(db, tenant: Tenant) -> dict:
+    """Seed M7 tracking demo data: one TrackingSource, two EventDestinations,
+    and 100 ConversionEvents spread across the last 14 days.
+
+    Idempotency
+    -----------
+    - TrackingSource:  skip if a source with name _TRACKING_SOURCE_NAME already
+      exists for this tenant (matched by name + tenant_id).
+    - EventDestinations:  skip if the source already has destinations (avoids
+      re-adding on second run after the source was created).
+    - ConversionEvents:  skip entire block if the source already has any events
+      (count-based guard).  Deterministic event_id values prevent accidental
+      duplication even if the guard is bypassed.
+
+    Returns dict with counts.
+    """
+    from sqlalchemy import func as _func
+
+    counts = {"tracking_sources": 0, "destinations": 0, "events_inserted": 0}
+
+    # ── TrackingSource ─────────────────────────────────────────────────────
+    source = db.scalar(
+        select(TrackingSource).where(
+            TrackingSource.tenant_id == tenant.id,
+            TrackingSource.name == _TRACKING_SOURCE_NAME,
+        )
+    )
+    if source is None:
+        source = TrackingSource(
+            tenant_id=tenant.id,
+            name=_TRACKING_SOURCE_NAME,
+            domain="easycep.com",
+            public_token=_TRACKING_PUBLIC_TOKEN,
+            is_active=True,
+        )
+        db.add(source)
+        db.flush()
+        print(f"  Created TrackingSource: {_TRACKING_SOURCE_NAME} ({source.id})")
+        counts["tracking_sources"] = 1
+    else:
+        print(f"  TrackingSource already exists: {_TRACKING_SOURCE_NAME} ({source.id})")
+
+    # ── EventDestinations ─────────────────────────────────────────────────
+    existing_dest_count = db.scalar(
+        select(_func.count()).select_from(EventDestination).where(
+            EventDestination.tracking_source_id == source.id
+        )
+    ) or 0
+
+    if existing_dest_count == 0:
+        # meta_capi — consent_required=True (KVKK/GDPR strict)
+        meta_dest = EventDestination(
+            tenant_id=tenant.id,
+            tracking_source_id=source.id,
+            platform="meta_capi",
+            config={
+                "pixel_id": "1234567890123456",
+                "action_source": "website",
+            },
+            vault_secret_ref="demo/tracking/meta_capi_access_token",
+            consent_required=True,
+            is_active=True,
+        )
+        # ga4_mp — consent_required=False (GA4 collects without strict consent)
+        ga4_dest = EventDestination(
+            tenant_id=tenant.id,
+            tracking_source_id=source.id,
+            platform="ga4_mp",
+            config={
+                "measurement_id": "G-DEMO000001",
+            },
+            vault_secret_ref="demo/tracking/ga4_api_secret",
+            consent_required=False,
+            is_active=True,
+        )
+        db.add_all([meta_dest, ga4_dest])
+        db.flush()
+        print(f"  Created EventDestination: meta_capi (consent_required=True)")
+        print(f"  Created EventDestination: ga4_mp (consent_required=False)")
+        counts["destinations"] = 2
+    else:
+        print(f"  EventDestinations already exist ({existing_dest_count} found) — skipping")
+
+    # ── ConversionEvents ──────────────────────────────────────────────────
+    existing_event_count = db.scalar(
+        select(_func.count()).select_from(ConversionEvent).where(
+            ConversionEvent.tracking_source_id == source.id
+        )
+    ) or 0
+
+    if existing_event_count > 0:
+        print(
+            f"  ConversionEvents already exist ({existing_event_count} rows) — skipping"
+        )
+        db.commit()
+        return counts
+
+    # Generate 100 events spread across the last 14 days.
+    # Day offset is index-based: idx // 7 gives 0–14 (14 days, ~7 events/day).
+    _NUM_EVENTS = 100
+    _TRACKING_END_DATE = _RICH_END_DATE  # reuse the same end-date anchor
+
+    now_utc = datetime.now(timezone.utc)
+    # Build a SHA-256 hex string seeded from a fixed string — used as dummy user hash
+    import hashlib as _hashlib
+
+    def _demo_hash(seed: str) -> str:
+        return _hashlib.sha256(seed.encode()).hexdigest()
+
+    for idx in range(_NUM_EVENTS):
+        # Spread events across 14 days: idx // 7 days back from end date
+        day_offset = idx // 7  # 0 to 14
+        event_date = _TRACKING_END_DATE - timedelta(days=day_offset)
+        # Hour within the day: deterministic (idx % 24)
+        event_hour = idx % 24
+        event_dt = datetime(
+            event_date.year, event_date.month, event_date.day,
+            event_hour, (idx * 7) % 60, (idx * 13) % 60,
+            tzinfo=timezone.utc,
+        )
+        event_time_iso = event_dt.isoformat()
+        # Stable created_at slightly after event_time (seconds after = idx % 30)
+        created_at_dt = event_dt.replace(second=min(59, (event_dt.second + idx % 30) % 60))
+        created_at_iso = created_at_dt.isoformat()
+
+        # Deterministic event_id — seed uses source token + index
+        event_id = f"demo-evt-{_TRACKING_PUBLIC_TOKEN[:10]}-{idx:04d}"
+
+        event_name, status, consent, forwarded_count, error = _event_profile(idx)
+
+        # Dummy hashed user_data — no real PII
+        user_num = idx % 20  # 20 synthetic "users" cycling
+        user_data = {
+            "email_hash": _demo_hash(f"demouser{user_num:02d}@example.invalid"),
+            "phone_hash": _demo_hash(f"+9053300{user_num:05d}"),
+        }
+
+        # custom_data — event-specific, no PII
+        if event_name == "Purchase":
+            value = float(150 + (idx % 5) * 50)  # 150, 200, 250, 300, 350
+            custom_data = {
+                "value": value,
+                "currency": "TRY",
+                "num_items": 1 + idx % 3,
+                "order_id": f"ORDER-DEMO-{idx:04d}",
+            }
+        elif event_name == "AddToCart":
+            custom_data = {
+                "value": float(100 + (idx % 4) * 25),
+                "currency": "TRY",
+                "content_ids": [f"PROD-{(idx % 10) + 1:03d}"],
+            }
+        elif event_name == "InitiateCheckout":
+            custom_data = {
+                "value": float(200 + (idx % 3) * 75),
+                "currency": "TRY",
+                "num_items": 1 + idx % 4,
+            }
+        elif event_name == "ViewContent":
+            custom_data = {
+                "content_ids": [f"PROD-{(idx % 10) + 1:03d}"],
+                "content_type": "product",
+            }
+        else:  # PageView
+            custom_data = {
+                "page_path": f"/demo/page-{(idx % 8) + 1}",
+            }
+
+        event_row = ConversionEvent(
+            tenant_id=tenant.id,
+            tracking_source_id=source.id,
+            event_name=event_name,
+            event_time=event_time_iso,
+            event_id=event_id,
+            user_data=user_data,
+            custom_data=custom_data,
+            consent=consent,
+            status=status,
+            forwarded_count=forwarded_count,
+            error=error,
+            created_at=created_at_iso,
+        )
+        db.add(event_row)
+        counts["events_inserted"] += 1
+
+    db.flush()
+    db.commit()
+    print(f"  Inserted {counts['events_inserted']} ConversionEvents")
+    return counts
+
+
 # ── Report seeding ─────────────────────────────────────────────────────────────
 
 _REPORT_NAME = "AYAZ Demo — Aylik Performans Raporu"
@@ -1234,6 +1518,19 @@ def run_seed() -> None:
         print("    meta_ads   / Retargeting:       Video-Sepet(winner), Statik-Indirim(mid), Koleksiyon(loser, 0 conv)")
         print("    tiktok_ads / Viral Creative:    Duet-Urun(winner), Statik-Flash(mid), Spark-Dusuk(loser)")
 
+        # ── Step 5c: Tracking (M7) demo data ─────────────────────────────────
+        print(
+            f"\n[5c/7] Seeding M7 tracking data "
+            f"(TrackingSource + 2 EventDestinations + 100 ConversionEvents)..."
+        )
+        tracking_counts = _seed_tracking(db, tenant)
+        summary["tracking"] = tracking_counts
+        print(
+            f"  Tracking: sources={tracking_counts['tracking_sources']}  "
+            f"destinations={tracking_counts['destinations']}  "
+            f"events_inserted={tracking_counts['events_inserted']}"
+        )
+
         # ── Step 6: Feeds ─────────────────────────────────────────────────────
         print("\n[6/7] Seeding product feed (FeedSource + 2 FeedChannels + rules)...")
         feed_counts = _seed_feeds(db, tenant)
@@ -1287,6 +1584,13 @@ def run_seed() -> None:
     print("  google_ads / 'Brand Search'    — ROAS drop  (conv_value x 0.35)")
     print("  meta_ads   / 'Retargeting'     — Spend spike (cost x 3.2)")
     print("  tiktok_ads / 'Viral Creative'  — Zero conversions")
+    print()
+    trk = summary.get("tracking", {})
+    print("Tracking (M7):")
+    print(f"  TrackingSources : {trk.get('tracking_sources', 0) or '(already existed)'}")
+    print(f"  Destinations    : {trk.get('destinations', 0) or '(already existed)'}")
+    print(f"  Events inserted : {trk.get('events_inserted', 0)}")
+    print(f"  Collect URL     : /api/v1/tracking/collect/{_TRACKING_PUBLIC_TOKEN}")
     print()
     feeds = summary.get("feeds", {})
     print("Product feeds:")

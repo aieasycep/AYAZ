@@ -175,6 +175,7 @@
   **Olay Dağılımı** tablosu (olay × adet × hata + satır içi sparkline + günlük bar grafiği) +
   filtrelenebilir **debug konsolu** (durum/olay filtresi). DateRangePresets ile tarih aralığı.
   20 yeni frontend testi (150). (TR diakritikleri elden geçirildi.)
+  Demo seed: M7 tracking verisi eklendi (1 kaynak + 2 hedef + 100 olay/14 gün, gerçek durum karışımı) — modül artık demoda görünür.
 
 ## Dalga 51 — Deploy Hazırlığı (canlı link için)
 - Turnkey deploy: `backend/Dockerfile` + `frontend/Dockerfile` (standalone) + `.dockerignore`'lar,
