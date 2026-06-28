@@ -13,6 +13,7 @@ import QuickAsk from './QuickAsk';
 
 export const NAV_LINKS = [
   { href: '/dashboard', label: 'Panel' },
+  { href: '/executive', label: 'Yönetici' },
   { href: '/assistant', label: 'Asistan' },
   { href: '/briefing', label: 'Brifing' },
   { href: '/insights', label: 'İçgörüler' },

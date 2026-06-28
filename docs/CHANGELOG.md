@@ -166,6 +166,17 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 63 — Yönetici (CMO) Görünümü (CEO/CMO personası)
+- Yeni sayfa: **Yönetici Görünümü** — CEO/CMO için "pazarlamada neler oluyor"un tek-ekran üst-düzey özeti.
+  Salt-okunur; mevcut veriden derlenir (yeni tablo/migration yok).
+- Backend: `GET /executive/overview` — KPI'lar (harcama/gelir/ROAS/dönüşüm) + **önceki eş-uzunluk
+  döneme göre MoM delta**, kanal ROI kırılımı (pay%), hedef ilerlemesi, en kritik içgörüler ve
+  doğal-dil **manşet**. Mevcut servisleri yeniden kullanır (`_aggregate_by_channel_raw`,
+  `_get_goal_progress`, `_get_insights`). 32 yeni backend testi.
+- Frontend: `/executive` — manşet bandı + MoM delta rozetli KPI kartları + kanal ROI grafiği/tablosu +
+  hedefler + duruma göre renkli içgörüler. 15 yeni frontend testi. Navigasyona **Yönetici** eklendi.
+- Kalite: backend **1986 yeşil**, frontend **256 yeşil**, build yeşil. Persona yol haritası 3/5 tamam.
+
 ## Dalga 62 — M13 Sosyal Gelen Kutusu (Müşteri Hizmetleri / RADAAR paritesi)
 - Yeni modül: **Sosyal Gelen Kutusu** — müşteri hizmetleri ekibi tüm sosyal kanallardan gelen
   DM/yorum/bahsetmeleri tek yerden görür, **panelden yanıtlar**, atar, etiketler, durum verir.
