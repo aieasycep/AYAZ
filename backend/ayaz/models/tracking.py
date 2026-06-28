@@ -38,6 +38,8 @@ Status values
                         the event payload did not include consent=true
 "duplicate"           – event_id already exists for this tracking_source_id;
                         the pre-existing event is returned without re-forwarding
+"disabled"            – the event_name is in the source's disabled_events list;
+                        the event is recorded but NOT forwarded to any destination
 
 Platform values (EventDestination.platform)
 -------------------------------------------
@@ -131,6 +133,17 @@ class TrackingSource(Base, TimestampMixin):
         nullable=False,
         default=True,
         comment="Inactive sources reject inbound events with 404",
+    )
+
+    # Per-event enable/disable: list of event_name strings whose forwarding is
+    # suppressed.  An empty list (the default) means all events are enabled.
+    # Stored as a JSON array; no Postgres ENUM is used.
+    disabled_events: Mapped[list] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+        server_default="'[]'",
+        comment="Event names whose forwarding is disabled (recorded but not forwarded)",
     )
 
     # Relationships
@@ -285,6 +298,7 @@ class ConversionEvent(Base):
     "failed"             – forward attempted but at least one destination errored
     "skipped_no_consent" – no consent when at least one destination requires it
     "duplicate"          – event_id already seen for this source
+    "disabled"           – event_name is in source.disabled_events; recorded but not forwarded
 
     forwarded_count
     ---------------
@@ -362,12 +376,12 @@ class ConversionEvent(Base):
         comment="True when the end-user has given explicit consent",
     )
 
-    # "received" | "forwarded" | "failed" | "skipped_no_consent" | "duplicate"
+    # "received" | "forwarded" | "failed" | "skipped_no_consent" | "duplicate" | "disabled"
     status: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
         default="received",
-        comment="received | forwarded | failed | skipped_no_consent | duplicate",
+        comment="received | forwarded | failed | skipped_no_consent | duplicate | disabled",
     )
 
     # Number of destinations to which the event was successfully forwarded

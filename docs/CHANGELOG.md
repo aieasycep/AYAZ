@@ -166,6 +166,12 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 53 — M7 Olay-bazlı Aç/Kapa (Event Configuration toggle, backend)
+- SignalSight Event Configuration STATUS anahtarı: `POST /tracking/sources/{id}/event-config`
+  `{event_name, enabled}` → kapalı olaylar kaydedilir ama CAPI'ye **iletilmez** (status="disabled").
+  `TrackingSource.disabled_events` (JSON, migration 0018); stats `by_event[].enabled` ile durum yansır.
+  Ingest sırası: dedup → disabled → consent → forward. 21 yeni test (suite 1738).
+
 ## Dalga 52 — M7 Ölçümleme Sağlık & Olay İstatistikleri (backend)
 - SignalSight panel ilhamı (Event Configuration + tracker report), AYAZ verisi üzerine (migration yok):
   `GET /tracking/sources/{id}/stats` — Total Events/Errors + duruma göre kırılım + consent-bloklu +

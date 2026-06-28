@@ -261,6 +261,20 @@ class EventNameStat(BaseModel):
     event_name: str
     count: int
     errors: int
+    enabled: bool  # True when event_name is NOT in source.disabled_events
+
+
+class EventConfigBody(BaseModel):
+    """Request body for the event-config toggle endpoint."""
+
+    event_name: str
+    enabled: bool
+
+
+class EventConfigResponse(BaseModel):
+    """Response for the event-config toggle endpoint."""
+
+    disabled_events: list[str]
 
 
 class DailyStat(BaseModel):
@@ -292,6 +306,7 @@ def compute_tracking_stats(
     events: list[ConversionEvent],
     date_from: date,
     date_to: date,
+    disabled_events: list[str] | None = None,
 ) -> dict[str, Any]:
     """Aggregate a list of ConversionEvent objects into delivery-health stats.
 
@@ -302,6 +317,11 @@ def compute_tracking_stats(
         already filtered by the caller.
     date_from, date_to:
         Inclusive date range used to zero-fill the daily trend.
+    disabled_events:
+        List of event_name strings that are currently disabled on the source.
+        When provided, each ``by_event`` entry gains an ``enabled`` field
+        (True when the event_name is NOT in this list).  Defaults to ``[]``
+        (all events enabled) when None.
 
     Returns
     -------
@@ -312,6 +332,7 @@ def compute_tracking_stats(
     total_errors    = count where status == "failed"
     consent_blocked = count where status == "skipped_no_consent"
     """
+    _disabled: set[str] = set(disabled_events) if disabled_events else set()
     # ── Totals ─────────────────────────────────────────────────────────────────
     total_events = len(events)
     total_errors = sum(1 for e in events if e.status == "failed")
@@ -331,7 +352,12 @@ def compute_tracking_stats(
 
     by_event = sorted(
         [
-            {"event_name": name, "count": cnt, "errors": event_errors.get(name, 0)}
+            {
+                "event_name": name,
+                "count": cnt,
+                "errors": event_errors.get(name, 0),
+                "enabled": name not in _disabled,
+            }
             for name, cnt in event_counts.items()
         ],
         key=lambda x: x["count"],
@@ -621,7 +647,7 @@ def get_source_stats(
         )
 
     # ── Tenant-scope check ─────────────────────────────────────────────────────
-    _require_source(source_id, membership.tenant_id, db)
+    src = _require_source(source_id, membership.tenant_id, db)
 
     # ── Fetch events in range ─────────────────────────────────────────────────
     # created_at is stored as ISO-8601 text ("YYYY-MM-DDTHH:MM:SS...").
@@ -641,7 +667,9 @@ def get_source_stats(
     )
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
-    agg = compute_tracking_stats(events, date_from, date_to)
+    agg = compute_tracking_stats(
+        events, date_from, date_to, disabled_events=src.disabled_events or []
+    )
 
     return SourceStatsResponse(
         source_id=source_id,
@@ -651,6 +679,61 @@ def get_source_stats(
         by_event=[EventNameStat(**e) for e in agg["by_event"]],
         daily=[DailyStat(**d) for d in agg["daily"]],
     )
+
+
+# ── Per-event enable / disable toggle ────────────────────────────────────────
+
+
+@router.post(
+    "/sources/{source_id}/event-config",
+    response_model=EventConfigResponse,
+    summary=(
+        "Enable or disable forwarding for a specific event name on a tracking source "
+        "(SignalSight Event Configuration STATUS toggle)"
+    ),
+)
+def set_event_config(
+    source_id: uuid.UUID,
+    body: EventConfigBody,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> EventConfigResponse:
+    """Toggle per-event forwarding for a tracking source.
+
+    When ``enabled=false`` the event_name is added to ``source.disabled_events``.
+    When ``enabled=true`` it is removed.  The operation is idempotent — toggling
+    the same state twice produces the same result.
+
+    A disabled event is still **recorded** (persisted in conversion_events) but
+    its status is set to ``"disabled"`` and it is NOT forwarded to any
+    destination.  All other event names on the same source are unaffected.
+
+    Returns the updated ``disabled_events`` list so the client can sync state.
+
+    Raises
+    ------
+    404 – source does not belong to the current tenant
+    422 – validation error on request body
+    """
+    src = _require_source(source_id, membership.tenant_id, db)
+
+    # Work on a plain Python list; JSON column gives back a list already.
+    disabled: list[str] = list(src.disabled_events or [])
+
+    if body.enabled:
+        # Enable: remove from disabled list if present
+        disabled = [name for name in disabled if name != body.event_name]
+    else:
+        # Disable: add to list if not already present (idempotent)
+        if body.event_name not in disabled:
+            disabled.append(body.event_name)
+
+    src.disabled_events = disabled
+    db.add(src)
+    db.commit()
+    db.refresh(src)
+
+    return EventConfigResponse(disabled_events=src.disabled_events or [])
 
 
 # ── EventDestination CRUD ─────────────────────────────────────────────────────

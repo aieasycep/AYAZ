@@ -111,6 +111,7 @@ _VALID_STATUSES = {
     "failed",
     "skipped_no_consent",
     "duplicate",
+    "disabled",
 }
 
 
@@ -194,12 +195,18 @@ def ingest_event(
        exists, return that row immediately with status "duplicate".
     4. Determine consent from ``payload.get("consent", False)``.
     5. Persist the event with status "received".
-    6. Check active destinations:
+    6. Disabled check: if the event_name is in ``source.disabled_events``,
+       update status → "disabled" and return without forwarding.
+       Order rationale: dedup is always first (consistent re-submission
+       behaviour); disabled is checked before loading destinations and before
+       the consent check, as it is a source-level configuration gate that
+       makes forwarding intent irrelevant regardless of consent state.
+    7. Check active destinations:
        a. If any destination requires consent and the event has no consent,
           update status → "skipped_no_consent" and return.
        b. Otherwise forward to each active destination via ``forward_event()``.
        c. Update status → "forwarded" if all succeeded, "failed" if any errored.
-    7. Commit and return the event.
+    8. Commit and return the event.
 
     Parameters
     ----------
@@ -292,7 +299,25 @@ def ingest_event(
     db.commit()
     db.refresh(event)
 
-    # ── 5. Load active destinations ───────────────────────────────────────────
+    # ── 5. Disabled check ─────────────────────────────────────────────────────
+    # Order: dedup → disabled → consent → forward.
+    # Checked before loading destinations to avoid unnecessary DB queries for
+    # known-disabled event names.  A disabled event is recorded (persisted
+    # above) but never forwarded; forwarded_count stays 0.
+    disabled_events: list = source.disabled_events or []
+    if event_name in disabled_events:
+        event.status = "disabled"
+        db.add(event)
+        db.commit()
+        logger.info(
+            "Event %s skipped: event_name=%r is disabled for source=%s",
+            event.id,
+            event_name,
+            source.id,
+        )
+        return event
+
+    # ── 6. Load active destinations ───────────────────────────────────────────
     destinations: list[EventDestination] = list(
         db.scalars(
             select(EventDestination).where(
@@ -306,7 +331,7 @@ def ingest_event(
         # No destinations configured — event stays "received"
         return event
 
-    # ── 6a. Consent check ─────────────────────────────────────────────────────
+    # ── 7a. Consent check ─────────────────────────────────────────────────────
     consent_required_any = any(d.consent_required for d in destinations)
     if consent_required_any and not consent:
         event.status = "skipped_no_consent"
@@ -317,7 +342,7 @@ def ingest_event(
         )
         return event
 
-    # ── 6b. Forward ───────────────────────────────────────────────────────────
+    # ── 7b. Forward ───────────────────────────────────────────────────────────
     errors: list[str] = []
     forwarded = 0
 
@@ -338,7 +363,7 @@ def ingest_event(
                 msg,
             )
 
-    # ── 6c. Status update ─────────────────────────────────────────────────────
+    # ── 7c. Status update ─────────────────────────────────────────────────────
     event.forwarded_count = forwarded
     if errors:
         event.status = "failed"
