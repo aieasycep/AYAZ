@@ -166,6 +166,18 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 65 — Marcom Kreatif Lensi (Marcom/Kreatif personası)
+- Yeni sayfa: **Kreatif Lensi** — marka/marcom ekibi için kreatif performansını **etkileşim/trafik diliyle**
+  (ROAS jargonu olmadan) gösteren görünüm. Salt-okunur; mevcut reklam verisinden (yeni tablo yok).
+- Backend: `GET /marcom/creative-insights` — mevcut `ad_performance`'ı yeniden kullanır; kreatifleri
+  tıklamaya göre sıralar, her biri için sade Türkçe içgörü (gösterim/tıklama/TO/trafik payı +
+  yüksek/orta/düşük ilgi tieri) + doğal-dil manşet üretir. CTR yüzde olarak döner. 23 yeni backend testi.
+- Frontend: `/creative-lens` — etkileşim KPI kartları + kreatif kartları (kanal/kampanya + istatistik +
+  trafik payı barı + içgörü) + her kartta **"Organik içeriğe çevir →"** köprüsü (M11'e). 11 yeni frontend testi.
+  Navigasyona **Kreatif Lensi** eklendi.
+- Kalite: backend **2019 yeşil**, frontend **267 yeşil**, build yeşil. **Persona seti tamam:**
+  Performans + Planlama + Müşteri Hizmetleri + CEO/CMO + Marcom — hepsi tek panel + tek Copilot.
+
 ## Dalga 64 — Copilot çapraz-modül farkındalığı (birleşik kokpit)
 - AI Kopilot artık **tüm yeni modülleri** biliyor: bütçe planı, sosyal gelen kutusu ve yönetici özeti.
   3 yeni araç (`get_budget_status`, `get_inbox_summary`, `get_executive_summary`) hem stub hem Claude

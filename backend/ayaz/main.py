@@ -40,6 +40,7 @@ from ayaz.api.v1 import content as content_router
 from ayaz.api.v1 import budget as budget_router
 from ayaz.api.v1 import inbox as inbox_router
 from ayaz.api.v1 import executive as executive_router
+from ayaz.api.v1 import marcom as marcom_router
 from ayaz.config import settings
 from ayaz.observability import (
     RequestIDMiddleware,
@@ -110,6 +111,7 @@ app.include_router(content_router.router, prefix=_PREFIX)
 app.include_router(budget_router.router, prefix=_PREFIX)
 app.include_router(inbox_router.router, prefix=_PREFIX)
 app.include_router(executive_router.router, prefix=_PREFIX)
+app.include_router(marcom_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

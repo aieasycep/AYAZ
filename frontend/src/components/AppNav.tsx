@@ -23,6 +23,7 @@ export const NAV_LINKS = [
   { href: '/report-builder', label: 'Rapor Oluşturucu' },
   { href: '/ads', label: 'Reklam' },
   { href: '/creatives', label: 'Kreatifler' },
+  { href: '/creative-lens', label: 'Kreatif Lensi' },
   { href: '/content', label: 'İçerik' },
   { href: '/inbox', label: 'Gelen Kutusu' },
   { href: '/optimizer', label: 'Optimizasyon' },
