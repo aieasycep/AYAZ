@@ -931,6 +931,49 @@
   cursor: default;
 }
 
+/* Resilience: error category badges + retry count */
+
+.errorCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.errCatTransient,
+.errCatPermanent,
+.errCatUnknown {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.errCatTransient {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.errCatPermanent {
+  background: rgba(239, 68, 68, 0.13);
+  color: var(--color-danger);
+}
+
+.errCatUnknown {
+  background: var(--color-surface-2, rgba(148, 163, 184, 0.18));
+  color: var(--color-text-muted);
+}
+
+.retryCount {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ------------------------------------------------------------------ */
 /* Responsive tweaks                                                   */
 /* ------------------------------------------------------------------ */
@@ -1349,4 +1392,11 @@
   font-size: 0.8125rem;
   color: var(--color-text);
   line-height: 1.5;
+}
+
+.deliverabilityNote {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: 0.3rem;
+  font-variant-numeric: tabular-nums;
 }

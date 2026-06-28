@@ -460,6 +460,16 @@ class ConversionEvent(Base):
         default=0,
     )
 
+    # Number of manual/automatic retry attempts made after an initial failure.
+    # Incremented by the retry endpoint each time a failed event is re-forwarded.
+    retry_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Retry attempts made after an initial forward failure",
+    )
+
     # Last error message from a failed forward attempt (nullable)
     error: Mapped[str | None] = mapped_column(
         Text,

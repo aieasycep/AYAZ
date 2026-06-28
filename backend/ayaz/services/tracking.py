@@ -518,6 +518,152 @@ def _is_consent_satisfied(
     return all(consent_signals.get(k, False) for k in required_keys)
 
 
+# ── Forward error classification (resilience) ─────────────────────────────────
+#
+# Classify a failed-forward error string into permanent vs transient so the UI
+# can tell the user which failures are worth retrying.  Permanent failures
+# (bad config / expired token / invalid payload) will keep failing until the
+# user fixes something; transient failures (rate limit / 5xx / timeout) are
+# worth an automatic or one-click retry.
+_PERMANENT_HTTP = {"400", "401", "403", "404", "405", "409", "422"}
+_TRANSIENT_HTTP = {"408", "425", "429", "500", "502", "503", "504"}
+
+_PERMANENT_HINTS = (
+    "invalid", "geçersiz", "access token", "expired", "süresi dol",
+    "pixel", "unauthorized", "forbidden", "not found", "missing",
+    "permission", "bad request",
+)
+_TRANSIENT_HINTS = (
+    "timeout", "zaman aşımı", "rate limit", "too many requests",
+    "temporarily", "geçici", "unavailable", "service unavailable",
+    "connection", "bağlantı", "reset",
+)
+
+
+def classify_forward_error(error: str | None) -> dict[str, Any]:
+    """Classify a forward error string as permanent / transient / unknown.
+
+    Returns
+    -------
+    dict with keys:
+        category  : "permanent" | "transient" | "unknown"
+        retryable : bool  (True only for transient)
+        reason    : short Turkish explanation
+
+    The check is order-sensitive: explicit HTTP status codes win, then keyword
+    hints, then a conservative "unknown" (not retryable) default.
+    """
+    if not error:
+        return {
+            "category": "unknown",
+            "retryable": False,
+            "reason": "Hata ayrıntısı yok.",
+        }
+
+    text = error.lower()
+
+    # 1. HTTP status codes (most reliable signal)
+    for code in _TRANSIENT_HTTP:
+        if code in text:
+            return {
+                "category": "transient",
+                "retryable": True,
+                "reason": f"Geçici hata (HTTP {code}) — yeniden denenebilir.",
+            }
+    for code in _PERMANENT_HTTP:
+        if code in text:
+            return {
+                "category": "permanent",
+                "retryable": False,
+                "reason": f"Kalıcı hata (HTTP {code}) — yapılandırma/kimlik düzeltilmeli.",
+            }
+
+    # 2. Keyword hints
+    if any(h in text for h in _TRANSIENT_HINTS):
+        return {
+            "category": "transient",
+            "retryable": True,
+            "reason": "Geçici ağ/oran hatası — yeniden denenebilir.",
+        }
+    if any(h in text for h in _PERMANENT_HINTS):
+        return {
+            "category": "permanent",
+            "retryable": False,
+            "reason": "Kalıcı yapılandırma/kimlik hatası — düzeltme gerekir.",
+        }
+
+    # 3. Conservative default
+    return {
+        "category": "unknown",
+        "retryable": False,
+        "reason": "Sınıflandırılamayan hata.",
+    }
+
+
+def retry_event(
+    db: Session,
+    event: ConversionEvent,
+    *,
+    http_client: httpx.Client | None = None,
+) -> ConversionEvent:
+    """Re-attempt forwarding for a previously failed event.
+
+    Increments ``retry_count`` and re-runs forwarding to the event's active,
+    consent-satisfied destinations.  Updates ``status``/``error``/``forwarded_count``
+    based on the outcome (forwarded if all succeed, failed otherwise).
+
+    Only events in the ``failed`` status are retried; callers should enforce
+    that (the API returns 409 otherwise).
+
+    Returns the updated event.
+    """
+    destinations: list[EventDestination] = list(
+        db.scalars(
+            select(EventDestination).where(
+                EventDestination.tracking_source_id == event.tracking_source_id,
+                EventDestination.is_active.is_(True),
+            )
+        )
+    )
+
+    satisfied_dests = [
+        d for d in destinations
+        if _is_consent_satisfied(d, event.consent_signals)
+    ]
+
+    event.retry_count = (event.retry_count or 0) + 1
+
+    if not satisfied_dests:
+        event.status = "skipped_no_consent"
+        event.error = None
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+        return event
+
+    errors: list[str] = []
+    forwarded = 0
+    for dest in satisfied_dests:
+        try:
+            forward_event(event, dest, http_client=http_client)
+            forwarded += 1
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"[{dest.platform}] {exc}")
+
+    event.forwarded_count = forwarded
+    if errors:
+        event.status = "failed"
+        event.error = "; ".join(errors)
+    else:
+        event.status = "forwarded"
+        event.error = None
+
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return event
+
+
 # ── Event ingestion ───────────────────────────────────────────────────────────
 
 

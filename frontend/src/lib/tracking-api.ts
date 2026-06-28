@@ -109,8 +109,12 @@ export interface TrackingEvent {
   event_time: string; // ISO
   status: EventStatus;
   forwarded_count: number;
+  retry_count?: number;
   destination_platform?: DestinationPlatform | null;
   error_detail?: string | null;
+  // Resilience: classification of the error (permanent | transient | unknown)
+  error_category?: 'permanent' | 'transient' | 'unknown' | null;
+  error_retryable?: boolean;
   match_quality?: { score: number; tier: string; present: string[] } | null;
 }
 
@@ -282,6 +286,16 @@ export interface TrackingStats {
   by_event: EventStat[];
   daily: DailyPoint[];
   match_quality?: MatchQualityStats | null;
+  deliverability?: DeliverabilityStats | null;
+}
+
+// Resilience: failed events split by retryability.
+export interface DeliverabilityStats {
+  failed: number;
+  permanent: number;
+  transient: number;
+  unknown: number;
+  retryable: number;
 }
 
 export interface GetSourceStatsOptions {
@@ -319,6 +333,11 @@ function normaliseEvent(e: TrackingEvent): TrackingEvent {
   if (e && e.status) {
     e.status = EVENT_STATUS_MAP[e.status as string] ?? e.status;
   }
+  // Backend returns the failure message in `error`; the UI reads `error_detail`.
+  if (e && e.error_detail == null) {
+    const raw = (e as unknown as { error?: string | null }).error;
+    if (raw) e.error_detail = raw;
+  }
   return e;
 }
 
@@ -328,12 +347,24 @@ export interface GetSourceEventsOptions {
   limit?: number;
 }
 
+// UI status vocabulary → backend status value (for the events filter query).
+// The backend stores {received, forwarded, failed, skipped_no_consent, ...};
+// the UI uses {received, forwarded, no_consent, error}.
+const UI_TO_BACKEND_STATUS: Record<string, string> = {
+  received: 'received',
+  forwarded: 'forwarded',
+  no_consent: 'skipped_no_consent',
+  error: 'failed',
+};
+
 export async function getSourceEvents(
   sourceId: string,
   options: GetSourceEventsOptions = {},
 ): Promise<TrackingEvent[]> {
   const params = new URLSearchParams();
-  if (options.status) params.set('status', options.status);
+  if (options.status) {
+    params.set('status', UI_TO_BACKEND_STATUS[options.status] ?? options.status);
+  }
   if (options.event_name) params.set('event_name', options.event_name);
   if (options.limit !== undefined) params.set('limit', String(options.limit));
   const qs = params.toString();
@@ -341,6 +372,18 @@ export async function getSourceEvents(
     `/api/v1/tracking/sources/${sourceId}/events${qs ? `?${qs}` : ''}`,
   );
   return events.map(normaliseEvent);
+}
+
+/**
+ * Re-attempt forwarding for a failed event (resilience).
+ * POST /api/v1/tracking/events/{eventId}/retry → updated event.
+ */
+export async function retryEvent(eventId: string): Promise<TrackingEvent> {
+  const e = await authFetch<TrackingEvent>(
+    `/api/v1/tracking/events/${eventId}/retry`,
+    { method: 'POST' },
+  );
+  return normaliseEvent(e);
 }
 
 // --- Destinations ---

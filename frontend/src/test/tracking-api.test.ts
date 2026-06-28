@@ -287,7 +287,8 @@ describe('getSourceEvents — filter options', () => {
     await getSourceEvents('src-001', { status: 'error' });
 
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toContain('status=error');
+    // UI 'error' is translated to the backend status 'failed'
+    expect(url).toContain('status=failed');
   });
 
   it('appends event_name and limit filters together', async () => {
@@ -814,5 +815,57 @@ describe('patchDestination — required_consent', () => {
     const body = JSON.parse(opts.body as string);
     // Only required_consent in body — no other fields
     expect(Object.keys(body)).toEqual(['required_consent']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// retryEvent — resilience
+// ---------------------------------------------------------------------------
+
+describe('retryEvent', () => {
+  beforeEach(() => {
+    if (typeof globalThis.localStorage === 'undefined') {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: { getItem: () => 'test-token', removeItem: vi.fn(), setItem: vi.fn() },
+        writable: true,
+      });
+    }
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('POSTs to /tracking/events/{id}/retry and maps backend error → error_detail', async () => {
+    const backendEvent = {
+      id: 'evt-1',
+      event_name: 'Purchase',
+      event_time: '2026-06-25T10:00:00Z',
+      status: 'failed',
+      forwarded_count: 0,
+      retry_count: 1,
+      error: '[meta_capi] HTTP 500: server error',
+      error_category: 'transient',
+      error_retryable: true,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(backendEvent),
+      text: () => Promise.resolve(JSON.stringify(backendEvent)),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { retryEvent } = await import('@/lib/tracking-api');
+    const result = await retryEvent('evt-1');
+
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/api/v1/tracking/events/evt-1/retry');
+    expect(opts.method).toBe('POST');
+    // status normalised failed → error; error mapped to error_detail
+    expect(result.status).toBe('error');
+    expect(result.error_detail).toContain('HTTP 500');
+    expect(result.error_category).toBe('transient');
+    expect(result.retry_count).toBe(1);
   });
 });

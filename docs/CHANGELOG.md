@@ -166,6 +166,19 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 60 — M7 Dayanıklılık (hata sınıflandırma + yeniden gönderme)
+- Araştırmadaki son büyük SignalSight maddesi: başarısız iletimlerde **dayanıklılık**.
+  `classify_forward_error` her hatayı **kalıcı** (400/401/403/422, "invalid", "token expired" — düzeltme
+  gerekir) vs **geçici** (429/5xx/timeout/rate limit — yeniden denenebilir) vs **bilinmiyor** olarak
+  sınıflandırır. `retry_event` + `POST /tracking/events/{id}/retry` başarısız olayı consent-uygun
+  hedeflere yeniden gönderir, `retry_count` artırır (migration 0022). Stats'a **deliverability** bloğu
+  (başarısızlar kalıcı/geçici/retryable kırılımı). Olay yanıtına `error_category`/`error_retryable`/`retry_count`.
+  12 yeni backend testi.
+- Frontend: Olay Günlüğü'nde hata kategori rozeti (Geçici/Kalıcı) + **Yeniden Gönder** butonu +
+  yeniden-deneme sayacı; İletim Sağlığı'nda "N geçici · M kalıcı" notu. Durum filtresi eşlemesi
+  düzeltildi (UI 'error' → backend 'failed'); olay hata mesajı artık konsolda görünüyor. Diakritik cilası.
+- Kalite: backend **1865 yeşil**, frontend **204 yeşil**, build yeşil. **M7 ölçümleme stüdyosu + dayanıklılık tamam.**
+
 ## Dalga 59 — Copilot İçerik Planlayıcı farkındalığı (birleşik kokpit)
 - AI Kopilot artık İçerik Planlayıcı'yı biliyor: yeni `get_content_status` aracı (durum bazlı sayılar +
   yaklaşan zamanlanmış gönderiler) hem stub hem Claude yolunda. "Kaç içerik onay bekliyor?",

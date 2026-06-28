@@ -17,6 +17,7 @@ import {
   createTrackingSource,
   getSourceSnippet,
   getSourceEvents,
+  retryEvent,
   getSourceDestinations,
   getSourceStats,
   createDestination,
@@ -491,6 +492,12 @@ function DeliveryHealthPanel({
               {stats.totals.total_errors.toLocaleString('tr-TR')}
             </div>
             <div className={styles.statLabel}>Hata</div>
+            {stats.deliverability && stats.deliverability.failed > 0 && (
+              <div className={styles.deliverabilityNote}>
+                {stats.deliverability.transient} geçici ·{' '}
+                {stats.deliverability.permanent} kalıcı
+              </div>
+            )}
           </div>
 
           <div className={styles.statCard}>
@@ -1214,6 +1221,7 @@ function DebugConsole({
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<EventStatus | ''>('');
   const [filterEvent, setFilterEvent] = useState('');
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -1236,10 +1244,23 @@ function DebugConsole({
     fetchEvents();
   }, [fetchEvents]);
 
+  async function handleRetry(ev: TrackingEvent) {
+    if (!ev.id) return;
+    setRetryingId(ev.id);
+    try {
+      await retryEvent(ev.id);
+      await fetchEvents();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Yeniden gönderilemedi');
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
   return (
     <div className={styles.sectionBlock}>
       <div className={styles.debugHeader}>
-        <span className={styles.sectionTitleInline}>Olay Gunlugu</span>
+        <span className={styles.sectionTitleInline}>Olay Günlüğü</span>
         <div className={styles.debugFilters}>
           <select
             className={styles.selectSm}
@@ -1300,8 +1321,8 @@ function DebugConsole({
         <div className={styles.stateBoxSm}>
           <span className={styles.muted}>
             {filterStatus || filterEvent
-              ? 'Bu filtreyle esleyen olay bulunamadi.'
-              : 'Henuz kayitli olay yok.'}
+              ? 'Bu filtreyle eşleşen olay bulunamadı.'
+              : 'Henüz kayıtlı olay yok.'}
           </span>
         </div>
       ) : (
@@ -1309,11 +1330,12 @@ function DebugConsole({
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Olay Adi</th>
+                <th>Olay Adı</th>
                 <th>Zaman</th>
                 <th>Durum</th>
                 <th>İletim</th>
                 <th>Hata Detayı</th>
+                <th>İşlem</th>
               </tr>
             </thead>
             <tbody>
@@ -1324,14 +1346,65 @@ function DebugConsole({
                   <td>
                     <StatusBadge status={ev.status} />
                   </td>
-                  <td>{ev.forwarded_count}</td>
+                  <td>
+                    {ev.forwarded_count}
+                    {(ev.retry_count ?? 0) > 0 && (
+                      <span className={styles.retryCount} title="Yeniden deneme sayısı">
+                        {' '}↻{ev.retry_count}
+                      </span>
+                    )}
+                  </td>
                   <td>
                     {ev.error_detail ? (
-                      <span className={styles.errorDetail} title={ev.error_detail}>
-                        {ev.error_detail.length > 60
-                          ? ev.error_detail.slice(0, 60) + '...'
-                          : ev.error_detail}
+                      <span className={styles.errorCell}>
+                        {ev.error_category && (
+                          <span
+                            className={
+                              ev.error_category === 'transient'
+                                ? styles.errCatTransient
+                                : ev.error_category === 'permanent'
+                                ? styles.errCatPermanent
+                                : styles.errCatUnknown
+                            }
+                            title={
+                              ev.error_category === 'transient'
+                                ? 'Geçici hata — yeniden denenebilir'
+                                : ev.error_category === 'permanent'
+                                ? 'Kalıcı hata — yapılandırma/kimlik düzeltilmeli'
+                                : 'Sınıflandırılamayan hata'
+                            }
+                          >
+                            {ev.error_category === 'transient'
+                              ? 'Geçici'
+                              : ev.error_category === 'permanent'
+                              ? 'Kalıcı'
+                              : 'Bilinmiyor'}
+                          </span>
+                        )}
+                        <span className={styles.errorDetail} title={ev.error_detail}>
+                          {ev.error_detail.length > 50
+                            ? ev.error_detail.slice(0, 50) + '...'
+                            : ev.error_detail}
+                        </span>
                       </span>
+                    ) : (
+                      <span className={styles.muted}>—</span>
+                    )}
+                  </td>
+                  <td>
+                    {ev.status === 'error' && ev.id ? (
+                      <button
+                        className={styles.secondaryBtn}
+                        onClick={() => handleRetry(ev)}
+                        disabled={retryingId === ev.id}
+                        title={
+                          ev.error_retryable
+                            ? 'Bu hata geçici — yeniden gönder'
+                            : 'Yeniden gönder (kalıcı hata olabilir)'
+                        }
+                      >
+                        {retryingId === ev.id ? '...' : 'Yeniden Gönder'}
+                      </button>
                     ) : (
                       <span className={styles.muted}>—</span>
                     )}

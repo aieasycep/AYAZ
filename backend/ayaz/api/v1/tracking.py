@@ -55,7 +55,12 @@ from ayaz.config import settings
 from ayaz.models.oltp import Membership
 from ayaz.models.tracking import ConversionEvent, EventDestination, TrackingSource
 from ayaz.security.rate_limit import rate_limit
-from ayaz.services.tracking import compute_match_quality_stats, ingest_event
+from ayaz.services.tracking import (
+    classify_forward_error,
+    compute_match_quality_stats,
+    ingest_event,
+    retry_event,
+)
 
 router = APIRouter(prefix="/tracking", tags=["tracking"])
 
@@ -254,13 +259,19 @@ class ConversionEventResponse(BaseModel):
     match_quality: dict[str, Any] | None = None
     status: str
     forwarded_count: int
+    retry_count: int = 0
     error: str | None
+    # Classification of `error` (permanent | transient | unknown) or None when
+    # the event has no error. Lets the UI show whether a failure is retryable.
+    error_category: str | None = None
+    error_retryable: bool = False
     created_at: str
 
     model_config = {"from_attributes": True}
 
     @classmethod
     def from_orm_obj(cls, obj: ConversionEvent) -> "ConversionEventResponse":
+        err_class = classify_forward_error(obj.error) if obj.error else None
         return cls(
             id=obj.id,
             tenant_id=obj.tenant_id,
@@ -274,6 +285,9 @@ class ConversionEventResponse(BaseModel):
             consent_signals=getattr(obj, "consent_signals", None),
             match_quality=getattr(obj, "match_quality", None),
             status=obj.status,
+            retry_count=getattr(obj, "retry_count", 0) or 0,
+            error_category=err_class["category"] if err_class else None,
+            error_retryable=err_class["retryable"] if err_class else False,
             forwarded_count=obj.forwarded_count,
             error=obj.error,
             created_at=obj.created_at,
@@ -340,6 +354,16 @@ class MatchQualityStats(BaseModel):
     field_coverage: list[MatchQualityFieldStat]
 
 
+class DeliverabilityStats(BaseModel):
+    """Breakdown of failed events by retryability (resilience view)."""
+
+    failed: int           # total failed events in range
+    permanent: int        # config/auth errors — fix required, not retryable
+    transient: int        # rate-limit / 5xx / timeout — retryable
+    unknown: int          # unclassifiable
+    retryable: int        # == transient (events worth a retry)
+
+
 class SourceStatsResponse(BaseModel):
     source_id: uuid.UUID
     date_from: str  # "YYYY-MM-DD"
@@ -349,6 +373,8 @@ class SourceStatsResponse(BaseModel):
     daily: list[DailyStat]
     # Null when no event in range carries a match-quality score (legacy data).
     match_quality: MatchQualityStats | None = None
+    # Null when there are no failed events in range.
+    deliverability: DeliverabilityStats | None = None
 
 
 # ── Pure stats aggregation helper (unit-testable without HTTP) ─────────────────
@@ -446,6 +472,27 @@ def compute_tracking_stats(
     # None when no event in the list carries a match_quality score.
     match_quality = compute_match_quality_stats(events)
 
+    # ── Deliverability: classify failed events by retryability ────────────────
+    failed_events = [e for e in events if e.status == "failed"]
+    deliverability: dict[str, int] | None = None
+    if failed_events:
+        permanent = transient = unknown = 0
+        for e in failed_events:
+            cat = classify_forward_error(getattr(e, "error", None))["category"]
+            if cat == "permanent":
+                permanent += 1
+            elif cat == "transient":
+                transient += 1
+            else:
+                unknown += 1
+        deliverability = {
+            "failed": len(failed_events),
+            "permanent": permanent,
+            "transient": transient,
+            "unknown": unknown,
+            "retryable": transient,
+        }
+
     return {
         "totals": {
             "total_events": total_events,
@@ -456,6 +503,7 @@ def compute_tracking_stats(
         "by_event": by_event,
         "daily": daily,
         "match_quality": match_quality,
+        "deliverability": deliverability,
     }
 
 
@@ -750,6 +798,7 @@ def get_source_stats(
     )
 
     mq = agg.get("match_quality")
+    deliv = agg.get("deliverability")
     return SourceStatsResponse(
         source_id=source_id,
         date_from=date_from.isoformat(),
@@ -769,6 +818,7 @@ def get_source_stats(
             if mq
             else None
         ),
+        deliverability=DeliverabilityStats(**deliv) if deliv else None,
     )
 
 
@@ -825,6 +875,54 @@ def set_event_config(
     db.refresh(src)
 
     return EventConfigResponse(disabled_events=src.disabled_events or [])
+
+
+# ── Retry a failed event (resilience) ─────────────────────────────────────────
+
+
+@router.post(
+    "/events/{event_id}/retry",
+    response_model=ConversionEventResponse,
+    summary="Başarısız bir olayı hedeflere yeniden gönder (dayanıklılık)",
+)
+def retry_failed_event(
+    event_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> ConversionEventResponse:
+    """Re-attempt forwarding for a failed conversion event.
+
+    Loads the event (tenant-scoped), confirms it is in the ``failed`` state,
+    then re-runs forwarding to its active, consent-satisfied destinations,
+    incrementing ``retry_count``.
+
+    Raises
+    ------
+    404 — event not found / other tenant
+    409 — the event is not in the ``failed`` state (nothing to retry)
+    """
+    event = db.scalar(
+        select(ConversionEvent).where(
+            ConversionEvent.id == event_id,
+            ConversionEvent.tenant_id == membership.tenant_id,
+        )
+    )
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dönüşüm olayı bulunamadı.",
+        )
+    if event.status != "failed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Yalnızca başarısız (failed) olaylar yeniden gönderilebilir. "
+                f"Mevcut durum: {event.status!r}."
+            ),
+        )
+
+    updated = retry_event(db, event)
+    return ConversionEventResponse.from_orm_obj(updated)
 
 
 # ── EventDestination CRUD ─────────────────────────────────────────────────────

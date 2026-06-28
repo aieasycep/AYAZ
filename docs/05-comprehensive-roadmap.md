@@ -84,6 +84,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 57 (tamamlandı):** **Kreatif → İçerik köprüsü** (M6→M11) — en iyi reklam kreatifini tek tıkla organik içerik taslağına çevir (`POST /content/from-creative`; platform→kanal eşleme + AI altyazı uyarlama). Ücretli içgörü → organik içerik döngüsü; AYAZ'a özgü farklılaştırıcı. İçerik Planlayıcı'da "Kreatiften Oluştur" seçici.
 - **Dalga 58 (tamamlandı):** İçerik Takvimi — İçerik Planlayıcı'ya aylık takvim görünümü (Pano/Takvim anahtarı, durum-renkli çipler). RADAAR imza özelliği.
 - **Dalga 59 (tamamlandı):** Copilot İçerik Planlayıcı farkındalığı — `get_content_status` aracı; "kaç içerik onay bekliyor?" doğal dille yanıtlanır. Birleşik kokpit + Copilot vaadini derinleştirir.
+- **Dalga 60 (tamamlandı):** M7 Dayanıklılık — hata sınıflandırma (kalıcı/geçici/retryable) + `POST /tracking/events/{id}/retry` + `retry_count` (migration 0022) + stats deliverability bloğu; Olay Günlüğü'nde kategori rozeti + Yeniden Gönder. Son SignalSight maddesi; M7 ölçümleme stüdyosu tamamlandı.
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**
