@@ -1,0 +1,550 @@
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Page header */
+
+.pageTitle {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.pageSubtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+/* Section card */
+
+.sectionCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.sectionBody {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Allocation panel */
+
+.totalBudgetRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.totalBudgetLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.totalBudgetValue {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.channelRows {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.channelRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.channelRowTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.channelLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 90px;
+}
+
+.channelBaselineRef {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.channelInputGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 180px;
+  justify-content: flex-end;
+}
+
+.channelInput {
+  width: 130px;
+  padding: 0.35rem 0.625rem;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.channelInput:focus {
+  border-color: var(--color-primary);
+}
+
+.channelSlider {
+  flex: 1;
+  min-width: 100px;
+  max-width: 220px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* Action buttons */
+
+.allocationActions {
+  display: flex;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+  padding-top: 0.25rem;
+}
+
+.btnSecondary {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btnSecondary:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* KPI cards */
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.875rem;
+}
+
+@media (max-width: 1100px) {
+  .kpiGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.kpiCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: relative;
+  min-width: 0;
+}
+
+.kpiLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpiValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpiValueRoas {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+/* Pending indicator overlay */
+
+.kpiPending {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Delta badge */
+
+.deltaBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.deltaUp {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-success);
+}
+
+.deltaDown {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+}
+
+.deltaNeutral {
+  background: var(--color-surface-2, rgba(148, 163, 184, 0.15));
+  color: var(--color-text-muted);
+}
+
+/* Chart */
+
+.chartWrap {
+  padding: 0.75rem 0.25rem 0.25rem;
+}
+
+/* Per-channel table */
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.channelTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.channelTable th {
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.channelTable td {
+  padding: 0.75rem 1rem;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.channelTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.channelTable tbody tr:hover {
+  background: rgba(59, 91, 219, 0.03);
+}
+
+.numCol {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.deltaPositive {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.deltaNegativeText {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.roasVal {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* Assumptions block */
+
+.assumptionsBlock {
+  background: rgba(59, 91, 219, 0.04);
+  border: 1px solid rgba(59, 91, 219, 0.15);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 0.875rem 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.assumptionsTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-primary);
+  margin-bottom: 0.125rem;
+}
+
+.assumptionItem {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.assumptionDot {
+  flex-shrink: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  margin-top: 0.45rem;
+}
+
+/* Planning CTA */
+
+.planCtaRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btnPrimary {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 1.125rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.btnPrimary:hover {
+  opacity: 0.88;
+}
+
+/* States */
+
+.stateBox {
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.errorText {
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+
+.retryBtn {
+  margin-top: 0.75rem;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.retryBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Loading skeleton */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface-2, rgba(148, 163, 184, 0.2)) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.skeletonKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.875rem;
+}
+
+@media (max-width: 1100px) {
+  .skeletonKpiGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .skeletonKpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.skeletonCard {
+  height: 90px;
+  border-radius: var(--radius);
+}
+
+.skeletonSection {
+  height: 200px;
+  border-radius: var(--radius);
+}
+
+.skeletonAllocation {
+  height: 280px;
+  border-radius: var(--radius);
+}
+
+/* Responsive */
+
+@media (max-width: 768px) {
+  .main {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .channelRowTop {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .channelInputGroup {
+    justify-content: flex-start;
+    width: 100%;
+    min-width: unset;
+  }
+
+  .channelSlider {
+    max-width: unset;
+    flex: 1;
+  }
+
+  .sectionHeader {
+    padding: 0.75rem 1rem;
+  }
+
+  .sectionBody {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpiValue {
+    font-size: 1.0625rem;
+  }
+
+  .kpiValueRoas {
+    font-size: 1.0625rem;
+  }
+}

@@ -34,6 +34,7 @@ export const NAV_LINKS = [
   { href: '/optimizer', label: 'Optimizasyon' },
   { href: '/goals', label: 'Hedefler' },
   { href: '/planning', label: 'Planlama' },
+  { href: '/budget-simulator', label: 'Bütçe Senaryosu' },
   { href: '/automation', label: 'Otomasyon' },
   { href: '/tracking', label: 'Ölçümleme' },
   { href: '/consent', label: 'Rıza Merkezi' },

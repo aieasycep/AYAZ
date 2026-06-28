@@ -166,6 +166,19 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 74 — Bütçe Senaryo Simülatörü (Budget Scenario Simulator)
+- Planlama farklılaştırıcısı: **Bütçe Senaryo Simülatörü** — kanallar arası bütçeyi kaydırın,
+  geçmiş verimliliğe göre tahmini Gösterim/Tıklama/Dönüşüm/Gelir/ROAS'ı **anında** görün. "Temmuz
+  planı" vizyonunun interaktif what-if uzantısı. Baz dağılıma göre delta + kanal projeksiyon tablosu
+  + baz/senaryo karşılaştırma grafiği + şeffaf varsayım notları.
+- Backend: `GET /budget-simulator/baseline` + `POST /budget-simulator/simulate` (yeni tablo yok) —
+  `budget_planner._fetch_channel_metrics` reuse; kanal verimliliği (TBM/BGBM/dönüşüm oranı/ROAS/AOV/
+  EBM) + doğrusal projeksiyon + baz karşılaştırma deltaları. 56 yeni test.
+- Frontend: `/budget-simulator` — kanal başına kaydırıcı + sayısal giriş, canlı KPI kartları (delta
+  rozetli), recharts baz/senaryo grafiği, projeksiyon tablosu, "eşit dağıt/sıfırla" yardımcıları;
+  açık/koyu tema. 10 yeni test. Navigasyona **Bütçe Senaryosu** eklendi (Planlama'dan sonra).
+- Kalite: backend **2349 yeşil**, frontend **382 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 73 — AI Reklam Metni Stüdyosu (Ad Copy Studio)
 - Marcom/kreatif farklılaştırıcısı: **AI Reklam Metni Stüdyosu** — brief'ten (ürün, değer önerisi,
   ton, anahtar kelime, hedef kitle) platforma özel reklam metinleri üretir (Google Ads / Meta /

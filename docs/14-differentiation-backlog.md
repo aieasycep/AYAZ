@@ -33,9 +33,9 @@ Gelen Kutusu), CMO (Yönetici Görünümü), Marcom (İçerik + Takvim + Kreatif
 
 > Not: gerçekleşen sıra — Dalga 67 Komuta Merkezi, 68 Denetim, 69 Onboarding,
 > 70 Kıyaslama, 71 Öneri Merkezi, 72 KVKK Rıza Merkezi, 73 AI Reklam Metni
-> Stüdyosu. Bildirim/Alarm Merkezi (9) zaten mevcut (NotificationBell +
-> /notifications + notifications_center). Kalan no-cred adaylar: Çoklu-dil (7),
-> Veri dışa aktarma (10), rol-bazlı görünümler (3).
+> Stüdyosu, 74 Bütçe Senaryo Simülatörü. Bildirim/Alarm Merkezi (9) zaten mevcut
+> (NotificationBell + /notifications + notifications_center). Kalan no-cred
+> adaylar: Çoklu-dil (7), Veri dışa aktarma (10), rol-bazlı görünümler (3).
 
 ## Kurallar
 - Sadece no-cred; canlı/kimlik gerektiren kısımlar net "kimlik bekliyor" gate'li.
