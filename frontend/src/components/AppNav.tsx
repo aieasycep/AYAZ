@@ -25,6 +25,7 @@ export const NAV_LINKS = [
   { href: '/content', label: 'İçerik' },
   { href: '/optimizer', label: 'Optimizasyon' },
   { href: '/goals', label: 'Hedefler' },
+  { href: '/planning', label: 'Planlama' },
   { href: '/automation', label: 'Otomasyon' },
   { href: '/tracking', label: 'Ölçümleme' },
   { href: '/billing', label: 'Faturalama' },

@@ -71,6 +71,9 @@ from ayaz.models.notifications import (  # noqa: F401
 from ayaz.models.content import (  # noqa: F401
     ContentPost,
 )
+from ayaz.models.budget import (  # noqa: F401
+    BudgetPlan,
+)
 
 __all__ = [
     "Base",
@@ -112,4 +115,5 @@ __all__ = [
     "RevokedToken",
     "Notification",
     "ContentPost",
+    "BudgetPlan",
 ]

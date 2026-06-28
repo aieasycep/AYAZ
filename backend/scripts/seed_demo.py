@@ -88,6 +88,7 @@ from ayaz.models.tracking import (
     TrackingSource,
 )
 from ayaz.models.content import ContentPost
+from ayaz.models.budget import BudgetPlan
 from ayaz.models.oltp import (
     ConnectedAccount,
     Membership,
@@ -1446,6 +1447,67 @@ def _seed_content(db, tenant: Tenant) -> dict:
     return counts
 
 
+def _seed_budget(db, tenant: Tenant) -> dict:
+    """Seed M12 Budget Planner demo data: one saved BudgetPlan for next month,
+    with allocations computed from the seeded warehouse history.
+
+    Idempotency: skip if the tenant already has any BudgetPlan.
+    """
+    from sqlalchemy import func as _func
+    from ayaz.services.budget_planner import allocate_budget
+
+    counts = {"budget_plans": 0}
+
+    existing = db.scalar(
+        select(_func.count()).select_from(BudgetPlan).where(
+            BudgetPlan.tenant_id == tenant.id
+        )
+    ) or 0
+    if existing > 0:
+        print(f"  BudgetPlans already exist ({existing} rows) — skipping")
+        return counts
+
+    # Next month relative to the rich demo window.
+    end = _RICH_END_DATE
+    if end.month == 12:
+        period_month = f"{end.year + 1}-01"
+    else:
+        period_month = f"{end.year}-{end.month + 1:02d}"
+
+    total_budget = 150000.0
+    try:
+        allocations = allocate_budget(
+            db,
+            tenant.id,
+            total_budget=total_budget,
+            objective="balanced",
+            lookback_days=90,
+            currency="TRY",
+            as_of=end,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"  Budget allocation failed ({exc}) — storing plan without snapshot")
+        allocations = None
+
+    plan = BudgetPlan(
+        tenant_id=tenant.id,
+        name=f"{period_month} Bütçe Planı",
+        period_month=period_month,
+        total_budget=total_budget,
+        currency="TRY",
+        objective="balanced",
+        lookback_days=90,
+        allocations=allocations,
+        status="active",
+    )
+    db.add(plan)
+    db.flush()
+    db.commit()
+    counts["budget_plans"] = 1
+    print(f"  Created BudgetPlan: {plan.name} (₺{total_budget:,.0f})")
+    return counts
+
+
 # ── Report seeding ─────────────────────────────────────────────────────────────
 
 _REPORT_NAME = "AYAZ Demo — Aylik Performans Raporu"
@@ -1701,6 +1763,12 @@ def run_seed() -> None:
         content_counts = _seed_content(db, tenant)
         summary["content"] = content_counts
         print(f"  Content: posts={content_counts['content_posts']}")
+
+        # ── Step 5e: Budget Planner (M12) demo data ──────────────────────────
+        print("\n[5e/7] Seeding M12 budget planner data (BudgetPlan)...")
+        budget_counts = _seed_budget(db, tenant)
+        summary["budget"] = budget_counts
+        print(f"  Budget: plans={budget_counts['budget_plans']}")
 
         # ── Step 6: Feeds ─────────────────────────────────────────────────────
         print("\n[6/7] Seeding product feed (FeedSource + 2 FeedChannels + rules)...")

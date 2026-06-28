@@ -166,6 +166,21 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 61 — M12 Aylık Bütçe Planlayıcı (Planlama personası)
+- Yeni modül: **Bütçe Planlayıcı** — "gelecek ay için toplam bütçe gir → sistem geçmiş performansa
+  göre platform VE kampanya bazında dağıtsın". Kullanıcının net olarak istediği özellik; tamamen kimliksiz.
+- Backend: `BudgetPlan` modeli (migration 0023) + saf alokasyon algoritması (`compute_allocation`):
+  hedefe göre (Dengeli / ROAS'ı maksimize / Dönüşümü maksimize) kanal-ağırlıklandırma + **iteratif
+  koruma** (her aktif kanala min %5, en çok %60; tavanlar sabitlenip kalan yeniden dağıtılıyor) +
+  kampanya-altı kırılım + beklenen dönüşüm/gelir/ROAS projeksiyonu. 7 endpoint (`/budget/*`):
+  preview (canlı önizleme, DB yazmaz) + plan CRUD + recompute. 42 yeni backend testi.
+- Frontend: `/planning` sayfası — plan formu (ay + toplam bütçe + hedef + geçmiş veri penceresi),
+  yazarken canlı önizleme (debounce), plan-seviyesi projeksiyon kartları, platform alokasyon barları
+  (pay% + ROAS + beklenen gelir/dönüşüm + geçmişe göre ▲/▼ delta), açılır kampanya kırılımı,
+  "nasıl hesaplandı" notları, plan kaydet + kayıtlı planlar listesi. 13 yeni frontend testi.
+  Navigasyona **Planlama** eklendi. Demo: 1 örnek plan (₺150.000, Temmuz). Pay% formatı düzeltildi.
+- Kalite: backend **1907 yeşil**, frontend **217 yeşil**, build yeşil.
+
 ## Dalga 60 — M7 Dayanıklılık (hata sınıflandırma + yeniden gönderme)
 - Araştırmadaki son büyük SignalSight maddesi: başarısız iletimlerde **dayanıklılık**.
   `classify_forward_error` her hatayı **kalıcı** (400/401/403/422, "invalid", "token expired" — düzeltme
