@@ -166,6 +166,19 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 67 — Komuta Merkezi (Command Center) — birleşik vitrin ekranı
+- Yeni bayrak-gemisi ekran: **Komuta Merkezi** — tüm modüllerden "şu an dikkat gerektirenler"i
+  tek akışta toplar; üstte KPI + altta modül durum kartları. "Tek panel" vaadinin vitrini, ilk nav öğesi.
+- Backend: `GET /command-center/overview` (yeni tablo yok) — `command_center.build_command_center`
+  mevcut copilot_tools okuma fonksiyonlarını + `plan_actuals`'ı yeniden kullanır; **dikkat sentezi**:
+  kritik içgörüler→kritik, olumsuz mesajlar→uyarı, onay bekleyen içerik→bilgi, risk altı hedefler→uyarı,
+  bütçe tempo sapması→uyarı; severity sıralı, link'li (modül sayfasına). 31 yeni backend testi.
+  (Düzeltme: bütçe tempo, en güncel plan yerine **cari ay** planından hesaplanır.)
+- Frontend: `/command-center` — manşet + MoM delta'lı KPI şeridi + "Dikkat Gerektirenler" tıklanır akış +
+  "Modül Durumu" kart ızgarası (Bütçe/Gelen Kutusu/İçerik/Hedefler/İçgörüler). 11 yeni frontend testi.
+  Navigasyona **Komuta Merkezi** (ilk öğe) eklendi.
+- Kalite: backend **2057 yeşil**, frontend **281 yeşil**, build yeşil. Farklılaştırma backlog'u: `14-differentiation-backlog.md`.
+
 ## Dalga 66 — Bütçe: Plan vs Gerçekleşen (Planlama faz-2)
 - Bütçe planını ay içi **gerçekleşen** harcama/performansla karşılaştırır — planlama döngüsünü kapatır.
 - Backend: `GET /budget/plans/{id}/actuals` — planın `period_month`'u için gerçekleşen kanal metriklerini

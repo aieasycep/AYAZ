@@ -12,6 +12,7 @@ import CommandPalette from './CommandPalette';
 import QuickAsk from './QuickAsk';
 
 export const NAV_LINKS = [
+  { href: '/command-center', label: 'Komuta Merkezi' },
   { href: '/dashboard', label: 'Panel' },
   { href: '/executive', label: 'Yönetici' },
   { href: '/assistant', label: 'Asistan' },
