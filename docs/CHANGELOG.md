@@ -166,6 +166,16 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 70 — Sektör Kıyaslama (Benchmark)
+- Yeni farklılaştırıcı: **Sektör Kıyaslama** — son 30 gün reklam metrikleri TR e-ticaret **referans
+  aralıklarına** göre konumlanır (güçlü/ortalama/zayıf). Pazarlamacının sevdiği "sektöre göre neredeyim".
+- Backend: `GET /benchmark/overview` (yeni tablo yok) — 5 metrik (TO, TBM, ROAS, Dönüşüm Oranı, BGBM)
+  hesabı (`_aggregate_by_channel_raw` reuse) + referans aralık sınıflandırma (düşük-daha-iyi metrikler
+  için ters mantık) + kanal-bazlı ROAS/CTR konumu + Türkçe değerlendirme. 31 yeni test.
+- Frontend: `/benchmark` — her metrik için aralık barı + konum işareti + rozet + değerlendirme; kanal
+  kıyas tablosu; referans-aralığı uyarısı. 11 yeni test. Navigasyona **Kıyaslama** eklendi.
+- Kalite: backend **2142 yeşil**, frontend **311 yeşil**, build yeşil.
+
 ## Dalga 69 — Kurulum Sihirbazı (Onboarding Wizard) — sellability
 - Yeni satılabilirlik özelliği: **Kurulum Sihirbazı** — yeni kurumsal müşteri birkaç adımda hazır olur.
   Mevcut veriden hangi adımların tamamlandığını **otomatik tespit eder** ve kalanlara yönlendirir.

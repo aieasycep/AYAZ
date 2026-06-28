@@ -42,6 +42,7 @@ from ayaz.api.v1 import inbox as inbox_router
 from ayaz.api.v1 import executive as executive_router
 from ayaz.api.v1 import marcom as marcom_router
 from ayaz.api.v1 import command_center as command_center_router
+from ayaz.api.v1 import benchmark as benchmark_router
 from ayaz.api.v1 import audit as audit_router
 from ayaz.api.v1 import onboarding as onboarding_router
 from ayaz.config import settings
@@ -116,6 +117,7 @@ app.include_router(inbox_router.router, prefix=_PREFIX)
 app.include_router(executive_router.router, prefix=_PREFIX)
 app.include_router(marcom_router.router, prefix=_PREFIX)
 app.include_router(command_center_router.router, prefix=_PREFIX)
+app.include_router(benchmark_router.router, prefix=_PREFIX)
 app.include_router(audit_router.router, prefix=_PREFIX)
 app.include_router(onboarding_router.router, prefix=_PREFIX)
 
