@@ -78,6 +78,9 @@ from ayaz.models.social_inbox import (  # noqa: F401
     SocialMessage,
     SocialReply,
 )
+from ayaz.models.recommendations import (  # noqa: F401
+    RecommendationState,
+)
 
 __all__ = [
     "Base",
@@ -122,4 +125,5 @@ __all__ = [
     "BudgetPlan",
     "SocialMessage",
     "SocialReply",
+    "RecommendationState",
 ]

@@ -21,15 +21,20 @@ Gelen Kutusu), CMO (Yönetici Görünümü), Marcom (İçerik + Takvim + Kreatif
 3. **Rol-bazlı görünümler & izinler** — her ekip kendi ekranına düşer; ince
    izin. (Dalga 69)
 4. **AI Haftalık Strateji / Proaktif Öneri Merkezi** — haftalık doğal-dil
-   strateji + öneri kuyruğu (kabul/atla). (Dalga 70)
+   strateji + öneri kuyruğu (kabul/ertele/reddet). ✅ (Dalga 71)
 5. **KVKK / Consent Yönetim Merkezi** — TR-first: tüm consent ayarları + rıza
-   denetim izi tek yerde. (Dalga 71)
+   denetim izi tek yerde. → SONRAKİ
 6. **Onboarding Sihirbazı** — ilk kurulum: hesap bağla → hedef koy → ilk
-   içerik/bütçe; sellability. (Dalga 72)
-7. **Çoklu-dil (TR/EN)** — global hedef için arayüz dil anahtarı. (Dalga 73)
-8. **Benchmark / sektör kıyas** — sentetik sektör ortalamasına göre konum. (Dalga 74)
-9. **Bildirim/Alarm Merkezi UI** + kural derinleştirme. (Dalga 75)
-10. **Veri dışa aktarma / paylaşılabilir özet** derinleştirme. (Dalga 76)
+   içerik/bütçe; sellability. ✅ (Dalga 69)
+7. **Çoklu-dil (TR/EN)** — global hedef için arayüz dil anahtarı.
+8. **Benchmark / sektör kıyas** — sentetik sektör ortalamasına göre konum. ✅ (Dalga 70)
+9. **Bildirim/Alarm Merkezi UI** + kural derinleştirme.
+10. **Veri dışa aktarma / paylaşılabilir özet** derinleştirme.
+
+> Not: gerçekleşen sıra — Dalga 67 Komuta Merkezi, 68 Denetim, 69 Onboarding,
+> 70 Kıyaslama, 71 Öneri Merkezi. Kalan no-cred adaylar: KVKK Consent (5),
+> Çoklu-dil (7), Bildirim/Alarm Merkezi (9), Veri dışa aktarma (10), rol-bazlı
+> görünümler (3).
 
 ## Kurallar
 - Sadece no-cred; canlı/kimlik gerektiren kısımlar net "kimlik bekliyor" gate'li.

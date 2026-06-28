@@ -17,6 +17,7 @@ export const NAV_LINKS = [
   { href: '/executive', label: 'Yönetici' },
   { href: '/audit', label: 'Denetim' },
   { href: '/benchmark', label: 'Kıyaslama' },
+  { href: '/recommendations', label: 'Öneriler' },
   { href: '/assistant', label: 'Asistan' },
   { href: '/briefing', label: 'Brifing' },
   { href: '/insights', label: 'İçgörüler' },

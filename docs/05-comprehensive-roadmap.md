@@ -96,6 +96,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 67 (tamamlandı):** **Komuta Merkezi** (`/command-center`) — tüm modüllerden "dikkat gerektirenler" akışı + KPI + modül durum kartları; "tek panel" vitrini, ilk nav öğesi. `GET /command-center/overview`.
 - **Dalga 68 (tamamlandı):** **Hesap Sağlık Taraması** (`/audit`) — `GET /audit/run`; 6 kategori 16+ kontrol → 0-100 puan + kategorize bulgu + çözüm önerisi. "Tek tıkla ücretsiz denetim" farklılaştırıcısı.
 - **Dalga 70 (tamamlandı):** **Sektör Kıyaslama** (`/benchmark`) — `GET /benchmark/overview`; 5 metrik TR e-ticaret referans aralıklarına göre konum (güçlü/ortalama/zayıf) + kanal kıyası. Pazarlama farklılaştırıcısı.
+- **Dalga 71 (tamamlandı):** **Proaktif Öneri Merkezi + AI Haftalık Strateji** (`/recommendations`) — `GET /recommendations/feed`, `GET /recommendations/weekly-strategy`, `POST /recommendations/{key}/action`; denetim/bütçe/kıyaslama/hedef/gelen kutusu/içerik sinyallerini tek aksiyon akışında birleştirir + kabul/ertele/reddet iş akışı (kalıcı `recommendation_states`). "Birleşik zeka" katmanı.
 - **Dalga 69 (tamamlandı):** **Kurulum Sihirbazı** (`/onboarding`) — `GET /onboarding/status`; 5 adımı mevcut veriden otomatik tespit + CTA yönlendirme + ilerleme. Satılabilirlik (yeni kurumsal müşteri hızlı kurulum).
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 

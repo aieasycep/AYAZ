@@ -1640,6 +1640,64 @@ def _seed_inbox(db, tenant: Tenant) -> dict:
     return counts
 
 
+# ── Recommendation state seeding (M14) ────────────────────────────────────────
+
+
+def _seed_recommendation_states(db, tenant: Tenant) -> dict:
+    """Seed two RecommendationState rows for M14 Proaktif Öneri Merkezi.
+
+    Seeds:
+      1. "inbox:backlog"   — status "accepted"  (user has acted on inbox backlog)
+      2. "audit:warn:tracking_low_match_quality" — status "snoozed" for 7 days
+
+    Both keys are deterministically produced by the recommendation engine
+    against the seeded demo data, so the accepted/snoozed states surface on
+    the matching feed cards (rather than dangling as orphan rows).
+
+    Idempotency: skip if the tenant already has any RecommendationState rows.
+    """
+    from sqlalchemy import func as _func
+    from ayaz.models.recommendations import RecommendationState
+
+    counts = {"inserted": 0}
+
+    existing = db.scalar(
+        select(_func.count()).select_from(RecommendationState).where(
+            RecommendationState.tenant_id == tenant.id
+        )
+    ) or 0
+    if existing > 0:
+        print(f"  RecommendationStates already exist ({existing} rows) — skipping")
+        return counts
+
+    now = datetime.now(timezone.utc)
+    snooze_until = (now + timedelta(days=7)).isoformat()
+
+    states = [
+        RecommendationState(
+            tenant_id=tenant.id,
+            recommendation_key="inbox:backlog",
+            status="accepted",
+            snoozed_until=None,
+            note="Gelen kutusu yanıt süreleri iyileştirildi.",
+        ),
+        RecommendationState(
+            tenant_id=tenant.id,
+            recommendation_key="audit:warn:tracking_low_match_quality",
+            status="snoozed",
+            snoozed_until=snooze_until,
+            note="Eşleşme kalitesi iyileştirmesi sonraki sprint'e ertelendi.",
+        ),
+    ]
+    for s in states:
+        db.add(s)
+        counts["inserted"] += 1
+
+    db.commit()
+    print(f"  Inserted {counts['inserted']} RecommendationState rows")
+    return counts
+
+
 # ── Report seeding ─────────────────────────────────────────────────────────────
 
 _REPORT_NAME = "AYAZ Demo — Aylik Performans Raporu"
@@ -1907,6 +1965,12 @@ def run_seed() -> None:
         inbox_counts = _seed_inbox(db, tenant)
         summary["inbox"] = inbox_counts
         print(f"  Inbox: messages={inbox_counts['messages']} replies={inbox_counts['replies']}")
+
+        # ── Step 5g: Recommendation states (M14) ─────────────────────────────
+        print("\n[5g/7] Seeding M14 recommendation states (2 demo rows)...")
+        rec_counts = _seed_recommendation_states(db, tenant)
+        summary["recommendations"] = rec_counts
+        print(f"  Recommendation states: inserted={rec_counts['inserted']}")
 
         # ── Step 6: Feeds ─────────────────────────────────────────────────────
         print("\n[6/7] Seeding product feed (FeedSource + 2 FeedChannels + rules)...")

@@ -166,6 +166,23 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 71 — Proaktif Öneri Merkezi + AI Haftalık Strateji
+- Yeni "birleşik zeka" katmanı: **Öneri Merkezi** — denetim, bütçe tempo, kıyaslama, hedef, gelen
+  kutusu ve içerik sinyalleri **tek bir önceliklendirilmiş aksiyon akışında** birleşir. Her öneri:
+  kategori + etki/çaba + gerçek sayılı Türkçe gerekçe + derin bağlantı + **Kabul Et / Ertele / Reddet**
+  iş akışı (kalıcı durum). Üstte **AI Haftalık Strateji** (doğal-dil özet + 4 odak alanı + üst öneriler;
+  şablon her zaman çalışır, opsiyonel Claude `settings.claude_narrator_model`).
+- Backend: yeni `recommendation_states` tablosu (taşınabilir GUID, `status` open/accepted/snoozed/
+  dismissed, tekil tenant+key); `GET /recommendations/feed`, `GET /recommendations/weekly-strategy`,
+  `POST /recommendations/{key}/action`. Anahtarlar deterministik (`kategori:alt-tür`) — yeniden
+  üretilebilir + seed'lenebilir. Mevcut okuma fonksiyonları reuse (audit/budget/benchmark/copilot_tools).
+  49 yeni test.
+- Frontend: `/recommendations` — haftalık strateji vitrini + filtre sekmeleri (Açık/Kabul/Ertele/
+  Reddet/Tümü, canlı sayaç) + kategori/etki/çaba rozetli öneri kartları + iyimser durum güncelleme;
+  açık/koyu tema. 24 yeni test. Navigasyona **Öneriler** eklendi (Kıyaslama'dan sonra).
+- Demo: 1 kabul + 1 ertele durumu seed'lendi (deterministik anahtarlarla eşleşir) — tüm sekmeler dolu.
+- Kalite: backend **2191 yeşil**, frontend **335 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 70 — Sektör Kıyaslama (Benchmark)
 - Yeni farklılaştırıcı: **Sektör Kıyaslama** — son 30 gün reklam metrikleri TR e-ticaret **referans
   aralıklarına** göre konumlanır (güçlü/ortalama/zayıf). Pazarlamacının sevdiği "sektöre göre neredeyim".
