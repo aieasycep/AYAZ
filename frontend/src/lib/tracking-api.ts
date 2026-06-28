@@ -111,6 +111,7 @@ export interface TrackingEvent {
   forwarded_count: number;
   destination_platform?: DestinationPlatform | null;
   error_detail?: string | null;
+  match_quality?: { score: number; tier: string; present: string[] } | null;
 }
 
 // --- Source API ---
@@ -215,6 +216,59 @@ export interface DailyPoint {
   errors: number;
 }
 
+// --- Match Quality (Event Match Quality / EMQ-style) ---
+
+// Canonical identity-signal key tier (matches backend tier labels).
+export type MatchTier = 'weak' | 'medium' | 'good' | 'excellent';
+
+export interface MatchQualityFieldStat {
+  key: string; // em | ph | fbc | fbp | external_id | client_ip_address | ...
+  weight: number;
+  present: number;
+  coverage_pct: number;
+}
+
+export interface MatchQualityStats {
+  avg_score: number; // 0-100
+  scored_events: number;
+  tier_distribution: Record<string, number>; // weak|medium|good|excellent → count
+  field_coverage: MatchQualityFieldStat[];
+}
+
+// Turkish display label for each canonical match-quality signal key.
+export const MATCH_FIELD_LABELS: Record<string, string> = {
+  em: 'E-posta',
+  ph: 'Telefon',
+  fbc: 'Tıklama Kimliği (fbc)',
+  fbp: 'Tarayıcı Kimliği (fbp)',
+  external_id: 'Harici Kimlik',
+  client_ip_address: 'IP Adresi',
+  client_user_agent: 'Tarayıcı Bilgisi',
+  fn: 'Ad',
+  ln: 'Soyad',
+  zp: 'Posta Kodu',
+  ct: 'Şehir',
+  st: 'İl / Bölge',
+  country: 'Ülke',
+  ge: 'Cinsiyet',
+};
+
+// Tier → Turkish label + colour bucket.
+export const MATCH_TIER_LABELS: Record<string, string> = {
+  weak: 'Zayıf',
+  medium: 'Orta',
+  good: 'İyi',
+  excellent: 'Mükemmel',
+};
+
+// Tier display order (worst → best).
+export const MATCH_TIER_ORDER: MatchTier[] = [
+  'weak',
+  'medium',
+  'good',
+  'excellent',
+];
+
 export interface TrackingStats {
   source_id: string;
   date_from: string;
@@ -227,6 +281,7 @@ export interface TrackingStats {
   };
   by_event: EventStat[];
   daily: DailyPoint[];
+  match_quality?: MatchQualityStats | null;
 }
 
 export interface GetSourceStatsOptions {

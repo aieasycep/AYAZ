@@ -1150,3 +1150,203 @@
   gap: 0.75rem;
   flex-wrap: wrap;
 }
+
+/* ------------------------------------------------------------------ */
+/* Match Quality (Eşleşme Kalitesi) panel                              */
+/* ------------------------------------------------------------------ */
+
+.mqLayout {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .mqLayout {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}
+
+.mqScoreCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.mqGauge {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.mqScoreValue {
+  font-size: 2.75rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mqScoreGood {
+  color: var(--color-success);
+}
+
+.mqScoreMid {
+  color: #d97706;
+}
+
+.mqScoreWeak {
+  color: var(--color-danger);
+}
+
+.mqScoreOutOf {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.mqTierBadge {
+  margin-top: 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.mqScoreLabel {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+}
+
+.mqTierDist {
+  margin-top: 0.875rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.mqTierRow,
+.mqCovRow {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mqTierName {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.mqTierCount,
+.mqCovPct {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mqBarTrack {
+  height: 8px;
+  background: var(--color-surface-2, var(--color-border));
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.mqBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.mqFillExcellent {
+  background: var(--color-success);
+}
+
+.mqFillGood {
+  background: #22c55e;
+}
+
+.mqFillMedium {
+  background: #f59e0b;
+}
+
+.mqFillWeak {
+  background: #ef4444;
+}
+
+/* badge background uses the same fill colors via the shared classes above,
+   but badges need the color applied to background — the fill classes set
+   `background`, which is exactly what the pill badge needs too. */
+
+.mqCoverageCol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.mqColTitle {
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 0.25rem;
+}
+
+.mqCovLabel {
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mqTips {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(37, 99, 235, 0.05);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: var(--radius);
+}
+
+.mqTipsTitle {
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 0.4rem;
+}
+
+.mqTipsList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.mqTipsList li {
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}

@@ -166,6 +166,19 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 55 — M7 Eşleşme Kalitesi (Event Match Quality / EMQ)
+- SignalSight-esinli **eşleşme kalitesi skoru**: her olay ingest anında **ham** payload'tan
+  (hash'lemeden ÖNCE) puanlanır → `compute_match_quality` ağırlıklı 0-100 skor + tier
+  (weak/medium/good/excellent) + hangi kimlik sinyallerinin geldiği. Ağırlıklar: em 22, ph 18,
+  fbc 15, fbp 10, external_id 10, IP/UA 6+6, ad/soyad/posta/şehir/il/ülke/cinsiyet (toplam=100).
+  **KVKK:** yalnızca hangi alanların *geldiği* saklanır — IP/UA gibi ham değerler **asla**.
+  `ConversionEvent.match_quality` (JSON, migration 0020). `hash_identity` artık `external_id`'yi
+  hash'ler, `fbc`/`fbp` (PII olmayan tıklama/tarayıcı kimlikleri) passthrough eder → gerçek eşleşme artar.
+  Stats yanıtına `match_quality` bloğu (ortalama skor + tier dağılımı + sinyal-bazlı kapsama %). 18 yeni test.
+  Frontend: **Eşleşme Kalitesi** paneli — ortalama skor göstergesi + tier dağılım barları +
+  sinyal kapsama barları + yüksek-değerli eksik sinyaller için **İyileştirme Önerileri**. Demo seed
+  niyet-bazlı kimlik dağılımı (Purchase zengin, PageView zayıf). M7 ölçümleme stüdyosu tamam.
+
 ## Dalga 54 — M7 Consent Mode v2 / Granular KVKK Rıza (backend)
 - Boolean rıza → 4 granular sinyal (ad_storage/ad_user_data/ad_personalization/analytics_storage).
   Collect bool VEYA obje kabul eder (geri uyumlu); `consent_signals` JSON saklanır. Hedef-bazlı

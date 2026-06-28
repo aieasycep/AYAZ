@@ -79,6 +79,7 @@ Durum: 🟢 hazır · 🟡 kısmi · 🔵 yapımda (bu dalga) · 🔴 planlı
 - **Dalga 52 (tamamlandı):** M7 Ölçümleme sağlık & olay istatistikleri backend (`/tracking/sources/.../stats`) — iletim sağlığı + olay-bazlı sayım/trend + debug filtreleri (SignalSight panel ilhamı).
 - **Dalga 53 (tamamlandı):** M7 olay-bazlı aç/kapa (`event-config`) — kapalı olay CAPI'ye iletilmez (disabled status, migration 0018); SignalSight Event Configuration toggle.
 - **Dalga 54 (tamamlandı):** M7 Consent Mode v2 — granular KVKK rıza (4 sinyal) + hedef-bazlı zorunlu sinyaller + cookie-değişkeni snippet + GA4 GCS (migration 0019); SignalSight Cookie Consent ilhamı.
+- **Dalga 55 (tamamlandı):** M7 Eşleşme Kalitesi (Event Match Quality) — ham payload'tan ağırlıklı 0-100 skor + tier + sinyal kapsama (migration 0020); `external_id` hash + `fbc`/`fbp` passthrough; KVKK için yalnızca alan-varlığı saklanır. Eşleşme Kalitesi paneli + iyileştirme önerileri. **M7 ölçümleme stüdyosu tamamlandı.**
 - **Mobil uygulama:** PWA ile yüklenebilir deneyim sağlandı (Dalga 17); native uygulama talebe bağlı.
 
 > **M1–M10 çekirdek modüllerin tamamı + 7 farklılaştırıcı + güvenlik denetimi/sertleştirme + PWA tamamlandı.**

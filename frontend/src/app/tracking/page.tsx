@@ -28,6 +28,10 @@ import {
   CONSENT_SIGNAL_LABELS,
   ALL_CONSENT_SIGNALS,
   PLATFORM_DEFAULT_CONSENT,
+  MATCH_FIELD_LABELS,
+  MATCH_TIER_LABELS,
+  MATCH_TIER_ORDER,
+  type MatchQualityStats,
   type TrackingSource,
   type TrackingDestination,
   type TrackingEvent,
@@ -772,6 +776,182 @@ function EventDistributionPanel({
   );
 }
 
+// --- Match Quality (Eşleşme Kalitesi) panel ---
+
+// Per-signal improvement tips, keyed by canonical field key.
+const MATCH_TIP_BY_FIELD: Record<string, string> = {
+  em: 'E-posta gönderimini artır — en güçlü ve en kararlı eşleşme sinyali.',
+  ph: 'Telefon numarası ekle — yüksek eşleşme katkısı sağlar.',
+  fbc: 'Meta tıklama kimliğini (fbc / fbclid) ilet — atıf kalitesini belirgin artırır.',
+  fbp: 'Tarayıcı kimliğini (_fbp çerezi) ilet.',
+  external_id: 'Kendi müşteri kimliğini (external_id) gönder — giriş yapan kullanıcılar için ideal.',
+  client_ip_address: 'IP adresini sunucu tarafında ilet.',
+  client_user_agent: 'Tarayıcı bilgisini (user agent) ilet.',
+};
+
+function mqScoreClass(score: number): string {
+  if (score >= 60) return styles.mqScoreGood;
+  if (score >= 30) return styles.mqScoreMid;
+  return styles.mqScoreWeak;
+}
+
+function mqTierFillClass(tier: string): string {
+  switch (tier) {
+    case 'excellent':
+      return styles.mqFillExcellent;
+    case 'good':
+      return styles.mqFillGood;
+    case 'medium':
+      return styles.mqFillMedium;
+    default:
+      return styles.mqFillWeak;
+  }
+}
+
+function mqCoverageFillClass(pct: number): string {
+  if (pct >= 70) return styles.mqFillGood;
+  if (pct >= 40) return styles.mqFillMedium;
+  return styles.mqFillWeak;
+}
+
+function mqScoreTier(score: number): string {
+  if (score >= 85) return 'excellent';
+  if (score >= 60) return 'good';
+  if (score >= 30) return 'medium';
+  return 'weak';
+}
+
+// Top improvement suggestions: high-weight signals with low coverage.
+function mqTips(mq: MatchQualityStats): string[] {
+  return mq.field_coverage
+    .filter((f) => f.weight >= 10 && f.coverage_pct < 70)
+    .slice(0, 3)
+    .map(
+      (f) =>
+        MATCH_TIP_BY_FIELD[f.key] ??
+        `${MATCH_FIELD_LABELS[f.key] ?? f.key} kapsamasını artır (şu an %${f.coverage_pct}).`,
+    );
+}
+
+function MatchQualityPanel({
+  stats,
+  loading,
+  error,
+}: {
+  stats: TrackingStats | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  const mq = stats?.match_quality ?? null;
+  const tips = mq ? mqTips(mq) : [];
+
+  return (
+    <div className={styles.healthPanel}>
+      <div className={styles.healthHeader}>
+        <span className={styles.sectionTitleInline}>Eşleşme Kalitesi</span>
+        {mq && (
+          <span className={styles.dateRangeLabel}>
+            {mq.scored_events.toLocaleString('tr-TR')} skorlanan olay
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.muted}>Eşleşme kalitesi yükleniyor...</span>
+        </div>
+      ) : error ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.errorText}>{error}</span>
+        </div>
+      ) : !mq ? (
+        <div className={styles.stateBoxSm}>
+          <span className={styles.muted}>
+            Bu aralıkta eşleşme kalitesi skoru bulunan olay yok.
+          </span>
+        </div>
+      ) : (
+        <>
+          <div className={styles.mqLayout}>
+            {/* Average score + tier distribution */}
+            <div className={styles.mqScoreCol}>
+              <div className={styles.mqGauge}>
+                <span className={`${styles.mqScoreValue} ${mqScoreClass(mq.avg_score)}`}>
+                  {mq.avg_score}
+                </span>
+                <span className={styles.mqScoreOutOf}>/ 100</span>
+              </div>
+              <span
+                className={`${styles.mqTierBadge} ${mqTierFillClass(
+                  mqScoreTier(mq.avg_score),
+                )}`}
+              >
+                {MATCH_TIER_LABELS[mqScoreTier(mq.avg_score)]}
+              </span>
+              <div className={styles.mqScoreLabel}>Ortalama Eşleşme Skoru</div>
+
+              <div className={styles.mqTierDist}>
+                {MATCH_TIER_ORDER.map((t) => {
+                  const c = mq.tier_distribution[t] ?? 0;
+                  const pct = mq.scored_events
+                    ? Math.round((c * 100) / mq.scored_events)
+                    : 0;
+                  return (
+                    <div key={t} className={styles.mqTierRow}>
+                      <span className={styles.mqTierName}>{MATCH_TIER_LABELS[t]}</span>
+                      <div className={styles.mqBarTrack}>
+                        <div
+                          className={`${styles.mqBarFill} ${mqTierFillClass(t)}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className={styles.mqTierCount}>
+                        {c.toLocaleString('tr-TR')}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Per-signal coverage */}
+            <div className={styles.mqCoverageCol}>
+              <div className={styles.mqColTitle}>Sinyal Kapsaması</div>
+              {mq.field_coverage.map((f) => (
+                <div key={f.key} className={styles.mqCovRow}>
+                  <span className={styles.mqCovLabel}>
+                    {MATCH_FIELD_LABELS[f.key] ?? f.key}
+                  </span>
+                  <div className={styles.mqBarTrack}>
+                    <div
+                      className={`${styles.mqBarFill} ${mqCoverageFillClass(
+                        f.coverage_pct,
+                      )}`}
+                      style={{ width: `${f.coverage_pct}%` }}
+                    />
+                  </div>
+                  <span className={styles.mqCovPct}>%{f.coverage_pct}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {tips.length > 0 && (
+            <div className={styles.mqTips}>
+              <div className={styles.mqTipsTitle}>İyileştirme Önerileri</div>
+              <ul className={styles.mqTipsList}>
+                {tips.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // --- Destination config fields ---
 
 interface DestCfgState {
@@ -1346,6 +1526,9 @@ function SourceDetailPanel({
         onStatsRefetch={fetchStats}
       />
 
+      {/* --- Match Quality (Eşleşme Kalitesi) --- */}
+      <MatchQualityPanel stats={stats} loading={statsLoading} error={statsError} />
+
       {/* --- Destinations --- */}
       <div className={styles.sectionTitle}>Hedefler (Destinations)</div>
 
@@ -1359,7 +1542,7 @@ function SourceDetailPanel({
         </div>
       ) : destinations.length === 0 && !showDestForm ? (
         <div className={styles.stateBoxSm}>
-          <span className={styles.muted}>Henuz hedef eklenmedi.</span>
+          <span className={styles.muted}>Henüz hedef eklenmedi.</span>
         </div>
       ) : (
         <div className={styles.destList}>
@@ -1499,10 +1682,10 @@ export default function TrackingPage() {
 
       <main className={styles.main}>
         <div>
-          <h1 className={styles.pageTitle}>Olcumleme</h1>
+          <h1 className={styles.pageTitle}>Ölçümleme</h1>
           <p className={styles.pageSubtitle}>
-            Sunucu tarafi izleme kaynaklarinizi yonetin, hedef platformlara olay iletin ve
-            KVKK uyumlu riza akislarini yapilandirin.
+            Sunucu tarafı izleme kaynaklarınızı yönetin, hedef platformlara olay iletin ve
+            KVKK uyumlu rıza akışlarını yapılandırın.
           </p>
         </div>
 

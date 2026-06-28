@@ -99,6 +99,7 @@ from ayaz.models.oltp import (
 from ayaz.services.auth import hash_password
 from ayaz.services.feeds import ingest_feed_source
 from ayaz.services.insights import generate_insights
+from ayaz.services.tracking import compute_match_quality, hash_identity
 from ayaz.services.sync import (
     _ensure_dim_date,
     _get_or_create_channel,
@@ -1090,6 +1091,51 @@ def _event_profile(idx: int):
     return event_name, status, consent, forwarded_count, error
 
 
+def _identity_profile(event_name: str, idx: int) -> dict:
+    """Return a deterministic RAW (pre-hash) user_data dict for a demo event.
+
+    Identity completeness is correlated with intent: high-value events
+    (Purchase / InitiateCheckout) carry richer signals than PageViews.  This
+    produces a realistic spread of Match-Quality tiers and per-field coverage
+    in the dashboard.  No real PII — emails use the reserved .invalid TLD.
+    """
+    user_num = idx % 20
+    em = f"demouser{user_num:02d}@example.invalid"
+    ph = f"+9053300{user_num:05d}"
+    fbc = f"fb.1.{1700000000 + idx}.IwAR{idx:06d}"
+    fbp = f"fb.1.{1700000000 + idx}.{(idx * 7) % 999999}"
+    ext = f"easycep-cust-{user_num:04d}"
+    ip = f"85.10.{idx % 255}.{(idx * 7) % 255}"
+    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+    if event_name in ("Purchase", "InitiateCheckout"):
+        bucket = idx % 4
+        if bucket == 0:
+            return {"email": em, "phone": ph, "fbc": fbc, "fbp": fbp,
+                    "external_id": ext, "client_ip_address": ip,
+                    "client_user_agent": ua}
+        if bucket == 1:
+            return {"email": em, "phone": ph, "fbp": fbp, "external_id": ext}
+        if bucket == 2:
+            return {"email": em, "phone": ph, "fbc": fbc,
+                    "client_ip_address": ip, "client_user_agent": ua}
+        return {"email": em, "phone": ph, "fbp": fbp}
+
+    if event_name in ("AddToCart", "ViewContent"):
+        bucket = idx % 3
+        if bucket == 0:
+            return {"email": em, "fbp": fbp, "client_ip_address": ip,
+                    "client_user_agent": ua}
+        if bucket == 1:
+            return {"email": em, "fbp": fbp}
+        return {"fbp": fbp, "client_ip_address": ip, "client_user_agent": ua}
+
+    # PageView — poorest identity coverage
+    if idx % 2 == 0:
+        return {"client_ip_address": ip, "client_user_agent": ua}
+    return {"fbp": fbp, "client_ip_address": ip, "client_user_agent": ua}
+
+
 def _seed_tracking(db, tenant: Tenant) -> dict:
     """Seed M7 tracking demo data: one TrackingSource, two EventDestinations,
     and 100 ConversionEvents spread across the last 14 days.
@@ -1193,11 +1239,6 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
     _TRACKING_END_DATE = _RICH_END_DATE  # reuse the same end-date anchor
 
     now_utc = datetime.now(timezone.utc)
-    # Build a SHA-256 hex string seeded from a fixed string — used as dummy user hash
-    import hashlib as _hashlib
-
-    def _demo_hash(seed: str) -> str:
-        return _hashlib.sha256(seed.encode()).hexdigest()
 
     for idx in range(_NUM_EVENTS):
         # Spread events across 14 days: idx // 7 days back from end date
@@ -1220,12 +1261,11 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
 
         event_name, status, consent, forwarded_count, error = _event_profile(idx)
 
-        # Dummy hashed user_data — no real PII
-        user_num = idx % 20  # 20 synthetic "users" cycling
-        user_data = {
-            "email_hash": _demo_hash(f"demouser{user_num:02d}@example.invalid"),
-            "phone_hash": _demo_hash(f"+9053300{user_num:05d}"),
-        }
+        # Identity signals → hashed user_data (no raw PII persisted) + match
+        # quality score computed from the RAW profile, exactly as production does.
+        raw_identity = _identity_profile(event_name, idx)
+        user_data = hash_identity(raw_identity)
+        match_quality = compute_match_quality(raw_identity)
 
         # custom_data — event-specific, no PII
         if event_name == "Purchase":
@@ -1267,6 +1307,7 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
             user_data=user_data,
             custom_data=custom_data,
             consent=consent,
+            match_quality=match_quality,
             status=status,
             forwarded_count=forwarded_count,
             error=error,

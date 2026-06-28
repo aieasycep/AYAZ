@@ -141,6 +141,187 @@ _GA4_GCS_DENIED  = "G100"   # ad_storage=denied,  analytics_storage=granted
 _GA4_GCS_ANALYTICS_ONLY = "G101"  # analytics_storage=granted, ad_storage=denied
 
 
+# ── Match Quality (Event Match Quality / EMQ-style) ────────────────────────────
+#
+# Identity-signal weights — higher weight ⇒ stronger contribution to the ad
+# platforms' identity match.  Modelled on Meta's Event Match Quality and the
+# equivalent TikTok / Google identity-matching guidance.  The weights are
+# tuned so a fully-populated payload scores exactly 100.
+MATCH_QUALITY_WEIGHTS: dict[str, int] = {
+    "em": 22,                # hashed email — strongest stable identifier
+    "ph": 18,                # hashed phone
+    "fbc": 15,               # Meta click id (fbclid) — very strong attribution
+    "fbp": 10,               # Meta browser id (_fbp cookie)
+    "external_id": 10,       # your own stable customer/user id (hashed)
+    "client_ip_address": 6,  # only useful together with the user agent
+    "client_user_agent": 6,
+    "fn": 3,                 # first name
+    "ln": 3,                 # last name
+    "zp": 3,                 # postal / zip code
+    "ct": 1,                 # city
+    "st": 1,                 # state / region
+    "country": 1,
+    "ge": 1,                 # gender
+}
+
+# Raw inbound user_data key → canonical signal key.  Lets clients send either
+# the platform-native short key (``em``) or a friendly name (``email``); a
+# pre-hashed ``*_hash`` variant maps to the same signal so the score is stable
+# whether the caller hashes client-side or lets AYAZ hash server-side.
+_MATCH_QUALITY_ALIASES: dict[str, str] = {
+    "email": "em", "em": "em", "email_hash": "em",
+    "phone": "ph", "ph": "ph", "phone_hash": "ph",
+    "fbc": "fbc", "fbclid": "fbc",
+    "fbp": "fbp",
+    "external_id": "external_id", "external_id_hash": "external_id",
+    "client_ip_address": "client_ip_address", "ip": "client_ip_address",
+    "ip_address": "client_ip_address",
+    "client_user_agent": "client_user_agent", "user_agent": "client_user_agent",
+    "ua": "client_user_agent",
+    "first_name": "fn", "fn": "fn", "fn_hash": "fn",
+    "last_name": "ln", "ln": "ln", "ln_hash": "ln",
+    "zip": "zp", "zp": "zp", "postal_code": "zp", "zip_hash": "zp",
+    "city": "ct", "ct": "ct", "ct_hash": "ct",
+    "state": "st", "st": "st", "region": "st", "st_hash": "st",
+    "country": "country", "country_hash": "country",
+    "gender": "ge", "ge": "ge", "ge_hash": "ge",
+}
+
+# (min_score_inclusive, tier) ordered high → low.
+_MATCH_QUALITY_TIERS: tuple[tuple[int, str], ...] = (
+    (85, "excellent"),
+    (60, "good"),
+    (30, "medium"),
+    (0, "weak"),
+)
+
+
+def _match_quality_tier(score: int) -> str:
+    """Map a 0-100 match-quality score to a tier label."""
+    for threshold, tier in _MATCH_QUALITY_TIERS:
+        if score >= threshold:
+            return tier
+    return "weak"
+
+
+def compute_match_quality(raw_user_data: dict[str, Any] | None) -> dict[str, Any]:
+    """Score the identity coverage of a raw (pre-hash) user_data payload.
+
+    Inspects which identity signals were supplied and returns a weighted
+    0-100 score, a tier label, and the ordered list of present canonical keys.
+
+    A signal counts as *present* when its key resolves via
+    ``_MATCH_QUALITY_ALIASES`` AND its value is non-empty (a blank string,
+    ``None``, or empty collection does not count).
+
+    Parameters
+    ----------
+    raw_user_data:
+        The inbound ``user_data`` dict BEFORE hashing.  ``None`` / ``{}`` →
+        score 0, tier "weak", no present keys.
+
+    Returns
+    -------
+    dict
+        ``{"score": int, "tier": str, "present": [canonical keys]}`` — the
+        present keys are sorted by descending weight.  Stores only WHICH
+        signals were present, never the raw values (KVKK-safe).
+    """
+    present: set[str] = set()
+    for key, value in (raw_user_data or {}).items():
+        canonical = _MATCH_QUALITY_ALIASES.get(key)
+        if canonical is None:
+            continue
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        if isinstance(value, (list, dict, tuple, set)) and not value:
+            continue
+        present.add(canonical)
+
+    score = sum(MATCH_QUALITY_WEIGHTS.get(k, 0) for k in present)
+    score = max(0, min(100, score))
+    return {
+        "score": score,
+        "tier": _match_quality_tier(score),
+        "present": sorted(
+            present, key=lambda k: MATCH_QUALITY_WEIGHTS.get(k, 0), reverse=True
+        ),
+    }
+
+
+def compute_match_quality_stats(
+    events: list[Any],
+) -> dict[str, Any] | None:
+    """Aggregate per-event match_quality into source-level coverage stats.
+
+    Parameters
+    ----------
+    events:
+        ConversionEvent rows (or any objects exposing ``match_quality``).
+        Events without a ``match_quality`` dict are ignored.
+
+    Returns
+    -------
+    dict | None
+        ``None`` when no event in the list carries a match_quality score.
+        Otherwise::
+
+            {
+              "avg_score": int,                  # mean score over scored events
+              "scored_events": int,
+              "tier_distribution": {"weak": n, "medium": n,
+                                    "good": n, "excellent": n},
+              "field_coverage": [
+                {"key": "em", "weight": 22, "present": n, "coverage_pct": int},
+                ...   # ordered by weight desc
+              ],
+            }
+    """
+    scored = [
+        e for e in events if isinstance(getattr(e, "match_quality", None), dict)
+    ]
+    if not scored:
+        return None
+
+    n = len(scored)
+    total_score = 0
+    tier_dist: dict[str, int] = {"weak": 0, "medium": 0, "good": 0, "excellent": 0}
+    field_present: dict[str, int] = {k: 0 for k in MATCH_QUALITY_WEIGHTS}
+
+    for e in scored:
+        mq = e.match_quality
+        try:
+            total_score += int(mq.get("score", 0))
+        except (TypeError, ValueError):
+            pass
+        tier = mq.get("tier", "weak")
+        tier_dist[tier] = tier_dist.get(tier, 0) + 1
+        for k in mq.get("present", []) or []:
+            if k in field_present:
+                field_present[k] += 1
+
+    field_coverage = [
+        {
+            "key": k,
+            "weight": w,
+            "present": field_present[k],
+            "coverage_pct": round(field_present[k] * 100 / n),
+        }
+        for k, w in sorted(
+            MATCH_QUALITY_WEIGHTS.items(), key=lambda x: x[1], reverse=True
+        )
+    ]
+
+    return {
+        "avg_score": round(total_score / n),
+        "scored_events": n,
+        "tier_distribution": tier_dist,
+        "field_coverage": field_coverage,
+    }
+
+
 # ── Identity hashing ──────────────────────────────────────────────────────────
 
 
@@ -189,6 +370,20 @@ def hash_identity(raw: dict[str, Any]) -> dict[str, Any]:
     if phone is not None:
         digits_only = re.sub(r"\D", "", str(phone))
         result["phone_hash"] = _sha256(digits_only)
+
+    # external_id — a stable first-party customer/user id.  Meta/TikTok match on
+    # the hashed value, so normalize (trim+lower) then SHA-256.
+    external_id = raw.get("external_id")
+    if external_id is not None and str(external_id).strip():
+        result["external_id"] = _sha256(str(external_id).strip().lower())
+
+    # Click / browser identifiers (Meta fbclid → fbc, _fbp cookie → fbp).  These
+    # are opaque attribution tokens, NOT PII, and are matched verbatim — never
+    # hashed.  Passed through so the forwarding layer can include them.
+    for key in ("fbc", "fbp"):
+        value = raw.get(key)
+        if value:
+            result[key] = str(value)
 
     # Passthrough: any field already named *_hash
     for key, value in raw.items():
@@ -406,7 +601,11 @@ def ingest_event(
     raw_consent = payload.get("consent", False)
     consent, consent_signals = normalize_consent(raw_consent)
 
-    # ── 2. Hash PII ───────────────────────────────────────────────────────────
+    # ── 2. Hash PII + score match quality ─────────────────────────────────────
+    # Match quality is scored from the RAW payload (before hashing) so it can see
+    # plain identity signals.  Only the SET of present keys is stored — never the
+    # raw values (KVKK-safe).
+    match_quality = compute_match_quality(raw_user_data)
     hashed_user_data = hash_identity(raw_user_data)
 
     # ── 3. Dedup ──────────────────────────────────────────────────────────────
@@ -440,6 +639,7 @@ def ingest_event(
         custom_data=custom_data,
         consent=consent,
         consent_signals=consent_signals,
+        match_quality=match_quality,
         status="received",
         forwarded_count=0,
         error=None,

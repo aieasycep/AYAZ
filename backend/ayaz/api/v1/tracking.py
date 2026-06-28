@@ -55,7 +55,7 @@ from ayaz.config import settings
 from ayaz.models.oltp import Membership
 from ayaz.models.tracking import ConversionEvent, EventDestination, TrackingSource
 from ayaz.security.rate_limit import rate_limit
-from ayaz.services.tracking import ingest_event
+from ayaz.services.tracking import compute_match_quality_stats, ingest_event
 
 router = APIRouter(prefix="/tracking", tags=["tracking"])
 
@@ -251,6 +251,7 @@ class ConversionEventResponse(BaseModel):
     custom_data: dict[str, Any]
     consent: bool
     consent_signals: dict[str, Any] | None = None
+    match_quality: dict[str, Any] | None = None
     status: str
     forwarded_count: int
     error: str | None
@@ -271,6 +272,7 @@ class ConversionEventResponse(BaseModel):
             custom_data=obj.custom_data,
             consent=obj.consent,
             consent_signals=getattr(obj, "consent_signals", None),
+            match_quality=getattr(obj, "match_quality", None),
             status=obj.status,
             forwarded_count=obj.forwarded_count,
             error=obj.error,
@@ -324,6 +326,20 @@ class StatsTotals(BaseModel):
     consent_blocked: int
 
 
+class MatchQualityFieldStat(BaseModel):
+    key: str            # canonical signal key (em, ph, fbc, ...)
+    weight: int         # contribution to the 0-100 score
+    present: int        # number of scored events carrying this signal
+    coverage_pct: int   # present / scored_events as a percentage
+
+
+class MatchQualityStats(BaseModel):
+    avg_score: int                       # mean match-quality score, 0-100
+    scored_events: int                   # events with a match_quality score
+    tier_distribution: dict[str, int]    # weak | medium | good | excellent → count
+    field_coverage: list[MatchQualityFieldStat]
+
+
 class SourceStatsResponse(BaseModel):
     source_id: uuid.UUID
     date_from: str  # "YYYY-MM-DD"
@@ -331,6 +347,8 @@ class SourceStatsResponse(BaseModel):
     totals: StatsTotals
     by_event: list[EventNameStat]
     daily: list[DailyStat]
+    # Null when no event in range carries a match-quality score (legacy data).
+    match_quality: MatchQualityStats | None = None
 
 
 # ── Pure stats aggregation helper (unit-testable without HTTP) ─────────────────
@@ -424,6 +442,10 @@ def compute_tracking_stats(
         )
         current += timedelta(days=1)
 
+    # ── Match quality (Event Match Quality / EMQ-style) ───────────────────────
+    # None when no event in the list carries a match_quality score.
+    match_quality = compute_match_quality_stats(events)
+
     return {
         "totals": {
             "total_events": total_events,
@@ -433,6 +455,7 @@ def compute_tracking_stats(
         },
         "by_event": by_event,
         "daily": daily,
+        "match_quality": match_quality,
     }
 
 
@@ -726,6 +749,7 @@ def get_source_stats(
         events, date_from, date_to, disabled_events=src.disabled_events or []
     )
 
+    mq = agg.get("match_quality")
     return SourceStatsResponse(
         source_id=source_id,
         date_from=date_from.isoformat(),
@@ -733,6 +757,18 @@ def get_source_stats(
         totals=StatsTotals(**agg["totals"]),
         by_event=[EventNameStat(**e) for e in agg["by_event"]],
         daily=[DailyStat(**d) for d in agg["daily"]],
+        match_quality=(
+            MatchQualityStats(
+                avg_score=mq["avg_score"],
+                scored_events=mq["scored_events"],
+                tier_distribution=mq["tier_distribution"],
+                field_coverage=[
+                    MatchQualityFieldStat(**f) for f in mq["field_coverage"]
+                ],
+            )
+            if mq
+            else None
+        ),
     )
 
 

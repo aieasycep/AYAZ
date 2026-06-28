@@ -428,6 +428,23 @@ class ConversionEvent(Base):
         ),
     )
 
+    # Match quality (Event Match Quality / EMQ-style) computed at ingest from the
+    # RAW user_data payload — BEFORE hashing — so it can see which identity signals
+    # were supplied (email/phone/fbc/fbp/external_id/IP/UA/name/geo).
+    # Shape: {"score": int 0-100, "tier": "weak|medium|good|excellent",
+    #         "present": [canonical signal keys ordered by weight desc]}
+    # KVKK note: only the SET of present field keys is stored here — never the raw
+    # values of IP / user agent / etc.  NULL for events ingested before this column.
+    match_quality: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+        comment=(
+            "Event Match Quality score/tier/present-keys computed at ingest. "
+            "Stores only which identity signals were present, never raw values. "
+            "NULL for legacy events."
+        ),
+    )
+
     # "received" | "forwarded" | "failed" | "skipped_no_consent" | "duplicate" | "disabled"
     status: Mapped[str] = mapped_column(
         String(30),
