@@ -2,8 +2,8 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -11,16 +11,16 @@
 }
 
 .label {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.04em;
 }
 
 .value {
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: clamp(22px, 2.5vw, var(--text-xl));
+  font-weight: var(--fw-heavy);
   color: var(--color-text);
   line-height: 1.2;
   white-space: nowrap;
@@ -29,7 +29,7 @@
 }
 
 .sub {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
@@ -39,21 +39,21 @@
   display: inline-flex;
   align-items: center;
   gap: 0.2em;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 4px;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  border-radius: var(--radius-sm);
   padding: 0.125rem 0.375rem;
   width: fit-content;
 }
 
 .deltaGood {
-  background: rgba(34, 197, 94, 0.12);
-  color: #16a34a;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .deltaBad {
-  background: rgba(239, 68, 68, 0.12);
-  color: #dc2626;
+  background: var(--color-critical-bg);
+  color: var(--color-critical-text);
 }
 
 .deltaNeutral {

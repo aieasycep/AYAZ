@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
+import { parseApiError } from '@/lib/parseApiError';
+import EmptyState from '@/components/EmptyState';
 import {
   getGoals,
   createGoal,
@@ -126,7 +128,7 @@ function GoalCard({ goal, onDelete }: GoalCardProps) {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setProgressError(err instanceof Error ? err.message : 'Veriler alınamadı');
+          setProgressError(parseApiError(err));
           setProgressLoading(false);
         }
       });
@@ -262,7 +264,7 @@ function NewGoalForm({ onClose, onCreated }: NewGoalFormProps) {
       const created = await createGoal(payload);
       onCreated(created);
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Hedef oluşturulamadı');
+      setFormError(parseApiError(err));
     } finally {
       setSubmitting(false);
     }
@@ -411,7 +413,7 @@ export default function GoalsPage() {
       const data = await getGoals();
       setGoals(data);
     } catch (err: unknown) {
-      setGoalsError(err instanceof Error ? err.message : 'Hedefler yüklenemedi');
+      setGoalsError(parseApiError(err));
     } finally {
       setGoalsLoading(false);
     }
@@ -434,7 +436,7 @@ export default function GoalsPage() {
       await deleteGoal(id);
       setGoals((prev) => prev.filter((g) => g.id !== id));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Hedef silinemedi');
+      alert(parseApiError(err));
     }
   }
 
@@ -473,19 +475,17 @@ export default function GoalsPage() {
               <span className={styles.muted}>Hedefler yükleniyor...</span>
             </div>
           ) : goalsError ? (
-            <div className={styles.stateBox}>
-              <span className={styles.errorText}>{goalsError}</span>
-              <br />
-              <button className={styles.retryBtn} onClick={fetchGoals}>
-                Tekrar Dene
-              </button>
-            </div>
+            <EmptyState
+              title={goalsError}
+              subtitle="Yeniden denemek için aşağıdaki butona tıklayın."
+              action={{ label: 'Tekrar Dene', onClick: fetchGoals }}
+            />
           ) : goals.length === 0 ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Henüz hedef oluşturulmamış. "Yeni Hedef" ile başlayın.
-              </span>
-            </div>
+            <EmptyState
+              title="Henüz hedef yok"
+              subtitle="Pazarlama hedeflerinizi takip etmek için yeni bir hedef oluşturun."
+              action={{ label: '+ Yeni Hedef', onClick: () => setShowForm(true) }}
+            />
           ) : (
             <div className={styles.goalList}>
               {goals.map((goal) => (

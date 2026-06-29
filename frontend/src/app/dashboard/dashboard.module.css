@@ -54,11 +54,11 @@
 .main {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-5);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 /* Date bar */
@@ -83,18 +83,18 @@
 }
 
 .dateLabel {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.04em;
 }
 
 .dateInput {
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.9rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   color: var(--color-text);
   background: var(--color-surface);
   outline: none;
@@ -110,9 +110,9 @@
   color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
-  padding: 0.5rem 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   transition: background 0.15s;
   height: 38px;
   align-self: flex-end;
@@ -142,8 +142,8 @@
 }
 
 .compareLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
   color: var(--color-text-muted);
   white-space: nowrap;
   user-select: none;
@@ -164,9 +164,9 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
   color: var(--color-text);
-  padding: 0.4375rem 1rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   height: 38px;
   transition: border-color 0.15s, color 0.15s;
   white-space: nowrap;
@@ -207,7 +207,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-1);
   overflow: hidden;
 }
 
@@ -215,16 +215,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.5rem;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .cardTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-text);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* Metric picker */
@@ -238,10 +240,10 @@
 .metricBtn {
   background: transparent;
   border: 1.5px solid var(--color-border);
-  border-radius: 6px;
-  padding: 0.3125rem 0.75rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
   color: var(--color-text-muted);
   transition: all 0.15s;
 }
@@ -267,24 +269,24 @@
 
 .muted {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 .errorText {
-  color: var(--color-danger);
-  font-size: 0.9rem;
+  color: var(--color-critical-text);
+  font-size: var(--text-sm);
 }
 
 /* Responsive */
 
 @media (max-width: 640px) {
   .topbarInner {
-    padding: 0 1rem;
+    padding: 0 var(--space-4);
   }
 
   .main {
-    padding: 1rem;
-    gap: 1rem;
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 
   .kpiGrid {

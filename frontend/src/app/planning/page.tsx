@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
+import { parseApiError } from '@/lib/parseApiError';
 import {
   previewBudget,
   createBudgetPlan,
@@ -567,7 +568,7 @@ export default function PlanningPage() {
       const data = await getBudgetPlans();
       setPlans(data);
     } catch (err: unknown) {
-      setPlansError(err instanceof Error ? err.message : 'Planlar yüklenemedi');
+      setPlansError(parseApiError(err));
     } finally {
       setPlansLoading(false);
     }
@@ -601,7 +602,7 @@ export default function PlanningPage() {
         });
         setAllocation(result);
       } catch (err: unknown) {
-        setPreviewError(err instanceof Error ? err.message : 'Önizleme yüklenemedi');
+        setPreviewError(parseApiError(err));
         setAllocation(null);
       } finally {
         setPreviewLoading(false);
@@ -636,7 +637,7 @@ export default function PlanningPage() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Plan kaydedilemedi');
+      setSaveError(parseApiError(err));
     } finally {
       setSaving(false);
     }
@@ -685,7 +686,7 @@ export default function PlanningPage() {
       const data = await getPlanActuals(plan.id);
       setActualsData(data);
     } catch (err: unknown) {
-      setActualsError(err instanceof Error ? err.message : 'Gerçekleşen veriler yüklenemedi');
+      setActualsError(parseApiError(err));
     } finally {
       setActualsLoadingId(null);
     }

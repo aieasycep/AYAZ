@@ -13,7 +13,9 @@ import {
   type GoalStatus,
   type GoalStatusItem,
 } from '@/lib/briefing-api';
+import { parseApiError } from '@/lib/parseApiError';
 import AppNav from '@/components/AppNav';
+import EmptyState from '@/components/EmptyState';
 import styles from './briefing.module.css';
 
 // --- Formatters ---
@@ -182,7 +184,15 @@ export default function BriefingPage() {
       const data = await getLatestBriefing();
       setBriefing(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Brifing yüklenemedi');
+      // A 404 means "no briefing generated yet" — that is an empty state, not an
+      // error. Leave briefing null so the friendly Turkish empty-state branch
+      // renders instead of surfacing the backend's English "not found" detail.
+      if ((err as { status?: number })?.status === 404) {
+        setBriefing(null);
+        setError(null);
+      } else {
+        setError(parseApiError(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -201,9 +211,7 @@ export default function BriefingPage() {
       );
       setHistory(data);
     } catch (err: unknown) {
-      setHistoryError(
-        err instanceof Error ? err.message : 'Geçmiş yüklenemedi',
-      );
+      setHistoryError(parseApiError(err));
     } finally {
       setHistoryLoading(false);
     }
@@ -224,9 +232,7 @@ export default function BriefingPage() {
       await fetchHistory();
       showToast('Brifing başarıyla oluşturuldu');
     } catch (err: unknown) {
-      showToast(
-        err instanceof Error ? err.message : 'Brifing oluşturulamadı',
-      );
+      showToast(parseApiError(err));
     } finally {
       setRefreshing(false);
     }
@@ -280,21 +286,19 @@ export default function BriefingPage() {
           </div>
         ) : error ? (
           <div className={styles.section}>
-            <div className={styles.stateBox}>
-              <span className={styles.errorText}>{error}</span>
-              <br />
-              <button className={styles.retryBtn} onClick={fetchLatest}>
-                Tekrar Dene
-              </button>
-            </div>
+            <EmptyState
+              title={error}
+              subtitle="Yeniden denemek için aşağıdaki butona tıklayın."
+              action={{ label: 'Tekrar Dene', onClick: fetchLatest }}
+            />
           </div>
         ) : briefing === null ? (
           <div className={styles.section}>
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Henüz brifing yok, oluşturmak için Yenile butonuna tıklayın.
-              </span>
-            </div>
+            <EmptyState
+              title="Günlük brifing henüz hazırlanmadı."
+              subtitle="Yapay zeka destekli günlük özetinizi oluşturmak için butona tıklayın."
+              action={{ label: 'Brifing Oluştur / Yenile', onClick: handleRefresh }}
+            />
           </div>
         ) : (
           <>

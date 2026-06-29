@@ -8,11 +8,11 @@
 .main {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-5);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 /* Page header */
@@ -24,35 +24,31 @@
 }
 
 .pageTitle {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-heavy);
   color: var(--color-text);
   letter-spacing: -0.25px;
 }
 
 .pageSubtitle {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
 /* Headline banner */
 
 .headlineBanner {
-  background: linear-gradient(
-    135deg,
-    rgba(59, 91, 219, 0.09) 0%,
-    rgba(59, 91, 219, 0.03) 100%
-  );
-  border: 1.5px solid rgba(59, 91, 219, 0.22);
+  background: var(--color-ai-card-bg);
+  border: 1px solid var(--color-ai-card-border);
   border-radius: var(--radius);
-  padding: 1.125rem 1.375rem;
+  padding: var(--space-4) var(--space-5);
   display: flex;
   align-items: flex-start;
-  gap: 0.875rem;
+  gap: var(--space-3);
 }
 
 .headlineIcon {
-  font-size: 1.1rem;
+  font-size: var(--text-base);
   flex-shrink: 0;
   margin-top: 0.1rem;
   color: var(--color-primary);
@@ -60,8 +56,8 @@
 }
 
 .headlineText {
-  font-size: 0.9375rem;
-  font-weight: 500;
+  font-size: var(--text-base);
+  font-weight: var(--fw-medium);
   color: var(--color-text);
   line-height: 1.6;
   flex: 1;
@@ -91,32 +87,32 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.125rem 1.25rem;
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
 .kpiLabel {
-  font-size: 0.725rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.04em;
 }
 
 .kpiValue {
-  font-size: 1.875rem;
-  font-weight: 800;
+  font-size: clamp(22px, 2.5vw, var(--text-xl));
+  font-weight: var(--fw-heavy);
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
 
 .kpiValueRoas {
-  font-size: 1.875rem;
-  font-weight: 800;
+  font-size: clamp(22px, 2.5vw, var(--text-xl));
+  font-weight: var(--fw-heavy);
   color: var(--color-primary);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -174,22 +170,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .sectionTitle {
-  font-size: 0.8375rem;
-  font-weight: 700;
-  color: var(--color-text);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.04em;
 }
 
 .sectionCount {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   background: var(--color-surface-2, rgba(148, 163, 184, 0.15));
   padding: 0.15rem 0.5rem;
@@ -206,8 +202,8 @@
 .attentionItem {
   display: flex;
   align-items: flex-start;
-  gap: 0.875rem;
-  padding: 0.9rem 1.25rem;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
   text-decoration: none;
   color: inherit;
@@ -236,7 +232,7 @@
 }
 
 .dotWarning {
-  background: #f59e0b;
+  background: var(--color-warning);
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
 }
 
@@ -251,14 +247,14 @@
 }
 
 .attentionTitle {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   color: var(--color-text);
   line-height: 1.45;
 }
 
 .attentionDetail {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-top: 0.175rem;
   line-height: 1.5;
@@ -306,8 +302,8 @@
 }
 
 .severityWarning {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .severityInfo {
@@ -337,6 +333,21 @@
   color: var(--color-text-muted);
 }
 
+/* Module section heading */
+
+.moduleSectionHeader {
+  margin-bottom: var(--space-3);
+  padding-left: 2px;
+}
+
+.moduleSectionTitle {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
 /* Module status grid */
 
 .modulesGrid {
@@ -361,11 +372,11 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.125rem 1.25rem;
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 0.875rem;
+  gap: var(--space-3);
   text-decoration: none;
   color: inherit;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -383,10 +394,10 @@
 }
 
 .moduleCardTitle {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.04em;
   color: var(--color-text-muted);
 }
 
@@ -415,30 +426,30 @@
 }
 
 .moduleStatLabel {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   flex: 1;
   min-width: 0;
 }
 
 .moduleStatValue {
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
 }
 
 .moduleStatValueDanger {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  color: var(--color-critical-text);
   font-variant-numeric: tabular-nums;
 }
 
 .moduleStatValueWarning {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #b45309;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
+  color: var(--color-warning-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -607,20 +618,20 @@
 
 @media (max-width: 640px) {
   .main {
-    padding: 1rem;
-    gap: 1rem;
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 
   .kpiValue,
   .kpiValueRoas {
-    font-size: 1.5rem;
+    font-size: var(--text-md);
   }
 
   .attentionItem {
-    padding: 0.75rem 1rem;
+    padding: var(--space-3) var(--space-4);
   }
 
   .moduleCard {
-    padding: 1rem;
+    padding: var(--space-4);
   }
 }

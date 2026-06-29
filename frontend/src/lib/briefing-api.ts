@@ -33,7 +33,11 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => 'İstek başarısız');
-    throw new Error(detail || 'İstek başarısız');
+    // Attach the HTTP status so callers can distinguish "not found" (an empty
+    // state) from genuine errors without string-matching the body.
+    const err = new Error(detail || 'İstek başarısız') as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   return res.json() as Promise<T>;

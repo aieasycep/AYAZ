@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppNav from '@/components/AppNav';
 import {
@@ -9,6 +9,7 @@ import {
   type AttentionItem,
   type CcModules,
 } from '@/lib/command-center-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './command-center.module.css';
 
 // --- Formatters ---
@@ -74,7 +75,10 @@ interface KpiCardProps {
 
 function KpiCard({ label, value, delta, highlight }: KpiCardProps) {
   return (
-    <div className={styles.kpiCard}>
+    <div
+      className={styles.kpiCard}
+      style={highlight ? { borderLeft: '3px solid var(--color-primary)' } : undefined}
+    >
       <div className={styles.kpiLabel}>{label}</div>
       <div className={highlight ? styles.kpiValueRoas : styles.kpiValue}>
         {value}
@@ -158,7 +162,9 @@ function AttentionFeed({ items }: { items: AttentionItem[] }) {
           />
           <div className={styles.attentionBody}>
             <div className={styles.attentionTitle}>{item.title}</div>
-            <div className={styles.attentionDetail}>{item.detail}</div>
+            {item.detail && item.detail !== item.title && (
+              <div className={styles.attentionDetail}>{item.detail}</div>
+            )}
           </div>
           <div className={styles.attentionMeta}>
             <span
@@ -200,13 +206,35 @@ const PACE_STATUS_LABELS: Record<string, string> = {
   on_track: 'Uyumlu',
 };
 
+// --- Module status border helper ---
+
+function moduleStatusBorder(
+  criticalCount: number,
+  warningCount: number,
+): React.CSSProperties {
+  if (criticalCount > 0) {
+    return { borderLeft: '3px solid var(--color-critical)' };
+  }
+  if (warningCount > 0) {
+    return { borderLeft: '3px solid var(--color-warning)' };
+  }
+  return { borderLeft: '3px solid var(--color-success)' };
+}
+
 // --- Module status cards ---
 
 function ModuleCards({ modules }: { modules: CcModules }) {
   return (
     <div className={styles.modulesGrid}>
       {/* Bütçe */}
-      <Link href="/planning" className={styles.moduleCard}>
+      <Link
+        href="/planning"
+        className={styles.moduleCard}
+        style={moduleStatusBorder(
+          0,
+          modules.budget.pace_status === 'behind' ? 1 : 0,
+        )}
+      >
         <div className={styles.moduleCardHeader}>
           <span className={styles.moduleCardTitle}>Bütçe &amp; Planlama</span>
           <span className={styles.moduleCardArrow} aria-hidden="true">
@@ -251,7 +279,14 @@ function ModuleCards({ modules }: { modules: CcModules }) {
       </Link>
 
       {/* Gelen Kutusu */}
-      <Link href="/inbox" className={styles.moduleCard}>
+      <Link
+        href="/inbox"
+        className={styles.moduleCard}
+        style={moduleStatusBorder(
+          modules.inbox.negative,
+          modules.inbox.pending,
+        )}
+      >
         <div className={styles.moduleCardHeader}>
           <span className={styles.moduleCardTitle}>Gelen Kutusu</span>
           <span className={styles.moduleCardArrow} aria-hidden="true">
@@ -287,7 +322,14 @@ function ModuleCards({ modules }: { modules: CcModules }) {
       </Link>
 
       {/* İçerik */}
-      <Link href="/content" className={styles.moduleCard}>
+      <Link
+        href="/content"
+        className={styles.moduleCard}
+        style={moduleStatusBorder(
+          0,
+          modules.content.pending_approval,
+        )}
+      >
         <div className={styles.moduleCardHeader}>
           <span className={styles.moduleCardTitle}>İçerik</span>
           <span className={styles.moduleCardArrow} aria-hidden="true">
@@ -323,7 +365,14 @@ function ModuleCards({ modules }: { modules: CcModules }) {
       </Link>
 
       {/* Hedefler */}
-      <Link href="/goals" className={styles.moduleCard}>
+      <Link
+        href="/goals"
+        className={styles.moduleCard}
+        style={moduleStatusBorder(
+          modules.goals.at_risk,
+          0,
+        )}
+      >
         <div className={styles.moduleCardHeader}>
           <span className={styles.moduleCardTitle}>Hedefler</span>
           <span className={styles.moduleCardArrow} aria-hidden="true">
@@ -353,7 +402,14 @@ function ModuleCards({ modules }: { modules: CcModules }) {
       </Link>
 
       {/* İçgörüler */}
-      <Link href="/insights" className={styles.moduleCard}>
+      <Link
+        href="/insights"
+        className={styles.moduleCard}
+        style={moduleStatusBorder(
+          modules.insights.critical,
+          modules.insights.warning,
+        )}
+      >
         <div className={styles.moduleCardHeader}>
           <span className={styles.moduleCardTitle}>İçgörüler</span>
           <span className={styles.moduleCardArrow} aria-hidden="true">
@@ -389,7 +445,14 @@ function ModuleCards({ modules }: { modules: CcModules }) {
       </Link>
 
       {/* Öneriler */}
-      <Link href="/recommendations" className={styles.moduleCard}>
+      <Link
+        href="/recommendations"
+        className={styles.moduleCard}
+        style={moduleStatusBorder(
+          0,
+          modules.recommendations?.high_impact_open ?? 0,
+        )}
+      >
         <div className={styles.moduleCardHeader}>
           <span className={styles.moduleCardTitle}>Öneriler</span>
           <span className={styles.moduleCardArrow} aria-hidden="true">
@@ -425,7 +488,14 @@ function ModuleCards({ modules }: { modules: CcModules }) {
       </Link>
 
       {/* KVKK Uyum */}
-      <Link href="/consent" className={styles.moduleCard}>
+      <Link
+        href="/consent"
+        className={styles.moduleCard}
+        style={moduleStatusBorder(
+          modules.consent && modules.consent.score !== null && modules.consent.score < 60 ? 1 : 0,
+          modules.consent && modules.consent.score !== null && modules.consent.score < 80 ? 1 : 0,
+        )}
+      >
         <div className={styles.moduleCardHeader}>
           <span className={styles.moduleCardTitle}>KVKK Uyum</span>
           <span className={styles.moduleCardArrow} aria-hidden="true">
@@ -465,7 +535,14 @@ function ModuleCards({ modules }: { modules: CcModules }) {
       </Link>
 
       {/* Dönüşüm Hunisi */}
-      <Link href="/funnel" className={styles.moduleCard}>
+      <Link
+        href="/funnel"
+        className={styles.moduleCard}
+        style={moduleStatusBorder(
+          0,
+          modules.funnel?.biggest_dropoff_label ? 1 : 0,
+        )}
+      >
         <div className={styles.moduleCardHeader}>
           <span className={styles.moduleCardTitle}>Dönüşüm Hunisi</span>
           <span className={styles.moduleCardArrow} aria-hidden="true">
@@ -542,9 +619,7 @@ export default function CommandCenterPage() {
       const result = await getCommandCenter();
       setData(result);
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : 'Komuta Merkezi yüklenemedi',
-      );
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -630,21 +705,8 @@ export default function CommandCenterPage() {
 
             {/* Module status cards */}
             <div>
-              <div
-                style={{
-                  marginBottom: '0.875rem',
-                  paddingLeft: '0.125rem',
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '0.8375rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase' as const,
-                    letterSpacing: '0.4px',
-                    color: 'var(--color-text-muted)',
-                  }}
-                >
+              <div className={styles.moduleSectionHeader}>
+                <span className={styles.moduleSectionTitle}>
                   Modül Durumu
                 </span>
               </div>
