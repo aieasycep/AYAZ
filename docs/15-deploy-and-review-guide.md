@@ -46,8 +46,11 @@
 | 75 | **Rol Görünümü** | `/roles` | Her ekip için (Performans/Marcom/Müşteri Hizmetleri/Planlama/Yönetim) özel kokpit |
 | 76 | **Dönüşüm Hunisi** | `/funnel` | 5 adımlı müşteri yolculuğu + adım düşüşleri + en büyük düşüş |
 | 77 | **Copilot genişletme** | "Veriye Sor" | Huni/KVKK/kıyaslama/denetim sorularını da yanıtlar |
-| 78 | **Gruplu Navigasyon** | üst menü | 32 sayfa 7 kategori açılır menüde — hepsi erişilebilir |
+| 78 | **Gruplu Navigasyon** | üst menü | 34 sayfa 7 kategori açılır menüde — hepsi erişilebilir |
 | 79 | **Postgres Deploy Düzeltmesi** | (altyapı) | `alembic upgrade head` artık Postgres'te çalışır + opt-in demo seed |
+| 80 | **Pazarlama Fırsat Takvimi** | `/marketing-calendar` | TR ticari/sezonsal günler (11.11, Efsane Cuma, bayramlar…) + lead-time + hazırlık durumu |
+| 81 | **Komuta Merkezi zenginleştirme** | `/command-center` | Vitrine Öneriler + KVKK Uyum + Dönüşüm Hunisi modül kartları eklendi |
+| 82 | **Pazarlama Sağlık Endeksi** | `/health-index` | Tüm pazarlamanın tek 0-100 stratejik puanı (6 boyut) |
 
 Önceki personalar (Dalga 55–70): Performans paneli, Yönetici görünümü, Sektör
 Kıyaslama, Hesap Sağlık Taraması (Denetim), Komuta Merkezi, Kurulum Sihirbazı,
@@ -68,4 +71,4 @@ operatör kimlik bilgisi girince aktifleşir:
 
 Arayüze bakıp not aldıkça, her revizyon küçük odaklı bir dalga olarak işlenebilir
 (tasarla → uzman ajan → test → ekran görüntüsü → commit). Mevcut kalite çıtası:
-backend **2540 test yeşil**, frontend **417 test yeşil**, tsc temiz, build yeşil.
+backend **2662 test yeşil**, frontend **447 test yeşil**, tsc temiz, build yeşil.
