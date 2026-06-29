@@ -74,6 +74,65 @@
   --shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* ============================================================
+     Design system tokens (Dalga 1 — UX redesign foundation)
+     Theme-independent (spacing/type/radius) live here once; colour
+     and shadow aliases reference theme-aware tokens so they adapt
+     automatically in dark mode without redefinition.
+     ============================================================ */
+
+  /* Spacing — strict 4px grid. Replaces ad-hoc 1/1.25/1.5rem usage. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;   /* default card padding + section gap */
+  --space-5: 24px;   /* section-to-section gap */
+  --space-6: 32px;   /* primary/secondary/tertiary zone breaks */
+  --space-8: 48px;   /* page top padding */
+
+  /* Type scale — 6 steps only. Pair each size with the matching weight. */
+  --text-xs: 11px;   /* badges, uppercase labels, table column headers */
+  --text-sm: 13px;   /* secondary labels, captions, muted meta */
+  --text-base: 15px; /* body text, table cell values */
+  --text-md: 17px;   /* card titles, section headings */
+  --text-lg: 22px;   /* page titles */
+  --text-xl: 32px;   /* primary KPI values */
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-heavy: 800;
+
+  /* Radii — three named steps (badges / cards / overlays). */
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+
+  /* Elevation — 3 levels. Reference theme-aware shadows so dark mode adapts. */
+  --shadow-0: none;
+  --shadow-1: var(--shadow);
+  --shadow-2: var(--shadow-md);
+
+  /* Semantic colour roles — 5 only. Aliased to existing theme tokens so they
+     adapt in dark mode. Modules should use THESE, never raw hex. */
+  --color-critical: var(--color-danger);
+  --color-critical-bg: var(--color-danger-bg);
+  --color-critical-text: var(--color-danger-text);
+  --color-warning: var(--color-accent);
+  /* --color-warning-bg / --color-warning-text already defined above */
+  --color-info: var(--color-primary);
+  --color-info-bg: rgba(59, 91, 219, 0.08);
+  --color-info-text: var(--color-primary);
+  --color-ai: var(--color-purple);
+  --color-ai-bg: rgba(124, 58, 237, 0.08);
+  --color-ai-text: var(--color-purple-hover);
+
+  /* Chart channel palette — consistent colour per channel across all recharts. */
+  --chart-meta: #3b5bdb;
+  --chart-google: #10b981;
+  --chart-tiktok: #f59e0b;
+  --chart-4: #7c3aed;
+  --chart-5: #6b7280;
 }
 
 /* ============================================================
