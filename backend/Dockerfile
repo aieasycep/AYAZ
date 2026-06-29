@@ -27,6 +27,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY ayaz/ ./ayaz/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
+# Operational scripts (demo seed + conditional seeder) — needed so the deploy
+# start command can run `python -m scripts.seed_if_enabled` after migrations.
+COPY scripts/ ./scripts/
 
 # Re-run pip install to make sure the ayaz package itself is installed
 # (setuptools needs the source to be present).

@@ -35,6 +35,27 @@ class Settings(BaseSettings):
         "postgresql+psycopg://ayaz:ayaz@localhost:5432/ayaz"
     )
 
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_database_url(cls, v: str) -> str:
+        """Force the psycopg3 driver on bare Postgres URLs.
+
+        Managed Postgres providers (Neon, Supabase, Render, Railway, …) hand out
+        connection strings beginning with ``postgres://`` or ``postgresql://``.
+        SQLAlchemy maps the bare ``postgresql://`` scheme to the *psycopg2*
+        dialect, which is not installed (the app uses psycopg3). Rewrite to
+        ``postgresql+psycopg://`` so a pasted provider URL works as-is — the
+        operator need not remember to add ``+psycopg`` by hand. SQLite and
+        already-qualified URLs pass through unchanged.
+        """
+        if v.startswith("postgresql+") or v.startswith("sqlite"):
+            return v
+        if v.startswith("postgresql://"):
+            return "postgresql+psycopg://" + v[len("postgresql://") :]
+        if v.startswith("postgres://"):
+            return "postgresql+psycopg://" + v[len("postgres://") :]
+        return v
+
     # ── JWT ───────────────────────────────────────────────────────────────────
     jwt_secret: str = _INSECURE_JWT_SECRET
     jwt_algorithm: str = "HS256"

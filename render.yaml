@@ -1,17 +1,26 @@
-# ── AYAZ — Render Blueprint ────────────────────────────────────────────────────
-# Deploy via: https://dashboard.render.com/select-repo
-# Select this repo; Render detects render.yaml and provisions everything below.
+# ── AYAZ — Render Blueprint (ÜCRETSİZ / $0 test kurulumu) ──────────────────────
+# Deploy: https://dashboard.render.com → New → Blueprint → bu repoyu seç.
 #
-# After the first deploy, set the env vars marked sync: false in the Render
-# dashboard (Environment tab of the ayaz-backend service):
-#   VAULT_KEY      — 32-byte URL-safe base64 string (generate locally, see docs)
-#   ALLOWED_ORIGINS — your Vercel frontend URL, e.g. https://ayaz.vercel.app
-
-databases:
-  - name: ayaz-db
-    plan: free
-    databaseName: ayaz
-    user: ayaz
+# Mimari (tam $0 test): backend → Render (free) · veritabanı → Neon (free) ·
+# frontend → Vercel (free). Adım adım: docs/15-deploy-and-review-guide.md
+#
+# Neden Render'ın yönetilen Postgres'i YOK burada:
+#   - Render free Postgres ~90 günde siliniyor; Neon free uzun ömürlü.
+#   - Bu yüzden DATABASE_URL'i Neon'dan alıyoruz (aşağıda sync:false).
+#
+# Neden migrasyon "preDeployCommand" değil de başlangıç komutunda:
+#   - Render'da Pre-Deploy Command ÜCRETLİ planlara özel. Free planda çalışmaz.
+#   - Bu yüzden `alembic upgrade head` (+ opsiyonel demo seed) servis başlarken
+#     dockerCommand içinde çalışır (idempotent — tekrar çalışması sorun değil).
+#
+# İlk deploy sonrası Render dashboard → ayaz-backend → Environment'ta ayarla:
+#   DATABASE_URL    — Neon connection string (postgresql://...  — uygulama
+#                     +psycopg sürücüsünü otomatik ekler, olduğu gibi yapıştır)
+#   VAULT_KEY       — 32-byte URL-safe base64 (üretmek için kılavuza bak)
+#   ALLOWED_ORIGINS — Vercel frontend URL'in (örn. https://ayaz.vercel.app)
+#   SEED_DEMO       — "true" (zengin demo verisiyle dolu arayüz için)
+#   REDIS_URL       — (ops.) Upstash Redis free URL — Celery arka plan işleri için
+#   ANTHROPIC_API_KEY — (ops.) AI metinleri gerçek üretilsin (yoksa şablon)
 
 services:
   - type: web
@@ -21,26 +30,21 @@ services:
     dockerContext: ./backend
     plan: free
 
-    # Run Alembic migrations before the new version goes live.
-    # On Render this is the "Pre-deploy Command" (release phase).
-    # After migrations, optionally seed demo data when SEED_DEMO=true (see env
-    # var below) so a review/demo deploy isn't empty. seed_if_enabled is a safe
-    # no-op when SEED_DEMO is unset and never fails the deploy.
-    preDeployCommand: alembic upgrade head && python -m scripts.seed_if_enabled
+    # Free planda preDeployCommand çalışmadığı için migrasyon + (opsiyonel) demo
+    # seed servis başlarken burada çalışır. seed_if_enabled, SEED_DEMO ayarlı
+    # değilse no-op'tur ve hiçbir durumda başlatmayı bozmaz (her zaman exit 0).
+    dockerCommand: sh -c "alembic upgrade head && python -m scripts.seed_if_enabled && uvicorn ayaz.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 
     healthCheckPath: /health
 
     envVars:
-      # Injected automatically from the managed Postgres above.
+      # Neon (veya Supabase) connection string. postgresql://... olarak yapıştır;
+      # uygulama otomatik olarak +psycopg sürücüsüne çevirir. Neon SSL gerektirir
+      # (string'de ?sslmode=require zaten gelir).
       - key: DATABASE_URL
-        fromDatabase:
-          name: ayaz-db
-          property: connectionString
+        sync: false
 
-      # Render appends ?sslmode=require to the connection string.
-      # psycopg v3 handles this natively; no extra flag needed.
-
-      # Auto-generated strong secret — Render rotates on redeploy if you want.
+      # Auto-generated strong secret.
       - key: JWT_SECRET
         generateValue: true
 
@@ -48,8 +52,7 @@ services:
       - key: VAULT_KEY
         sync: false
 
-      # Comma-separated list of allowed frontend origins (Vercel URL).
-      # Set in the Render dashboard.
+      # Comma-separated allowed frontend origins (Vercel URL).
       - key: ALLOWED_ORIGINS
         sync: false
 
@@ -59,25 +62,21 @@ services:
       - key: DEBUG
         value: "false"
 
-      # Set to "true" on a REVIEW/DEMO deploy to auto-seed the idempotent demo
-      # data (tenant demo@ayaz.app / demo12345) after migrations, so the UI
-      # shows rich data instead of empty screens. Leave unset for real prod.
+      # "true" → migrasyon sonrası idempotent demo verisini yükler
+      # (tenant demo@ayaz.app / demo12345). Gerçek production'da boş bırak.
       - key: SEED_DEMO
         sync: false
 
-      # Redis — Render free plan does not include managed Redis.
-      # Option A: add a Redis service here (paid) and use fromService.
-      # Option B: use Upstash Redis free tier and paste the URL below.
-      # Option C: leave unset — the app boots without Redis (Celery tasks
-      #           will not work until a real Redis URL is provided).
+      # (Opsiyonel) Upstash Redis free URL — Celery zamanlı görevler için.
+      # Boş bırakılırsa app yine açılır; arka plan işleri pasif kalır.
       - key: REDIS_URL
         sync: false
 
-      # Optional — AI narrative insights
+      # (Opsiyonel) AI anlatı/öneri/metin üretimi — boşsa deterministik şablon.
       - key: ANTHROPIC_API_KEY
         sync: false
 
-      # Optional — billing
+      # Faturalama — test için kapalı.
       - key: BILLING_PROVIDER
         value: none
       - key: IYZICO_API_KEY

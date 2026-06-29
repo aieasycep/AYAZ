@@ -166,6 +166,23 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 83 — Ücretsiz ($0) Tam-Performans Deploy Kurulumu (Vercel + Render free + Neon)
+- Hedef: sistemi $0 maliyetle tam performansta test etmek. Mimari: frontend → Vercel,
+  backend → Render (free), DB → Neon (free, uzun ömürlü).
+- `config.py`: **DATABASE_URL normalizasyonu** — yönetilen Postgres sağlayıcılarının verdiği
+  `postgres://` / `postgresql://` string'leri otomatik `postgresql+psycopg://`'ye çevrilir
+  (psycopg2 hatasını önler); SQLite ve nitelikli URL'ler değişmez. Neon string'i olduğu gibi
+  yapıştırılabilir. 5 yeni test.
+- `backend/Dockerfile`: `scripts/` artık imaja kopyalanıyor (seed start komutunda çalışabilsin).
+- `render.yaml`: free-tier'a uygun hale getirildi — yönetilen Render Postgres kaldırıldı (Neon),
+  migrasyon+seed `preDeployCommand` (ücretli) yerine **başlangıç komutunda** çalışıyor
+  (`alembic upgrade head && python -m scripts.seed_if_enabled && uvicorn ...`), idempotent.
+- Doğrulama: **bare `postgresql://` URL ile** (Neon formatı) gerçek Postgres 16'da uçtan uca —
+  normalizasyon → migrasyon (0026) → seed (447 fact/100 olay) → exit 0.
+- Kılavuz: `docs/15-deploy-and-review-guide.md` $0 reçetesiyle güncellendi (Neon → Render → Vercel →
+  CORS → keep-warm ping, adım adım).
+- Kalite: backend **2667 yeşil**, frontend 447 yeşil.
+
 ## Dalga 82 — Pazarlama Sağlık Endeksi (stratejik tek puan)
 - CMO/Yönetim farklılaştırıcısı: **Pazarlama Sağlık Endeksi** — tüm pazarlamanın tek 0-100 stratejik
   puanı, 6 boyutu (Hesap Sağlığı, Sektör Konumu, KVKK Uyumu, Dönüşüm, Hedef İlerleme, Bütçe Disiplini)
