@@ -304,6 +304,111 @@ def _summarise_executive(result: dict) -> str:
     )
 
 
+def _summarise_funnel(result: dict) -> str:
+    """Build a concise Turkish summary from get_funnel_summary result."""
+    entry_count = result.get("entry_count", 0)
+    final_count = result.get("final_count", 0)
+    overall_pct = result.get("overall_conversion_pct", 0.0)
+    biggest_dropoff = result.get("biggest_dropoff")
+
+    if entry_count == 0:
+        return "Dönüşüm hunisi için henüz yeterli veri bulunamadı."
+
+    parts = [
+        f"Dönüşüm hunisi: {entry_count:,} giriş → {final_count:,} satın alma "
+        f"(%{overall_pct:.1f} genel dönüşüm)."
+    ]
+    if biggest_dropoff:
+        from_label = biggest_dropoff.get("from_label", "?")
+        to_label = biggest_dropoff.get("to_label", "?")
+        dropoff_pct = biggest_dropoff.get("dropoff_pct", 0.0)
+        parts.append(
+            f"En büyük düşüş: {from_label} → {to_label} (%{dropoff_pct:.1f})."
+        )
+    return " ".join(parts)
+
+
+def _summarise_consent(result: dict) -> str:
+    """Build a concise Turkish summary from get_consent_summary result."""
+    consent_rate = result.get("consent_rate_pct", 0.0)
+    skipped = result.get("skipped_no_consent", 0)
+    score = result.get("compliance_score", 0)
+    grade = result.get("compliance_grade", "")
+
+    grade_tr = {
+        "uyumlu": "uyumlu",
+        "kismi": "kısmi uyumlu",
+        "eksik": "eksik",
+    }.get(grade, grade)
+
+    total_events = result.get("total_events", 0)
+    if total_events == 0:
+        return "KVKK rıza verileri için henüz kayıtlı olay bulunamadı."
+
+    parts = [
+        f"KVKK rıza oranı %{consent_rate:.1f}; "
+        f"uyum skoru {score}/100 ({grade_tr})."
+    ]
+    if skipped:
+        parts.append(f"{skipped:,} olay rıza olmadığı için iletilmedi.")
+    return " ".join(parts)
+
+
+def _summarise_benchmark(result: dict) -> str:
+    """Build a concise Turkish summary from get_benchmark_summary result."""
+    headline = result.get("headline", "")
+    if not headline:
+        return "Sektör kıyaslama verisi henüz yeterli değil."
+
+    counts = result.get("summary_counts", {})
+    metrics = result.get("metrics", [])
+
+    parts = [f"Sektör kıyaslaması: {headline}"]
+
+    # Add ROAS value as a concrete number anchor
+    roas_metric = next((m for m in metrics if m.get("key") == "roas"), None)
+    if roas_metric:
+        val = roas_metric.get("your_value", 0.0)
+        position_tr = {
+            "strong": "güçlü",
+            "average": "ortalama",
+            "weak": "zayıf",
+        }.get(roas_metric.get("position", ""), "")
+        parts.append(f"ROAS {val:.2f}x ({position_tr}).")
+
+    return " ".join(parts)
+
+
+def _summarise_audit(result: dict) -> str:
+    """Build a concise Turkish summary from get_audit_summary result."""
+    score = result.get("score", 0)
+    grade = result.get("grade", "")
+    counts = result.get("counts", {})
+
+    grade_tr = {
+        "mukemmel": "mükemmel",
+        "iyi": "iyi",
+        "orta": "orta",
+        "zayif": "zayıf",
+    }.get(grade, grade)
+
+    fail_count = counts.get("fail", 0)
+    warn_count = counts.get("warn", 0)
+    pass_count = counts.get("pass", 0)
+
+    parts = [
+        f"Hesap sağlık skoru {score}/100 ({grade_tr}): "
+        f"{fail_count} sorun, {warn_count} uyarı, {pass_count} geçti."
+    ]
+
+    top_issues = result.get("top_issues", [])
+    if top_issues:
+        first = top_issues[0]
+        parts.append(f"Öncelikli bulgu: {first.get('title', '')}.")
+
+    return " ".join(parts)
+
+
 def _summarise_subscription(result: dict) -> str:
     plan = result.get("plan_name", "?")
     status = result.get("status", "?")
@@ -598,7 +703,68 @@ def _stub_chat(
         tools_used.append(ToolUsed(name="get_executive_summary", summary=summary))
         reply_text = summary
 
+    # ── intent: account audit / health check ──────────────────────────────
+    # Must be BEFORE the greedy performance intent ("nasıl" would capture these).
+    # "denetim", "sağlık taraması", "hesap denetimi", "audit", "sağlık skoru"
+    # are all specific enough to be safe before performance.
+    # "hesap sağlığı" — the phrase is unique (performance doesn't mention "sağlık").
+    elif _keyword_match(
+        text_lower,
+        "denetim", "hesap sağlığı", "sağlık taraması", "hesap denetimi",
+        "audit", "sağlık skoru",
+    ):
+        result = dispatch("get_audit_summary", db, tenant_id, {})
+        summary = _summarise_audit(result)
+        tools_used.append(ToolUsed(name="get_audit_summary", summary=summary))
+        reply_text = summary
+
+    # ── intent: KVKK / consent ─────────────────────────────────────────────
+    # Must be BEFORE the greedy performance intent.
+    # "kvkk", "rıza", "consent", "onay oranı", "rıza oranı" are all unique.
+    # NOTE: "uyum" alone is deliberately excluded — it is too broad and could
+    # match unrelated queries.  Only "kvkk" + "rıza" anchors are used.
+    elif _keyword_match(
+        text_lower,
+        "kvkk", "rıza", "consent", "onay oranı", "rıza oranı",
+    ):
+        result = dispatch("get_consent_summary", db, tenant_id, {})
+        summary = _summarise_consent(result)
+        tools_used.append(ToolUsed(name="get_consent_summary", summary=summary))
+        reply_text = summary
+
+    # ── intent: sector benchmark / comparison ──────────────────────────────
+    # Must be BEFORE performance ("sektör" is not captured by performance).
+    # "kıyas", "benchmark", "sektör", "sektör ortalaması", "rakip ortalama"
+    elif _keyword_match(
+        text_lower,
+        "kıyas", "benchmark", "sektör", "sektör ortalaması", "rakip ortalama",
+    ):
+        result = dispatch("get_benchmark_summary", db, tenant_id, {})
+        summary = _summarise_benchmark(result)
+        tools_used.append(ToolUsed(name="get_benchmark_summary", summary=summary))
+        reply_text = summary
+
+    # ── intent: funnel / conversion journey ───────────────────────────────
+    # Must be BEFORE performance because "nasıl" in the performance branch would
+    # steal "Dönüşüm hunisi nasıl görünüyor?".
+    # "huni", "dönüşüm hunisi", "müşteri yolculuğu", "sepete ekleme",
+    # "satın alma adımı", "funnel"
+    # NOTE: "satın alma adımı" is a phrase (not bare "satın alma") so it does
+    # not collide with the budget/performance "dönüşüm" keyword.
+    elif _keyword_match(
+        text_lower,
+        "huni", "dönüşüm hunisi", "müşteri yolculuğu", "sepete ekleme",
+        "satın alma adımı", "funnel",
+    ):
+        result = dispatch("get_funnel_summary", db, tenant_id, {})
+        summary = _summarise_funnel(result)
+        tools_used.append(ToolUsed(name="get_funnel_summary", summary=summary))
+        reply_text = summary
+
     # ── intent: performance summary ────────────────────────────────────────
+    # NOTE: "nasıl" is a very greedy keyword — it must come AFTER the four new
+    # specific intents above (audit, consent, benchmark, funnel) to avoid
+    # stealing queries like "Hesap sağlığı nasıl?".
     elif _keyword_match(
         text_lower,
         "özet", "performans", "nasıl gidiyor", "genel durum",
@@ -706,6 +872,10 @@ def _stub_chat(
             "• Aylık bütçe planı (dağılım ve beklenen sonuç) "
             "• Sosyal gelen kutusu özeti (açık/beklemede/çözüldü mesajlar) "
             "• Yönetici özeti (üst düzey KPI ve genel durum) "
+            "• Dönüşüm hunisi analizi (müşteri yolculuğu, sepete ekleme, satın alma adımları) "
+            "• KVKK rıza ve uyum durumu (rıza oranı, consent skoru) "
+            "• Sektör kıyaslaması (benchmark, sektör ortalaması ile karşılaştırma) "
+            "• Hesap sağlık taraması (denetim skoru, geçen/uyarı/sorun kontrolü) "
             "• Otomasyon kuralı oluşturma ('kural oluştur') "
             "• Hedef belirleme ('hedef koy') "
             "• Abonelik ve limit bilgisi "

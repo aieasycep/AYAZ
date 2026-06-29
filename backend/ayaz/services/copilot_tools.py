@@ -713,6 +713,120 @@ def _get_top_movers(
     }
 
 
+def _get_funnel_summary(
+    db: Session,
+    tenant_id: uuid.UUID,
+    params: dict | None = None,
+) -> dict:
+    """Dönüşüm hunisi özeti — build_funnel'i çağırır ve kilit sayıları döner."""
+    from datetime import timedelta
+    from ayaz.services.funnel import build_funnel
+
+    today = date.today()
+    date_to = today.isoformat()
+    date_from = (today - timedelta(days=29)).isoformat()
+
+    result = build_funnel(db, tenant_id, date_from=date_from, date_to=date_to)
+    # Return full result; it is already compact enough for the copilot layer.
+    return result
+
+
+def _get_consent_summary(
+    db: Session,
+    tenant_id: uuid.UUID,
+    params: dict | None = None,
+) -> dict:
+    """KVKK rıza merkezi özeti — build_consent_center'ı çağırır ve kilit alanları döner."""
+    from ayaz.services.consent_center import build_consent_center
+
+    full = build_consent_center(db, tenant_id)
+
+    summary = full.get("summary", {})
+    compliance = full.get("compliance", {})
+
+    return {
+        "consent_rate_pct": summary.get("consent_rate_pct", 0.0),
+        "total_events": summary.get("total_events", 0),
+        "consented_events": summary.get("consented_events", 0),
+        "skipped_no_consent": summary.get("skipped_no_consent", 0),
+        "compliance_score": compliance.get("score", 0),
+        "compliance_grade": compliance.get("grade", ""),
+        "compliance_counts": compliance.get("counts", {}),
+        "period": full.get("period", {}),
+    }
+
+
+def _get_benchmark_summary(
+    db: Session,
+    tenant_id: uuid.UUID,
+    params: dict | None = None,
+) -> dict:
+    """Sektör kıyaslama özeti — build_benchmark'ı son 30 gün için çağırır."""
+    from datetime import timedelta
+    from ayaz.services.benchmark import build_benchmark
+
+    today = date.today()
+    date_to = today
+    date_from = today - timedelta(days=29)
+
+    result = build_benchmark(db, tenant_id, date_from, date_to)
+
+    # Extract key fields: headline, summary_counts, and per-metric positions
+    metrics_summary = [
+        {
+            "key": m["key"],
+            "label": m["label"],
+            "your_value": m["your_value"],
+            "unit": m["unit"],
+            "position": m["position"],
+            "verdict": m["verdict"],
+        }
+        for m in result.get("metrics", [])
+    ]
+
+    return {
+        "period": result.get("period", {}),
+        "vertical": result.get("vertical", "E-ticaret"),
+        "headline": result.get("headline", ""),
+        "summary_counts": result.get("summary_counts", {}),
+        "metrics": metrics_summary,
+    }
+
+
+def _get_audit_summary(
+    db: Session,
+    tenant_id: uuid.UUID,
+    params: dict | None = None,
+) -> dict:
+    """Hesap sağlık taraması özeti — run_account_audit'i çağırır."""
+    from ayaz.services.audit import run_account_audit
+
+    result = run_account_audit(db, tenant_id)
+
+    # Include top failing/warning checks for actionable copilot context
+    all_checks = [
+        c
+        for cat in result.get("categories", [])
+        for c in cat.get("checks", [])
+    ]
+    top_issues = [c for c in all_checks if c.get("severity") in ("fail", "warn")][:5]
+
+    return {
+        "score": result.get("score", 0),
+        "grade": result.get("grade", ""),
+        "summary": result.get("summary", ""),
+        "counts": result.get("counts", {}),
+        "top_issues": [
+            {
+                "severity": c.get("severity"),
+                "title": c.get("title"),
+                "finding": c.get("finding"),
+            }
+            for c in top_issues
+        ],
+    }
+
+
 def _get_subscription_status(
     db: Session,
     tenant_id: uuid.UUID,
@@ -860,6 +974,11 @@ _TOOLS: dict[str, Any] = {
     "get_subscription_status": _get_subscription_status,
     "get_notifications": _get_notifications,
     "get_goal_progress": _get_goal_progress,
+    # ── Dalga 77: new module tools ───────────────────────────────────────────
+    "get_funnel_summary": _get_funnel_summary,
+    "get_consent_summary": _get_consent_summary,
+    "get_benchmark_summary": _get_benchmark_summary,
+    "get_audit_summary": _get_audit_summary,
     # ── Action tools (v2) — real writes ─────────────────────────────────────
     "create_automation_rule": _create_automation_rule,
     "create_goal": _create_goal,
@@ -1295,5 +1414,62 @@ TOOL_SPECS: list[dict] = [
             "required": ["name", "metric", "target_value", "period_start", "period_end"],
         },
         "is_action": True,
+    },
+    # ── Dalga 77: new module tool specs ─────────────────────────────────────
+    {
+        "name": "get_funnel_summary",
+        "description": (
+            "Dönüşüm hunisini (Müşteri Yolculuğu) özetler: her aşamadaki kullanıcı sayısı "
+            "(Sayfa Görüntüleme → Ürün Görüntüleme → Sepete Ekleme → Ödeme Başlatma → Satın Alma), "
+            "genel dönüşüm oranı ve en büyük düşüş noktasını döndürür. "
+            "Son 30 günlük pencere kullanılır. "
+            "Huni, müşteri yolculuğu, dönüşüm adımı soruları için kullan."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_consent_summary",
+        "description": (
+            "KVKK Rıza Yönetim Merkezi özetini döndürür: genel rıza oranı, rıza olmadan "
+            "atlanan olay sayısı, uyum skoru ve uyum derecesi. "
+            "KVKK, rıza, consent, onay oranı soruları için kullan."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_benchmark_summary",
+        "description": (
+            "Kiracının metriklerini Türk e-ticaret sektörü referans aralıklarıyla karşılaştırır. "
+            "Her metrik için 'strong' / 'average' / 'weak' konumu ve Türkçe yorum döndürür. "
+            "Son 30 günlük pencere kullanılır. "
+            "Sektör kıyaslaması, benchmark, rakip ortalama soruları için kullan."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_audit_summary",
+        "description": (
+            "Hesap sağlık taramasını çalıştırır ve 0-100 sağlık skoru, derece "
+            "(mukemmel/iyi/orta/zayif), geçen/uyarı/başarısız kontrol sayıları ve "
+            "üst sorunları döndürür. "
+            "Hesap denetimi, sağlık taraması, hesap sağlığı soruları için kullan."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
     },
 ]

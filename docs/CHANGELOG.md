@@ -166,6 +166,16 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 77 — Copilot Modül Farkındalığı (funnel / KVKK / kıyaslama / denetim)
+- AI Copilot ("Veriye Sor") genişletildi: artık **Dönüşüm Hunisi**, **KVKK Rıza**, **Sektör
+  Kıyaslama** ve **Hesap Sağlık Taraması** hakkında soruları yanıtlıyor — ürünün merkezi AI
+  farklılaştırıcısı yeni modülleri de kapsıyor (yeni nav öğesi yok).
+- Backend: copilot_tools'a 4 yeni okuma aracı (`get_funnel_summary`, `get_consent_summary`,
+  `get_benchmark_summary`, `get_audit_summary`) + `_TOOLS`/`TOOL_SPECS` kaydı; copilot.py'ye 4
+  Türkçe özet fonksiyonu + 4 niyet dalı (greedy "nasıl" performans dalından ÖNCE; anahtar kelime
+  çakışması yok). Yanıtlar tek-mention temiz cümleler. 54 yeni test.
+- Kalite: backend **2540 yeşil** (kopilot 167 test yeşil), frontend değişmedi (411 yeşil).
+
 ## Dalga 76 — Müşteri Yolculuğu / Dönüşüm Hunisi (Conversion Funnel)
 - Görsel pazarlama analitiği farklılaştırıcısı: **Dönüşüm Hunisi** — 5 adımlı e-ticaret hunisi
   (Sayfa Görüntüleme → Ürün Görüntüleme → Sepete Ekleme → Ödeme Başlatma → Satın Alma) adım-adım
