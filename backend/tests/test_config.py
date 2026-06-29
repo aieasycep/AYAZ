@@ -1,11 +1,21 @@
-"""Config tests — DATABASE_URL normalization (deploy-critical).
+"""Config tests — DATABASE_URL normalization + ALLOWED_ORIGINS parsing.
 
-Managed Postgres providers (Neon, Supabase, Render, Railway) hand out
-``postgres://`` / ``postgresql://`` connection strings. SQLAlchemy maps the
-bare ``postgresql://`` scheme to psycopg2 (not installed); the app uses
-psycopg3. The ``Settings._normalize_database_url`` validator rewrites these so
-a pasted provider URL works as-is. These tests lock that behaviour.
+Both are deploy-critical:
+
+* Managed Postgres providers (Neon, Supabase, Render, Railway) hand out
+  ``postgres://`` / ``postgresql://`` connection strings. SQLAlchemy maps the
+  bare ``postgresql://`` scheme to psycopg2 (not installed); the app uses
+  psycopg3. The ``Settings._normalize_database_url`` validator rewrites these so
+  a pasted provider URL works as-is.
+* ``ALLOWED_ORIGINS`` is a comma-separated env string (e.g.
+  ``https://a.app,https://b.app``). Because the field is a ``list[str]``,
+  pydantic-settings would otherwise JSON-decode it at the source level and crash
+  the boot. ``NoDecode`` keeps the raw string so ``_split_origins`` can split it.
+
+These tests lock both behaviours.
 """
+
+import pytest
 
 from ayaz.config import Settings
 
@@ -38,3 +48,45 @@ def test_already_qualified_psycopg_url_unchanged():
 def test_sqlite_url_unchanged():
     src = "sqlite:////tmp/demo.db"
     assert _url(src) == src
+
+
+# ── ALLOWED_ORIGINS parsing (deploy-critical — Render boot crashed here) ───────
+
+
+def test_allowed_origins_comma_string_from_env(monkeypatch):
+    """A comma-separated ALLOWED_ORIGINS env var must parse into a list.
+
+    This is the exact value shape set in the Render dashboard. Before the
+    ``NoDecode`` fix, pydantic-settings tried to ``json.loads`` it and the app
+    refused to boot with ``SettingsError``.
+    """
+    monkeypatch.setenv(
+        "ALLOWED_ORIGINS",
+        "https://ayaz-beryl.vercel.app,https://ayaz-git-foo-ayaz3.vercel.app",
+    )
+    assert Settings().allowed_origins == [
+        "https://ayaz-beryl.vercel.app",
+        "https://ayaz-git-foo-ayaz3.vercel.app",
+    ]
+
+
+def test_allowed_origins_single_value_from_env(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://ayaz.vercel.app")
+    assert Settings().allowed_origins == ["https://ayaz.vercel.app"]
+
+
+def test_allowed_origins_strips_whitespace_and_blanks(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", " https://a.app , , https://b.app ")
+    assert Settings().allowed_origins == ["https://a.app", "https://b.app"]
+
+
+@pytest.mark.parametrize("raw", ["", "   "])
+def test_allowed_origins_empty_env_yields_empty_list(monkeypatch, raw):
+    monkeypatch.setenv("ALLOWED_ORIGINS", raw)
+    assert Settings().allowed_origins == []
+
+
+def test_allowed_origins_list_kwarg_unchanged():
+    """Passing a list directly (the default path / tests) still works."""
+    origins = ["http://localhost:3000", "http://localhost:3001"]
+    assert Settings(allowed_origins=origins).allowed_origins == origins

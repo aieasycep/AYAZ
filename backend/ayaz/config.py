@@ -6,10 +6,10 @@ singleton so the values stay in one place and are easy to mock in tests.
 """
 
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 # Insecure development defaults that MUST be overridden before a production
 # deploy.  The production startup guard (see ``_reject_insecure_production``)
@@ -67,7 +67,14 @@ class Settings(BaseSettings):
     # ── App ───────────────────────────────────────────────────────────────────
     environment: Literal["development", "staging", "production"] = "development"
     debug: bool = False
-    allowed_origins: list[str] = ["http://localhost:3000"]
+    # ``NoDecode`` stops pydantic-settings from JSON-decoding the raw env value
+    # for this complex (list) field. Without it, an ``ALLOWED_ORIGINS`` env var
+    # like ``https://a.app,https://b.app`` is fed to ``json.loads`` at the source
+    # level (before validators run) and the boot crashes with
+    # ``SettingsError: error parsing value for field "allowed_origins"``. With
+    # ``NoDecode`` the raw string reaches ``_split_origins`` below, which splits
+    # on commas — the documented, operator-friendly format.
+    allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:3000"]
 
     # ── Vault ─────────────────────────────────────────────────────────────────
     # TODO (Faz 1): replace with real HashiCorp Vault client
