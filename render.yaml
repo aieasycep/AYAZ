@@ -30,10 +30,11 @@ services:
     dockerContext: ./backend
     plan: free
 
-    # Free planda preDeployCommand çalışmadığı için migrasyon + (opsiyonel) demo
-    # seed servis başlarken burada çalışır. seed_if_enabled, SEED_DEMO ayarlı
-    # değilse no-op'tur ve hiçbir durumda başlatmayı bozmaz (her zaman exit 0).
-    dockerCommand: sh -c "alembic upgrade head && python -m scripts.seed_if_enabled && uvicorn ayaz.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+    # Migrasyon + (opsiyonel) demo seed + uvicorn, imajdaki başlangıç script'inde
+    # (backend/start.sh, Dockerfile CMD'si) çalışır. Free planda Pre-Deploy
+    # Command olmadığı için migrasyonlar başlangıçta uygulanır; tüm adımlar
+    # idempotenttir. (dockerCommand string'i "&&" yüzünden Render'da exit 127
+    # veriyordu — bu yüzden script'e taşındı.)
 
     healthCheckPath: /health
 

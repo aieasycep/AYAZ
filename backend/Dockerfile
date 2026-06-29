@@ -30,6 +30,8 @@ COPY alembic.ini ./
 # Operational scripts (demo seed + conditional seeder) — needed so the deploy
 # start command can run `python -m scripts.seed_if_enabled` after migrations.
 COPY scripts/ ./scripts/
+# Container start script: migrate → (optional) seed → serve.
+COPY start.sh ./start.sh
 
 # Re-run pip install to make sure the ayaz package itself is installed
 # (setuptools needs the source to be present).
@@ -37,5 +39,6 @@ RUN pip install --no-cache-dir .
 
 EXPOSE 8000
 
-# Honor $PORT so Render / Railway can override without a custom Dockerfile.
-CMD ["sh", "-c", "uvicorn ayaz.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start script runs migrations (free-tier has no pre-deploy phase), an optional
+# idempotent demo seed (SEED_DEMO=true), then uvicorn. Honors $PORT.
+CMD ["sh", "/app/start.sh"]
