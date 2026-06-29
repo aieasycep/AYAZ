@@ -166,6 +166,16 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 78 — Gruplu Navigasyon (kritik UX düzeltmesi)
+- KRİTİK düzeltme: nav 32 bağlantıya ulaşınca `.nav { overflow:hidden }` masaüstünde çoğu öğeyi
+  KIRPIYORDU — birçok sayfa üst menüden erişilemiyordu. Üst menü 7 mantıksal **kategori
+  açılır menüsüne** dönüştürüldü (Genel Bakış / Analiz / Reklam & Kreatif / İçerik & Sosyal /
+  Planlama & Bütçe / Veri & Raporlar / Ayarlar); tüm 32 rota artık erişilebilir.
+- `NAV_LINKS` (düz liste) korundu — CommandPalette (⌘K) hâlâ onu kullanıyor; ek `NAV_GROUPS` eklendi.
+  Mobil çekmece gruplu bölümlere ayrıldı. Dropdown: dışarı tıkla/Escape/rota değişiminde kapanır, a11y.
+- Test: `appnav-groups` bütünlük testi (her rota tam bir grupta, çift yok, 7 grup / 32 link). 6 yeni test.
+- Kalite: frontend **417 yeşil**, tsc temiz, build yeşil (backend değişmedi).
+
 ## Dalga 77 — Copilot Modül Farkındalığı (funnel / KVKK / kıyaslama / denetim)
 - AI Copilot ("Veriye Sor") genişletildi: artık **Dönüşüm Hunisi**, **KVKK Rıza**, **Sektör
   Kıyaslama** ve **Hesap Sağlık Taraması** hakkında soruları yanıtlıyor — ürünün merkezi AI

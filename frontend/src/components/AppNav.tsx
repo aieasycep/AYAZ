@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { logout as logoutApi } from '@/lib/api';
@@ -10,6 +10,10 @@ import { useTheme } from './ThemeProvider';
 import styles from './AppNav.module.css';
 import CommandPalette from './CommandPalette';
 import QuickAsk from './QuickAsk';
+
+// ---------------------------------------------------------------------------
+// Flat nav links — KEEP as-is; CommandPalette imports this.
+// ---------------------------------------------------------------------------
 
 export const NAV_LINKS = [
   { href: '/command-center', label: 'Komuta Merkezi' },
@@ -46,8 +50,96 @@ export const NAV_LINKS = [
   { href: '/settings', label: 'Ayarlar' },
 ];
 
-// Resolve what the toggle button should look like given the stored theme.
-// Shows a sun when dark mode is active (click → go light), moon otherwise.
+// ---------------------------------------------------------------------------
+// Grouped nav — additional exported structure used by the desktop dropdown nav
+// and the mobile grouped drawer. Every href from NAV_LINKS appears in exactly
+// one group; no routes are dropped or duplicated.
+// ---------------------------------------------------------------------------
+
+export interface NavGroupLink {
+  href: string;
+  label: string;
+}
+
+export interface NavGroup {
+  label: string;
+  links: NavGroupLink[];
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Genel Bakış',
+    links: [
+      { href: '/command-center', label: 'Komuta Merkezi' },
+      { href: '/dashboard', label: 'Panel' },
+      { href: '/roles', label: 'Rol Görünümü' },
+      { href: '/executive', label: 'Yönetici' },
+      { href: '/briefing', label: 'Brifing' },
+      { href: '/assistant', label: 'Asistan' },
+    ],
+  },
+  {
+    label: 'Analiz',
+    links: [
+      { href: '/insights', label: 'İçgörüler' },
+      { href: '/audit', label: 'Denetim' },
+      { href: '/benchmark', label: 'Kıyaslama' },
+      { href: '/funnel', label: 'Huni' },
+      { href: '/recommendations', label: 'Öneriler' },
+    ],
+  },
+  {
+    label: 'Reklam & Kreatif',
+    links: [
+      { href: '/ads', label: 'Reklam' },
+      { href: '/optimizer', label: 'Optimizasyon' },
+      { href: '/creatives', label: 'Kreatifler' },
+      { href: '/creative-lens', label: 'Kreatif Lensi' },
+      { href: '/ad-studio', label: 'Reklam Stüdyosu' },
+    ],
+  },
+  {
+    label: 'İçerik & Sosyal',
+    links: [
+      { href: '/content', label: 'İçerik' },
+      { href: '/inbox', label: 'Gelen Kutusu' },
+    ],
+  },
+  {
+    label: 'Planlama & Bütçe',
+    links: [
+      { href: '/goals', label: 'Hedefler' },
+      { href: '/planning', label: 'Planlama' },
+      { href: '/budget-simulator', label: 'Bütçe Senaryosu' },
+      { href: '/automation', label: 'Otomasyon' },
+    ],
+  },
+  {
+    label: 'Veri & Raporlar',
+    links: [
+      { href: '/connections', label: 'Bağlantılar' },
+      { href: '/feeds', label: 'Feed Yönetimi' },
+      { href: '/tracking', label: 'Ölçümleme' },
+      { href: '/consent', label: 'Rıza Merkezi' },
+      { href: '/reports', label: 'Raporlar' },
+      { href: '/report-builder', label: 'Rapor Oluşturucu' },
+    ],
+  },
+  {
+    label: 'Ayarlar',
+    links: [
+      { href: '/billing', label: 'Faturalama' },
+      { href: '/workspaces', label: 'Çalışma Alanları' },
+      { href: '/onboarding', label: 'Kurulum' },
+      { href: '/settings', label: 'Ayarlar' },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// ThemeToggle
+// ---------------------------------------------------------------------------
+
 function useResolvedDark(): boolean {
   const { theme } = useTheme();
   const [osDark, setOsDark] = useState(false);
@@ -109,16 +201,133 @@ function ThemeToggle() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// DropdownGroup — one group trigger + floating dropdown panel
+// ---------------------------------------------------------------------------
+
+interface DropdownGroupProps {
+  group: NavGroup;
+  pathname: string;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  /** Mutable ref so the parent can restore focus to this trigger on Escape. */
+  triggerRef: { current: HTMLButtonElement | null };
+}
+
+function DropdownGroup({
+  group,
+  pathname,
+  isOpen,
+  onOpen,
+  onClose,
+  triggerRef,
+}: DropdownGroupProps) {
+  const isGroupActive = group.links.some((l) => l.href === pathname);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close on Escape — return focus to trigger
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        onClose();
+        triggerRef.current?.focus();
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, triggerRef]);
+
+  return (
+    <div className={styles.navGroup}>
+      <button
+        ref={(el) => { triggerRef.current = el; }}
+        type="button"
+        className={`${styles.navGroupTrigger} ${isGroupActive ? styles.navGroupTriggerActive : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={() => (isOpen ? onClose() : onOpen())}
+      >
+        {group.label}
+        <svg
+          className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`}
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div
+          ref={dropdownRef}
+          className={styles.dropdown}
+          role="menu"
+          aria-label={group.label}
+        >
+          {group.links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              role="menuitem"
+              className={`${styles.dropdownLink} ${pathname === link.href ? styles.dropdownLinkActive : ''}`}
+              onClick={onClose}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AppNav — main export
+// ---------------------------------------------------------------------------
+
 export default function AppNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quickAskOpen, setQuickAskOpen] = useState(false);
+  const [openGroupIndex, setOpenGroupIndex] = useState<number | null>(null);
 
-  // Close drawer on route change
+  // One mutable ref object per group trigger, for restoring focus on Escape
+  const triggerRefs = useRef<Array<{ current: HTMLButtonElement | null }>>(
+    NAV_GROUPS.map(() => ({ current: null }))
+  );
+
+  const closeDropdown = useCallback(() => setOpenGroupIndex(null), []);
+
+  // Close dropdown on route change
   useEffect(() => {
     setDrawerOpen(false);
+    setOpenGroupIndex(null);
   }, [pathname]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (openGroupIndex === null) return;
+    function handleClick(e: MouseEvent) {
+      // If the click target is inside any navGroup element, let that handler deal with it
+      const navGroupEls = Array.from(document.querySelectorAll(`.${styles.navGroup}`));
+      for (const el of navGroupEls) {
+        if (el.contains(e.target as Node)) return;
+      }
+      setOpenGroupIndex(null);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [openGroupIndex]);
 
   // Prevent body scroll when drawer is open
   useEffect(() => {
@@ -133,7 +342,7 @@ export default function AppNav() {
   }, [drawerOpen]);
 
   async function handleLogout() {
-    await logoutApi(); // revoke server-side (best-effort) + clear local token
+    await logoutApi();
     router.push('/login');
   }
 
@@ -141,18 +350,20 @@ export default function AppNav() {
     <>
       <header className={styles.topbar}>
         <div className={styles.inner}>
-          {/* Left: brand + desktop nav */}
+          {/* Left: brand + desktop grouped nav */}
           <div className={styles.left}>
             <span className={styles.brand}>AYAZ</span>
             <nav className={styles.nav} aria-label="Ana menü">
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`${styles.navLink} ${pathname === link.href ? styles.navLinkActive : ''}`}
-                >
-                  {link.label}
-                </Link>
+              {NAV_GROUPS.map((group, idx) => (
+                <DropdownGroup
+                  key={group.label}
+                  group={group}
+                  pathname={pathname}
+                  isOpen={openGroupIndex === idx}
+                  onOpen={() => setOpenGroupIndex(idx)}
+                  onClose={closeDropdown}
+                  triggerRef={triggerRefs.current[idx]}
+                />
               ))}
             </nav>
           </div>
@@ -237,14 +448,19 @@ export default function AppNav() {
         </div>
 
         <div className={styles.drawerLinks}>
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`${styles.drawerLink} ${pathname === link.href ? styles.drawerLinkActive : ''}`}
-            >
-              {link.label}
-            </Link>
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className={styles.drawerGroup}>
+              <div className={styles.drawerGroupLabel}>{group.label}</div>
+              {group.links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`${styles.drawerLink} ${pathname === link.href ? styles.drawerLinkActive : ''}`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </div>
 
