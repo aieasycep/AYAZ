@@ -221,6 +221,12 @@ def check_route(
     time.sleep(SETTLE_SECONDS)
 
     body_text = page.inner_text("body")
+    # Raw DOM text (case-preserved). `inner_text` reflects CSS text-transform, so
+    # an uppercased section title renders as "ZAMAN SERİSİ" and a case-sensitive
+    # marker like "Zaman Serisi" would spuriously fail (the Turkish dotted-İ also
+    # defeats naive lower-casing). Match the marker against both, so a purely
+    # visual text-transform never breaks a content-presence assertion.
+    body_text_raw = page.text_content("body") or ""
     failures: list[str] = []
 
     # ---- Assertion 1: no Next.js crash banner --------------------------------
@@ -231,7 +237,7 @@ def check_route(
             break
 
     # ---- Assertion 2: expected Turkish marker present -----------------------
-    if expected_marker not in body_text:
+    if expected_marker not in body_text and expected_marker not in body_text_raw:
         failures.append(
             f"Expected Turkish marker not found: '{expected_marker}'"
         )
