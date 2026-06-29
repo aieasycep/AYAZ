@@ -166,6 +166,17 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 82 — Pazarlama Sağlık Endeksi (stratejik tek puan)
+- CMO/Yönetim farklılaştırıcısı: **Pazarlama Sağlık Endeksi** — tüm pazarlamanın tek 0-100 stratejik
+  puanı, 6 boyutu (Hesap Sağlığı, Sektör Konumu, KVKK Uyumu, Dönüşüm, Hedef İlerleme, Bütçe Disiplini)
+  mevcut modüllerden sentezler. Her boyut kendi skor halkası + derecesi + derin bağlantı.
+- Backend: `GET /health-index` (yeni tablo yok) — her boyut ayrı try/except ile (veri yoksa "veri_yok",
+  ortalamadan hariç); audit/benchmark/consent/funnel/goal/budget reuse. Bütçe Disiplini içinde
+  bulunulan ayın planını kullanır (Komuta Merkezi ile tutarlı gerçek tempo). 55 yeni test.
+- Frontend: `/health-index` — büyük genel skor halkası + derece + 6 boyut kartı (mini halka/derece);
+  açık/koyu tema. 10 yeni test (+ nav 34 link). Navigasyona **Sağlık Endeksi** eklendi (Genel Bakış).
+- Kalite: backend **2662 yeşil**, frontend **447 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 81 — Komuta Merkezi Zenginleştirme (yeni modüller)
 - Vitrin güçlendirme: **Komuta Merkezi** modül durumu bloğuna 3 yeni kart eklendi — **Öneriler**
   (açık + yüksek etkili), **KVKK Uyum** (skor/not/rıza oranı), **Dönüşüm Hunisi** (genel dönüşüm +

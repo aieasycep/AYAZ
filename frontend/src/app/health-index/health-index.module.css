@@ -1,0 +1,441 @@
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Page header */
+
+.pageTitle {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.pageSubtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+/* Hero card */
+
+.heroCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem 1.75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+/* Score ring */
+
+.scoreRing {
+  flex-shrink: 0;
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scoreRingCircle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.scoreRingTrack {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 9;
+}
+
+.scoreRingFillMukemmel {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.scoreRingFillIyi {
+  fill: none;
+  stroke: #0ea5e9;
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.scoreRingFillOrta {
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.scoreRingFillZayif {
+  fill: none;
+  stroke: var(--color-danger);
+  stroke-width: 9;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.scoreNumber {
+  position: relative;
+  font-size: 2.25rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.scoreOutOf {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Hero details */
+
+.heroDetails {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gradeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.gradeBadge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.45px;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.gradeMukemmel {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-success);
+}
+
+.gradeIyi {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+}
+
+.gradeOrta {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.gradeZayif {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+}
+
+.heroSummary {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+/* Dimensions grid */
+
+.dimensionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+/* Dimension card */
+
+.dimCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+
+.dimCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(59, 91, 219, 0.08);
+}
+
+.dimCardMuted {
+  opacity: 0.65;
+}
+
+.dimCardMuted:hover {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow);
+  opacity: 0.75;
+}
+
+/* Dim card header: label + mini ring */
+
+.dimCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dimLabel {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+/* Mini score ring */
+
+.miniRing {
+  flex-shrink: 0;
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.miniRingCircle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.miniRingTrack {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 5;
+}
+
+.miniRingFillMukemmel {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.miniRingFillIyi {
+  fill: none;
+  stroke: #0ea5e9;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.miniRingFillOrta {
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.miniRingFillZayif {
+  fill: none;
+  stroke: var(--color-danger);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.miniScoreNumber {
+  position: relative;
+  font-size: 0.8rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.miniScoreDash {
+  position: relative;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+/* Dim card body */
+
+.dimCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dimGradeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.veriYokChip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  padding: 0.18rem 0.5rem;
+  border-radius: 6px;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.dimDetail {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* States */
+
+.stateBox {
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+.errorText {
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+
+/* Loading skeleton shimmer */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface-2, rgba(148, 163, 184, 0.2)) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.skeletonHero {
+  border-radius: var(--radius);
+  height: 160px;
+}
+
+.skeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.skeletonCard {
+  border-radius: var(--radius);
+  height: 140px;
+}
+
+/* Error card */
+
+.errorCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* Retry button */
+
+.retryBtn {
+  margin-top: 0.75rem;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.retryBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Responsive */
+
+@media (max-width: 640px) {
+  .main {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .heroCard {
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.25rem;
+  }
+
+  .scoreRing {
+    width: 110px;
+    height: 110px;
+  }
+
+  .scoreNumber {
+    font-size: 1.75rem;
+  }
+
+  .dimensionsGrid {
+    grid-template-columns: 1fr;
+  }
+}
