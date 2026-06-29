@@ -274,7 +274,6 @@
 .attentionModule {
   font-size: 0.7rem;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.35px;
   color: var(--color-text-muted);
   background: var(--color-surface-2, rgba(148, 163, 184, 0.12));

@@ -95,6 +95,19 @@ const SEVERITY_LABELS: Record<string, string> = {
   info: 'Bilgi',
 };
 
+// Attention items carry a source-module key; show it with a Turkish label
+// (the API value is an internal key like "insights"/"inbox").
+const MODULE_LABELS: Record<string, string> = {
+  insights: 'İçgörüler',
+  inbox: 'Gelen Kutusu',
+  content: 'İçerik',
+  goals: 'Hedefler',
+  budget: 'Bütçe',
+  recommendations: 'Öneriler',
+  consent: 'KVKK',
+  funnel: 'Huni',
+};
+
 function severityBadgeClass(severity: string): string {
   switch (severity) {
     case 'critical':
@@ -153,7 +166,9 @@ function AttentionFeed({ items }: { items: AttentionItem[] }) {
             >
               {SEVERITY_LABELS[item.severity] ?? item.severity}
             </span>
-            <span className={styles.attentionModule}>{item.module}</span>
+            <span className={styles.attentionModule}>
+              {MODULE_LABELS[item.module] ?? item.module}
+            </span>
             <span className={styles.attentionArrow} aria-hidden="true">
               →
             </span>
