@@ -13,7 +13,7 @@
 .inner {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0 var(--space-5);
   height: 56px;
   display: flex;
   align-items: center;
@@ -47,7 +47,7 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 0.125rem;
+  gap: var(--space-1);
   overflow: visible;
   flex-wrap: nowrap;
 }
@@ -64,8 +64,8 @@
   gap: 0.3rem;
   padding: 0.35rem 0.6rem;
   border-radius: 7px;
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
   color: rgba(255, 255, 255, 0.65);
   background: transparent;
   border: none;
@@ -110,8 +110,8 @@
   min-width: 180px;
   background: var(--color-nav-bg, #111827);
   border: 1px solid var(--color-nav-border, rgba(255, 255, 255, 0.1));
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
   padding: 0.375rem;
   z-index: 300;
   display: flex;
@@ -191,45 +191,29 @@
 .right {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
-.logoutBtn {
-  background: transparent;
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.8);
-  border-radius: 8px;
-  padding: 0.375rem 0.875rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.logoutBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.5);
-  color: #fff;
-}
-
-/* ---- "Veriye Sor" quick-ask button (desktop top-bar) ---- */
+/* ---- "Veriye Sor" quick-ask button (desktop top-bar — icon-only) ---- */
 
 .quickAskBtn {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  justify-content: center;
   background: rgba(107, 140, 255, 0.18);
   border: 1.5px solid rgba(107, 140, 255, 0.35);
   color: #a5b9ff;
   border-radius: 8px;
-  padding: 0.375rem 0.875rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
-  white-space: nowrap;
 }
 
 .quickAskBtn:hover {
@@ -238,7 +222,7 @@
   color: #fff;
 }
 
-/* ---- "Veriye Sor" quick-ask button (mobile drawer) ---- */
+/* ---- "Veriye Sor" quick-ask button (mobile drawer — keeps full text) ---- */
 
 .drawerQuickAskBtn {
   width: 100%;
@@ -287,6 +271,103 @@
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.45);
   color: #fff;
+}
+
+/* ---- Account menu ---- */
+
+.accountMenuWrapper {
+  position: relative;
+}
+
+/* 32×32 avatar circle */
+.avatarBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  background: rgba(107, 140, 255, 0.25);
+  border: 1.5px solid rgba(107, 140, 255, 0.4);
+  color: #a5b9ff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.avatarBtn:hover {
+  background: rgba(107, 140, 255, 0.38);
+  border-color: rgba(107, 140, 255, 0.65);
+  color: #fff;
+}
+
+.avatarBtnActive {
+  background: rgba(59, 91, 219, 0.35);
+  border-color: rgba(107, 140, 255, 0.6);
+  color: #fff;
+}
+
+.avatarBtnActive:hover {
+  background: rgba(59, 91, 219, 0.48);
+}
+
+.avatarInitials {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+/* Account dropdown panel — right-aligned so it doesn't overflow viewport */
+.accountDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 192px;
+  background: var(--color-nav-bg, #111827);
+  border: 1px solid var(--color-nav-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  padding: 0.375rem;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  animation: dropdownIn 0.14s ease;
+}
+
+.accountDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0.25rem 0.5rem;
+}
+
+/* Logout item inside account dropdown — styled as destructive */
+.accountLogoutItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.875rem;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(248, 113, 113, 0.85);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.13s, color 0.13s;
+}
+
+.accountLogoutItem:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
 }
 
 /* ---- Hamburger button (mobile only) ---- */
@@ -422,8 +503,8 @@
 /* Small section heading (not a link) */
 .drawerGroupLabel {
   padding: 0.5rem 1rem 0.25rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.35);

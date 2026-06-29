@@ -4,12 +4,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { logout as logoutApi } from '@/lib/api';
-import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { getMe } from '@/lib/settings-api';
 import NotificationBell from './NotificationBell';
 import { useTheme } from './ThemeProvider';
 import styles from './AppNav.module.css';
 import CommandPalette from './CommandPalette';
 import QuickAsk from './QuickAsk';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 // ---------------------------------------------------------------------------
 // Flat nav links — KEEP as-is; CommandPalette imports this.
@@ -55,7 +56,7 @@ export const NAV_LINKS = [
 // ---------------------------------------------------------------------------
 // Grouped nav — additional exported structure used by the desktop dropdown nav
 // and the mobile grouped drawer. Every href from NAV_LINKS appears in exactly
-// one group; no routes are dropped or duplicated.
+// one group OR in ACCOUNT_LINKS; no routes are dropped or duplicated.
 // ---------------------------------------------------------------------------
 
 export interface NavGroupLink {
@@ -68,6 +69,7 @@ export interface NavGroup {
   links: NavGroupLink[];
 }
 
+/** 5 visible nav groups shown in the desktop topbar. */
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Genel Bakış',
@@ -78,7 +80,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/executive', label: 'Yönetici' },
       { href: '/health-index', label: 'Sağlık Endeksi' },
       { href: '/briefing', label: 'Brifing' },
-      { href: '/assistant', label: 'Asistan' },
     ],
   },
   {
@@ -89,21 +90,16 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/benchmark', label: 'Kıyaslama' },
       { href: '/funnel', label: 'Huni' },
       { href: '/recommendations', label: 'Öneriler' },
+      { href: '/assistant', label: 'Asistan' },
     ],
   },
   {
-    label: 'Reklam & Kreatif',
+    label: 'Reklam & İçerik',
     links: [
       { href: '/ads', label: 'Reklam' },
-      { href: '/optimizer', label: 'Optimizasyon' },
       { href: '/creatives', label: 'Kreatifler' },
       { href: '/creative-lens', label: 'Kreatif Lensi' },
       { href: '/ad-studio', label: 'Reklam Stüdyosu' },
-    ],
-  },
-  {
-    label: 'İçerik & Sosyal',
-    links: [
       { href: '/content', label: 'İçerik' },
       { href: '/inbox', label: 'Gelen Kutusu' },
     ],
@@ -115,6 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/planning', label: 'Planlama' },
       { href: '/marketing-calendar', label: 'Fırsat Takvimi' },
       { href: '/budget-simulator', label: 'Bütçe Senaryosu' },
+      { href: '/optimizer', label: 'Optimizasyon' },
       { href: '/automation', label: 'Otomasyon' },
     ],
   },
@@ -129,15 +126,14 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/report-builder', label: 'Rapor Oluşturucu' },
     ],
   },
-  {
-    label: 'Ayarlar',
-    links: [
-      { href: '/billing', label: 'Faturalama' },
-      { href: '/workspaces', label: 'Çalışma Alanları' },
-      { href: '/onboarding', label: 'Kurulum' },
-      { href: '/settings', label: 'Ayarlar' },
-    ],
-  },
+];
+
+/** Account-menu links — these 4 routes are NOT in NAV_GROUPS but remain in NAV_LINKS. */
+export const ACCOUNT_LINKS: NavGroupLink[] = [
+  { href: '/settings', label: 'Ayarlar' },
+  { href: '/workspaces', label: 'Çalışma Alanları' },
+  { href: '/billing', label: 'Faturalama' },
+  { href: '/onboarding', label: 'Kurulum' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -295,6 +291,141 @@ function DropdownGroup({
 }
 
 // ---------------------------------------------------------------------------
+// AccountMenu — avatar button + Level-2 dropdown
+// ---------------------------------------------------------------------------
+
+interface AccountMenuProps {
+  pathname: string;
+  onLogout: () => void;
+}
+
+function AccountMenu({ pathname, onLogout }: AccountMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [initials, setInitials] = useState('');
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Derive initials from the logged-in user's full_name
+  useEffect(() => {
+    getMe()
+      .then((profile) => {
+        const name = profile.full_name?.trim();
+        if (!name) return;
+        const parts = name.split(/\s+/);
+        const derived =
+          parts.length >= 2
+            ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+            : parts[0].slice(0, 2).toUpperCase();
+        setInitials(derived);
+      })
+      .catch(() => {
+        // Not fatal — fallback to generic icon
+      });
+  }, []);
+
+  // Close on Escape — return focus to trigger
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        menuRef.current?.contains(e.target as Node) ||
+        triggerRef.current?.contains(e.target as Node)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isOpen]);
+
+  const isAccountActive = ACCOUNT_LINKS.some((l) => l.href === pathname);
+
+  return (
+    <div className={styles.accountMenuWrapper}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`${styles.avatarBtn} ${isAccountActive ? styles.avatarBtnActive : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-label="Hesap menüsü"
+        title="Hesap menüsü"
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        {initials ? (
+          <span className={styles.avatarInitials} aria-hidden="true">
+            {initials}
+          </span>
+        ) : (
+          /* Generic user icon fallback */
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+          </svg>
+        )}
+      </button>
+
+      {isOpen && (
+        <div
+          ref={menuRef}
+          className={styles.accountDropdown}
+          role="menu"
+          aria-label="Hesap menüsü"
+        >
+          {ACCOUNT_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              role="menuitem"
+              className={`${styles.dropdownLink} ${pathname === link.href ? styles.dropdownLinkActive : ''}`}
+              onClick={() => setIsOpen(false)}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <div className={styles.accountDivider} role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.accountLogoutItem}
+            onClick={() => {
+              setIsOpen(false);
+              onLogout();
+            }}
+          >
+            Oturumu Kapat
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // AppNav — main export
 // ---------------------------------------------------------------------------
 
@@ -372,12 +503,9 @@ export default function AppNav() {
             </nav>
           </div>
 
-          {/* Right: workspace switcher + veriye-sor + notification bell + theme toggle + logout (desktop) + hamburger (mobile) */}
+          {/* Right: veriye-sor (icon-only) + notification bell + theme toggle + account menu + hamburger (mobile) */}
           <div className={styles.right}>
-            <div className={styles.desktopOnly}>
-              <WorkspaceSwitcher />
-            </div>
-            {/* "Veriye Sor" — persistent quick-ask button */}
+            {/* "Veriye Sor" — icon-only on desktop */}
             <button
               className={`${styles.quickAskBtn} ${styles.desktopOnly}`}
               onClick={() => setQuickAskOpen(true)}
@@ -387,8 +515,8 @@ export default function AppNav() {
             >
               {/* Spark / bolt icon */}
               <svg
-                width="14"
-                height="14"
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -399,13 +527,14 @@ export default function AppNav() {
               >
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
               </svg>
-              Veriye Sor
             </button>
             <NotificationBell />
             <ThemeToggle />
-            <button className={`${styles.logoutBtn} ${styles.desktopOnly}`} onClick={handleLogout}>
-              Oturumu Kapat
-            </button>
+
+            {/* Account menu — desktop only */}
+            <div className={styles.desktopOnly}>
+              <AccountMenu pathname={pathname} onLogout={handleLogout} />
+            </div>
 
             {/* Hamburger — mobile only */}
             <button
@@ -466,6 +595,20 @@ export default function AppNav() {
               ))}
             </div>
           ))}
+
+          {/* Account section in the drawer */}
+          <div className={styles.drawerGroup}>
+            <div className={styles.drawerGroupLabel}>Hesap</div>
+            {ACCOUNT_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`${styles.drawerLink} ${pathname === link.href ? styles.drawerLinkActive : ''}`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
         <div className={styles.drawerFooter}>
@@ -473,7 +616,7 @@ export default function AppNav() {
             <NotificationBell />
             <ThemeToggle />
           </div>
-          {/* "Veriye Sor" — mobile drawer entry */}
+          {/* "Veriye Sor" — mobile drawer entry (keeps full text label) */}
           <button
             className={styles.drawerQuickAskBtn}
             onClick={() => {
