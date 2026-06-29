@@ -166,6 +166,27 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 79 — Postgres Deploy Düzeltmesi + Demo Seed (KRİTİK)
+- KRİTİK: `alembic upgrade head` **Postgres'te tamamen kırıktı** — gerçek bir Postgres örneğinde
+  uçtan uca doğrulandı ve iki ölümcül hata bulunup düzeltildi (demo/testler SQLite + create_all
+  kullandığı için fark edilmemişti):
+  1. **FK tip uyuşmazlığı**: 0014+ migration'ları GUID kolonlarında `sa.CHAR(32)` kullanıyordu ama
+     0001–0013 native `postgresql.UUID` kullanıyor → `notifications.tenant_id (char32)` →
+     `tenants.id (uuid)` FK'i Postgres'te kurulamıyordu. 0014/0021/0023/0024/0025/0026'da GUID
+     kolonları `postgresql.UUID(as_uuid=True)`'ya çevrildi.
+  2. **Bozuk JSON/String `server_default`**: `server_default="'[]'"` gibi iç-tırnaklı defaultlar
+     SQLAlchemy tarafından çift-tırnaklanıp `DEFAULT '''[]'''` üretiyordu → JSON kolonlarda
+     "invalid input syntax for type json" ile deploy patlıyordu. 6 migration'da 16 default iç-tırnağı
+     temizlendi (`"'[]'"`→`"[]"`, `"'draft'"`→`"draft"`, ...).
+- Doğrulama: yerel Postgres 16'da `alembic upgrade head` artık **0026 head'e temiz uyguluyor** +
+  `SEED_DEMO=true` ile demo seed Postgres'te sorunsuz çalışıyor (447 fact, 100 olay, 3 taslak, vb.).
+- Yeni: `scripts/seed_if_enabled.py` — `SEED_DEMO` truthy ise migration sonrası idempotent demo
+  seed'i çalıştırır (deploy'u asla bozmaz, default no-op). render.yaml preDeployCommand güncellendi
+  (`alembic upgrade head && python -m scripts.seed_if_enabled`) + `SEED_DEMO` env değişkeni eklendi —
+  böylece 10:00 review deploy'unda arayüz boş değil dolu görünür.
+- Kalite: backend test paketi yeşil (migration düzeltmeleri create_all tabanlı testleri etkilemez;
+  0026 migration smoke testleri yeşil).
+
 ## Dalga 78 — Gruplu Navigasyon (kritik UX düzeltmesi)
 - KRİTİK düzeltme: nav 32 bağlantıya ulaşınca `.nav { overflow:hidden }` masaüstünde çoğu öğeyi
   KIRPIYORDU — birçok sayfa üst menüden erişilemiyordu. Üst menü 7 mantıksal **kategori

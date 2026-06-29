@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "0014"
@@ -30,10 +31,10 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         "notifications",
-        sa.Column("id", sa.CHAR(32), primary_key=True, nullable=False),
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column(
             "tenant_id",
-            sa.CHAR(32),
+            postgresql.UUID(as_uuid=True),
             sa.ForeignKey("tenants.id", ondelete="CASCADE"),
             nullable=False,
             comment="RLS: filter by current_setting('app.tenant_id')",

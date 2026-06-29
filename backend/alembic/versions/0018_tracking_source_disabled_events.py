@@ -42,7 +42,7 @@ def upgrade() -> None:
             "disabled_events",
             sa.JSON(),
             nullable=False,
-            server_default="'[]'",
+            server_default="[]",
             comment=(
                 "JSON array of event_name strings whose forwarding is suppressed. "
                 "Events in this list are recorded (status='disabled') but not forwarded."

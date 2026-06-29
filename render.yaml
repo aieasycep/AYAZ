@@ -23,7 +23,10 @@ services:
 
     # Run Alembic migrations before the new version goes live.
     # On Render this is the "Pre-deploy Command" (release phase).
-    preDeployCommand: alembic upgrade head
+    # After migrations, optionally seed demo data when SEED_DEMO=true (see env
+    # var below) so a review/demo deploy isn't empty. seed_if_enabled is a safe
+    # no-op when SEED_DEMO is unset and never fails the deploy.
+    preDeployCommand: alembic upgrade head && python -m scripts.seed_if_enabled
 
     healthCheckPath: /health
 
@@ -55,6 +58,12 @@ services:
 
       - key: DEBUG
         value: "false"
+
+      # Set to "true" on a REVIEW/DEMO deploy to auto-seed the idempotent demo
+      # data (tenant demo@ayaz.app / demo12345) after migrations, so the UI
+      # shows rich data instead of empty screens. Leave unset for real prod.
+      - key: SEED_DEMO
+        sync: false
 
       # Redis — Render free plan does not include managed Redis.
       # Option A: add a Redis service here (paid) and use fromService.

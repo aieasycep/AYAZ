@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "0023"
@@ -27,10 +28,10 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         "budget_plans",
-        sa.Column("id", sa.CHAR(32), nullable=False),
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "tenant_id",
-            sa.CHAR(32),
+            postgresql.UUID(as_uuid=True),
             nullable=False,
             comment="RLS: filter by current_setting('app.tenant_id')",
         ),
@@ -57,14 +58,14 @@ def upgrade() -> None:
             "currency",
             sa.String(3),
             nullable=False,
-            server_default="'TRY'",
+            server_default="TRY",
             comment="ISO 4217 currency code",
         ),
         sa.Column(
             "objective",
             sa.String(30),
             nullable=False,
-            server_default="'balanced'",
+            server_default="balanced",
             comment="balanced | maximize_roas | maximize_conversions",
         ),
         sa.Column(
@@ -84,7 +85,7 @@ def upgrade() -> None:
             "status",
             sa.String(20),
             nullable=False,
-            server_default="'draft'",
+            server_default="draft",
             comment="draft | active | archived",
         ),
         sa.Column(

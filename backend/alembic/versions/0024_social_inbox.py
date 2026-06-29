@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "0024"
@@ -33,10 +34,10 @@ def upgrade() -> None:
     # ── social_messages ───────────────────────────────────────────────────────
     op.create_table(
         "social_messages",
-        sa.Column("id", sa.CHAR(32), nullable=False),
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "tenant_id",
-            sa.CHAR(32),
+            postgresql.UUID(as_uuid=True),
             nullable=False,
             comment="RLS: filter by current_setting('app.tenant_id')",
         ),
@@ -86,14 +87,14 @@ def upgrade() -> None:
             "sentiment",
             sa.String(20),
             nullable=False,
-            server_default="'neutral'",
+            server_default="neutral",
             comment="positive | neutral | negative",
         ),
         sa.Column(
             "status",
             sa.String(20),
             nullable=False,
-            server_default="'open'",
+            server_default="open",
             comment="open | pending | resolved | snoozed",
         ),
         sa.Column(
@@ -106,7 +107,7 @@ def upgrade() -> None:
             "tags",
             sa.Text(),
             nullable=False,
-            server_default="'[]'",
+            server_default="[]",
             comment="Agent-applied label list (JSON string array)",
         ),
         sa.Column(
@@ -139,16 +140,16 @@ def upgrade() -> None:
     # ── social_replies ────────────────────────────────────────────────────────
     op.create_table(
         "social_replies",
-        sa.Column("id", sa.CHAR(32), nullable=False),
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "tenant_id",
-            sa.CHAR(32),
+            postgresql.UUID(as_uuid=True),
             nullable=False,
             comment="RLS: filter by current_setting('app.tenant_id')",
         ),
         sa.Column(
             "message_id",
-            sa.CHAR(32),
+            postgresql.UUID(as_uuid=True),
             sa.ForeignKey("social_messages.id", ondelete="CASCADE"),
             nullable=False,
             comment="Parent SocialMessage that this reply addresses",
@@ -169,7 +170,7 @@ def upgrade() -> None:
             "delivered",
             sa.Boolean(),
             nullable=False,
-            server_default="'0'",
+            server_default="0",
             comment=(
                 "False until live delivery via the connector layer. "
                 "Live delivery requires per-channel OAuth tokens."
@@ -179,7 +180,7 @@ def upgrade() -> None:
             "ai_assisted",
             sa.Boolean(),
             nullable=False,
-            server_default="'0'",
+            server_default="0",
             comment="True when the reply body came from the AI suggest-reply path",
         ),
         sa.Column(

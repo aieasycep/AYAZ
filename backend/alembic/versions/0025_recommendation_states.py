@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "0025"
@@ -32,10 +33,10 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         "recommendation_states",
-        sa.Column("id", sa.CHAR(32), nullable=False),
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "tenant_id",
-            sa.CHAR(32),
+            postgresql.UUID(as_uuid=True),
             nullable=False,
             comment="RLS: filter by current_setting('app.tenant_id')",
         ),
@@ -49,7 +50,7 @@ def upgrade() -> None:
             "status",
             sa.String(20),
             nullable=False,
-            server_default="'open'",
+            server_default="open",
             comment="open | accepted | snoozed | dismissed",
         ),
         sa.Column(

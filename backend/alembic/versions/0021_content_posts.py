@@ -31,6 +31,7 @@ from __future__ import annotations
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "0021"
@@ -44,14 +45,14 @@ def upgrade() -> None:
         "content_posts",
         sa.Column(
             "id",
-            sa.CHAR(32),
+            postgresql.UUID(as_uuid=True),
             primary_key=True,
             nullable=False,
             comment="UUID primary key (stored as 32-char hex on non-Postgres backends)",
         ),
         sa.Column(
             "tenant_id",
-            sa.CHAR(32),
+            postgresql.UUID(as_uuid=True),
             nullable=False,
             comment="RLS: filter by current_setting('app.tenant_id')",
         ),
@@ -65,14 +66,14 @@ def upgrade() -> None:
             "body",
             sa.Text,
             nullable=False,
-            server_default="''",
+            server_default="",
             comment="Caption / post body text",
         ),
         sa.Column(
             "channels",
             sa.JSON,
             nullable=False,
-            server_default="'[]'",
+            server_default="[]",
             comment="JSON array of target channel keys",
         ),
         sa.Column(
@@ -85,7 +86,7 @@ def upgrade() -> None:
             "status",
             sa.String(30),
             nullable=False,
-            server_default="'draft'",
+            server_default="draft",
             comment=(
                 "draft | pending_approval | approved | scheduled | published | archived"
             ),
@@ -106,7 +107,7 @@ def upgrade() -> None:
             "ai_assisted",
             sa.Boolean,
             nullable=False,
-            server_default="'0'",
+            server_default="0",
             comment="True when the caption was generated via the Claude AI path",
         ),
         sa.Column(
