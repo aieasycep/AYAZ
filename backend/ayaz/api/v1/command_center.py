@@ -83,12 +83,32 @@ class InsightsModule(BaseModel):
     warning: int
 
 
+class RecommendationsModule(BaseModel):
+    open: int
+    high_impact_open: int
+    total: int
+
+
+class ConsentModule(BaseModel):
+    score: int | None = None
+    grade: str | None = None
+    consent_rate_pct: float | None = None
+
+
+class FunnelModule(BaseModel):
+    overall_conversion_pct: float | None = None
+    biggest_dropoff_label: str | None = None
+
+
 class ModulesBlock(BaseModel):
     budget: BudgetModule
     inbox: InboxModule
     content: ContentModule
     goals: GoalsModule
     insights: InsightsModule
+    recommendations: RecommendationsModule
+    consent: ConsentModule
+    funnel: FunnelModule
 
 
 class CommandCenterOverviewResponse(BaseModel):
@@ -146,5 +166,10 @@ def get_command_center_overview(
             content=ContentModule(**data["modules"]["content"]),
             goals=GoalsModule(**data["modules"]["goals"]),
             insights=InsightsModule(**data["modules"]["insights"]),
+            recommendations=RecommendationsModule(
+                **data["modules"]["recommendations"]
+            ),
+            consent=ConsentModule(**data["modules"]["consent"]),
+            funnel=FunnelModule(**data["modules"]["funnel"]),
         ),
     )

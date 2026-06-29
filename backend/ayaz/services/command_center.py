@@ -27,7 +27,12 @@ Return shape
     "inbox":    {"total": int, "open": int, "pending": int, "negative": int},
     "content":  {"draft": int, "pending_approval": int, "scheduled": int},
     "goals":    {"total": int, "at_risk": int},
-    "insights": {"critical": int, "warning": int}
+    "insights": {"critical": int, "warning": int},
+    "recommendations": {"open": int, "high_impact_open": int, "total": int},
+    "consent":  {"score": int|None, "grade": str|None,
+                 "consent_rate_pct": float|None},
+    "funnel":   {"overall_conversion_pct": float|None,
+                 "biggest_dropoff_label": str|None}
   }
 }
 """
@@ -459,6 +464,71 @@ def build_command_center(db: Session, tenant_id: uuid.UUID) -> dict:
         goals_data=goals_data,
         insights_data=insights_data,
     )
+
+    # ── 5b. Öneriler (Recommendations) module block ───────────────────────────
+    try:
+        from ayaz.services.recommendations import build_recommendation_feed
+        rec_feed = build_recommendation_feed(db, tenant_id)
+        rec_summary = rec_feed.get("summary") or {}
+        modules["recommendations"] = {
+            "open": int(rec_summary.get("open") or 0),
+            "high_impact_open": int(rec_summary.get("high_impact_open") or 0),
+            "total": int(rec_summary.get("total") or 0),
+        }
+    except Exception:
+        logger.warning(
+            "build_command_center: build_recommendation_feed failed", exc_info=True
+        )
+        modules["recommendations"] = {
+            "open": 0,
+            "high_impact_open": 0,
+            "total": 0,
+        }
+
+    # ── 5c. KVKK Uyum (Consent) module block ─────────────────────────────────
+    try:
+        from ayaz.services.consent_center import build_consent_center
+        consent_data = build_consent_center(db, tenant_id)
+        consent_summary = consent_data.get("summary") or {}
+        consent_compliance = consent_data.get("compliance") or {}
+        modules["consent"] = {
+            "score": consent_compliance.get("score"),
+            "grade": consent_compliance.get("grade"),
+            "consent_rate_pct": consent_summary.get("consent_rate_pct"),
+        }
+    except Exception:
+        logger.warning(
+            "build_command_center: build_consent_center failed", exc_info=True
+        )
+        modules["consent"] = {
+            "score": None,
+            "grade": None,
+            "consent_rate_pct": None,
+        }
+
+    # ── 5d. Dönüşüm Hunisi (Funnel) module block ──────────────────────────────
+    try:
+        from ayaz.services.funnel import build_funnel
+        funnel_data = build_funnel(db, tenant_id)
+        biggest_dropoff = funnel_data.get("biggest_dropoff")
+        if biggest_dropoff is not None:
+            from_label = biggest_dropoff.get("from_label") or ""
+            to_label = biggest_dropoff.get("to_label") or ""
+            biggest_dropoff_label: str | None = f"{from_label} → {to_label}"
+        else:
+            biggest_dropoff_label = None
+        modules["funnel"] = {
+            "overall_conversion_pct": funnel_data.get("overall_conversion_pct"),
+            "biggest_dropoff_label": biggest_dropoff_label,
+        }
+    except Exception:
+        logger.warning(
+            "build_command_center: build_funnel failed", exc_info=True
+        )
+        modules["funnel"] = {
+            "overall_conversion_pct": None,
+            "biggest_dropoff_label": None,
+        }
 
     # ── 6. Headline (fall back to Turkish if executive summary is empty) ──────
     headline: str = exec_summary.get("headline") or ""

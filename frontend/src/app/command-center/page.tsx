@@ -372,6 +372,119 @@ function ModuleCards({ modules }: { modules: CcModules }) {
           </div>
         </div>
       </Link>
+
+      {/* Öneriler */}
+      <Link href="/recommendations" className={styles.moduleCard}>
+        <div className={styles.moduleCardHeader}>
+          <span className={styles.moduleCardTitle}>Öneriler</span>
+          <span className={styles.moduleCardArrow} aria-hidden="true">
+            →
+          </span>
+        </div>
+        <div className={styles.moduleCardBody}>
+          {modules.recommendations ? (
+            <>
+              <div className={styles.moduleStat}>
+                <span className={styles.moduleStatLabel}>Açık öneri</span>
+                <span className={styles.moduleStatValue}>
+                  {fmtNumber(modules.recommendations.open)}
+                </span>
+              </div>
+              <div className={styles.moduleStat}>
+                <span className={styles.moduleStatLabel}>Yüksek etkili</span>
+                <span
+                  className={
+                    modules.recommendations.high_impact_open > 0
+                      ? styles.moduleStatValueWarning
+                      : styles.moduleStatValue
+                  }
+                >
+                  {fmtNumber(modules.recommendations.high_impact_open)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <span className={styles.noPlan}>—</span>
+          )}
+        </div>
+      </Link>
+
+      {/* KVKK Uyum */}
+      <Link href="/consent" className={styles.moduleCard}>
+        <div className={styles.moduleCardHeader}>
+          <span className={styles.moduleCardTitle}>KVKK Uyum</span>
+          <span className={styles.moduleCardArrow} aria-hidden="true">
+            →
+          </span>
+        </div>
+        <div className={styles.moduleCardBody}>
+          {modules.consent ? (
+            <>
+              <div className={styles.moduleStat}>
+                <span className={styles.moduleStatLabel}>Uyum skoru</span>
+                <span className={styles.moduleStatValue}>
+                  {modules.consent.score !== null
+                    ? `${fmtNumber(modules.consent.score)}/100`
+                    : '—'}
+                </span>
+              </div>
+              <div className={styles.moduleStat}>
+                <span className={styles.moduleStatLabel}>Durum</span>
+                <span className={styles.moduleStatValue}>
+                  {modules.consent.grade ?? '—'}
+                </span>
+              </div>
+              <div className={styles.moduleStat}>
+                <span className={styles.moduleStatLabel}>Rıza oranı</span>
+                <span className={styles.moduleStatValue}>
+                  {modules.consent.consent_rate_pct !== null
+                    ? `%${modules.consent.consent_rate_pct.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}`
+                    : '—'}
+                </span>
+              </div>
+            </>
+          ) : (
+            <span className={styles.noPlan}>—</span>
+          )}
+        </div>
+      </Link>
+
+      {/* Dönüşüm Hunisi */}
+      <Link href="/funnel" className={styles.moduleCard}>
+        <div className={styles.moduleCardHeader}>
+          <span className={styles.moduleCardTitle}>Dönüşüm Hunisi</span>
+          <span className={styles.moduleCardArrow} aria-hidden="true">
+            →
+          </span>
+        </div>
+        <div className={styles.moduleCardBody}>
+          {modules.funnel ? (
+            <>
+              <div className={styles.moduleStat}>
+                <span className={styles.moduleStatLabel}>Genel dönüşüm</span>
+                <span className={styles.moduleStatValue}>
+                  {modules.funnel.overall_conversion_pct !== null
+                    ? `%${modules.funnel.overall_conversion_pct.toLocaleString('tr-TR', { maximumFractionDigits: 1 })}`
+                    : '—'}
+                </span>
+              </div>
+              {modules.funnel.biggest_dropoff_label && (
+                <div className={styles.moduleStat}>
+                  <span className={styles.moduleStatLabel}>En büyük düşüş</span>
+                  <span
+                    className={styles.moduleStatValueWarning}
+                    style={{ fontSize: '0.775rem', fontWeight: 600 }}
+                  >
+                    {modules.funnel.biggest_dropoff_label}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <span className={styles.noPlan}>—</span>
+          )}
+        </div>
+      </Link>
     </div>
   );
 }

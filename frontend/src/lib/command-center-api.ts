@@ -92,6 +92,20 @@ export interface CcModules {
     critical: number;
     warning: number;
   };
+  recommendations?: {
+    open: number;
+    high_impact_open: number;
+    total: number;
+  };
+  consent?: {
+    score: number | null;
+    grade: string | null;
+    consent_rate_pct: number | null;
+  };
+  funnel?: {
+    overall_conversion_pct: number | null;
+    biggest_dropoff_label: string | null;
+  };
 }
 
 export interface CommandCenter {

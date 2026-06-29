@@ -47,6 +47,12 @@ function makeFullPayload(): CommandCenter {
       content: { draft: 7, pending_approval: 3, scheduled: 14 },
       goals: { total: 8, at_risk: 2 },
       insights: { critical: 1, warning: 4 },
+      recommendations: { open: 5, high_impact_open: 2, total: 7 },
+      consent: { score: 100, grade: 'uyumlu', consent_rate_pct: 83.0 },
+      funnel: {
+        overall_conversion_pct: 15.0,
+        biggest_dropoff_label: 'Sepete Ekleme → Ödeme Başlatma',
+      },
     },
   };
 }
@@ -117,6 +123,72 @@ describe('CcModules type', () => {
     };
     expect(mods.budget.has_plan).toBe(false);
     expect(mods.budget.period_month).toBeNull();
+  });
+
+  it('accepts optional recommendations block', () => {
+    const mods: CcModules = {
+      budget: { has_plan: false, period_month: null, pace_pct: null, pace_status: null },
+      inbox: { total: 0, open: 0, pending: 0, negative: 0 },
+      content: { draft: 0, pending_approval: 0, scheduled: 0 },
+      goals: { total: 0, at_risk: 0 },
+      insights: { critical: 0, warning: 0 },
+      recommendations: { open: 5, high_impact_open: 2, total: 7 },
+    };
+    expect(mods.recommendations?.open).toBe(5);
+    expect(mods.recommendations?.high_impact_open).toBe(2);
+  });
+
+  it('accepts optional consent block with nullable fields', () => {
+    const mods: CcModules = {
+      budget: { has_plan: false, period_month: null, pace_pct: null, pace_status: null },
+      inbox: { total: 0, open: 0, pending: 0, negative: 0 },
+      content: { draft: 0, pending_approval: 0, scheduled: 0 },
+      goals: { total: 0, at_risk: 0 },
+      insights: { critical: 0, warning: 0 },
+      consent: { score: null, grade: null, consent_rate_pct: null },
+    };
+    expect(mods.consent?.score).toBeNull();
+    expect(mods.consent?.grade).toBeNull();
+    expect(mods.consent?.consent_rate_pct).toBeNull();
+  });
+
+  it('accepts optional funnel block with nullable fields', () => {
+    const mods: CcModules = {
+      budget: { has_plan: false, period_month: null, pace_pct: null, pace_status: null },
+      inbox: { total: 0, open: 0, pending: 0, negative: 0 },
+      content: { draft: 0, pending_approval: 0, scheduled: 0 },
+      goals: { total: 0, at_risk: 0 },
+      insights: { critical: 0, warning: 0 },
+      funnel: { overall_conversion_pct: null, biggest_dropoff_label: null },
+    };
+    expect(mods.funnel?.overall_conversion_pct).toBeNull();
+    expect(mods.funnel?.biggest_dropoff_label).toBeNull();
+  });
+
+  it('parses all three new blocks from full payload', () => {
+    const cc: CommandCenter = makeFullPayload();
+    expect(cc.modules.recommendations?.open).toBe(5);
+    expect(cc.modules.recommendations?.high_impact_open).toBe(2);
+    expect(cc.modules.consent?.score).toBe(100);
+    expect(cc.modules.consent?.grade).toBe('uyumlu');
+    expect(cc.modules.consent?.consent_rate_pct).toBe(83.0);
+    expect(cc.modules.funnel?.overall_conversion_pct).toBe(15.0);
+    expect(cc.modules.funnel?.biggest_dropoff_label).toBe(
+      'Sepete Ekleme → Ödeme Başlatma',
+    );
+  });
+
+  it('omitting the three new blocks (older API) is valid', () => {
+    const mods: CcModules = {
+      budget: { has_plan: true, period_month: '2026-06', pace_pct: 72.5, pace_status: 'on_track' },
+      inbox: { total: 88, open: 42, pending: 12, negative: 5 },
+      content: { draft: 7, pending_approval: 3, scheduled: 14 },
+      goals: { total: 8, at_risk: 2 },
+      insights: { critical: 1, warning: 4 },
+    };
+    expect(mods.recommendations).toBeUndefined();
+    expect(mods.consent).toBeUndefined();
+    expect(mods.funnel).toBeUndefined();
   });
 });
 

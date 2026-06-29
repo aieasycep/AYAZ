@@ -54,6 +54,7 @@ import ayaz.models.budget  # noqa: F401
 import ayaz.models.content  # noqa: F401
 import ayaz.models.notifications  # noqa: F401
 import ayaz.models.social_inbox  # noqa: F401
+import ayaz.models.recommendations  # noqa: F401
 
 from ayaz.api.deps import get_current_membership, get_db
 from ayaz.api.v1 import command_center as command_center_module
@@ -607,3 +608,204 @@ class TestCommandCenterEndpoint:
         resp = client.get("/api/v1/command-center/overview")
         assert resp.status_code == 200
         assert isinstance(resp.json()["headline"], str)
+
+    def test_modules_contains_new_keys(self, client: TestClient) -> None:
+        """modules must expose recommendations, consent, funnel blocks."""
+        resp = client.get("/api/v1/command-center/overview")
+        assert resp.status_code == 200
+        modules = resp.json()["modules"]
+        assert "recommendations" in modules
+        assert "consent" in modules
+        assert "funnel" in modules
+
+    def test_recommendations_block_shape(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/command-center/overview")
+        rec = resp.json()["modules"]["recommendations"]
+        assert set(rec.keys()) >= {"open", "high_impact_open", "total"}
+        assert isinstance(rec["open"], int)
+        assert isinstance(rec["high_impact_open"], int)
+        assert isinstance(rec["total"], int)
+
+    def test_consent_block_shape(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/command-center/overview")
+        consent = resp.json()["modules"]["consent"]
+        assert set(consent.keys()) >= {"score", "grade", "consent_rate_pct"}
+
+    def test_funnel_block_shape(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/command-center/overview")
+        funnel = resp.json()["modules"]["funnel"]
+        assert set(funnel.keys()) >= {"overall_conversion_pct", "biggest_dropoff_label"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. Yeni modül blokları: Öneriler / KVKK Uyum / Dönüşüm Hunisi
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestNewModuleBlocks:
+    """Verify recommendations, consent, funnel blocks populate and degrade safely."""
+
+    def test_recommendations_empty_tenant_defaults(
+        self, db_session: Session
+    ) -> None:
+        """Empty tenant → recommendations block has correct types and
+        open <= total, high_impact_open <= open.
+        The recommendations service generates items from absence of data
+        (e.g. no budget plan, no tracking sources) so non-zero counts are
+        expected even for an empty tenant; we verify shape only here."""
+        tenant = _make_tenant(db_session, "Rec Empty Tenant")
+        result = build_command_center(db_session, tenant.id)
+        rec = result["modules"]["recommendations"]
+        assert isinstance(rec["open"], int) and rec["open"] >= 0
+        assert isinstance(rec["high_impact_open"], int) and rec["high_impact_open"] >= 0
+        assert isinstance(rec["total"], int) and rec["total"] >= 0
+        assert rec["high_impact_open"] <= rec["open"]
+        assert rec["open"] <= rec["total"]
+
+    def test_consent_empty_tenant_defaults(self, db_session: Session) -> None:
+        """Empty tenant → consent block has numeric score/grade and 0.0 rate.
+        Score and grade are computed from compliance checks even with no events."""
+        tenant = _make_tenant(db_session, "Consent Empty Tenant")
+        result = build_command_center(db_session, tenant.id)
+        consent = result["modules"]["consent"]
+        assert "score" in consent
+        assert "grade" in consent
+        assert "consent_rate_pct" in consent
+        # consent_rate_pct is 0.0 when there are no events
+        assert consent["consent_rate_pct"] == 0.0
+        # score is an integer 0–100 derived from compliance checks
+        assert isinstance(consent["score"], int)
+        assert 0 <= consent["score"] <= 100
+        # grade is one of the three Turkish grade labels
+        assert consent["grade"] in ("uyumlu", "kismi", "eksik")
+
+    def test_funnel_empty_tenant_defaults(self, db_session: Session) -> None:
+        """Empty tenant → funnel block has 0.0 conversion, no dropoff label."""
+        tenant = _make_tenant(db_session, "Funnel Empty Tenant")
+        result = build_command_center(db_session, tenant.id)
+        funnel = result["modules"]["funnel"]
+        assert funnel["overall_conversion_pct"] == 0.0
+        assert funnel["biggest_dropoff_label"] is None
+
+    def test_existing_module_keys_unchanged(self, db_session: Session) -> None:
+        """Adding new blocks must not alter budget/inbox/content/goals/insights."""
+        tenant = _make_tenant(db_session, "Compat Tenant")
+        result = build_command_center(db_session, tenant.id)
+        modules = result["modules"]
+        # All original keys still present
+        assert set(modules.keys()) >= {
+            "budget", "inbox", "content", "goals", "insights",
+            "recommendations", "consent", "funnel",
+        }
+        # Existing sub-key shapes intact
+        assert set(modules["budget"].keys()) == {
+            "has_plan", "period_month", "pace_pct", "pace_status"
+        }
+        assert set(modules["inbox"].keys()) == {"total", "open", "pending", "negative"}
+        assert set(modules["content"].keys()) == {
+            "draft", "pending_approval", "scheduled"
+        }
+        assert set(modules["goals"].keys()) == {"total", "at_risk"}
+        assert set(modules["insights"].keys()) == {"critical", "warning"}
+
+    def test_recommendations_service_failure_degrades_gracefully(
+        self, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """If build_recommendation_feed raises, modules[recommendations] is safe
+        defaults and the rest of build_command_center still succeeds."""
+        import ayaz.services.recommendations as rec_mod
+
+        def _boom(*a, **kw):
+            raise RuntimeError("simüle hata")
+
+        monkeypatch.setattr(rec_mod, "build_recommendation_feed", _boom)
+
+        tenant = _make_tenant(db_session, "Rec Fail Tenant")
+        result = build_command_center(db_session, tenant.id)
+
+        # Top-level keys still intact
+        assert set(result.keys()) == {"headline", "kpis", "attention", "modules"}
+
+        # Degraded recommendations block
+        rec = result["modules"]["recommendations"]
+        assert rec == {"open": 0, "high_impact_open": 0, "total": 0}
+
+        # Other blocks still healthy
+        assert "inbox" in result["modules"]
+        assert "consent" in result["modules"]
+        assert "funnel" in result["modules"]
+
+    def test_consent_service_failure_degrades_gracefully(
+        self, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """If build_consent_center raises, modules[consent] is safe defaults."""
+        import ayaz.services.consent_center as cc_mod
+
+        def _boom(*a, **kw):
+            raise RuntimeError("simüle hata")
+
+        monkeypatch.setattr(cc_mod, "build_consent_center", _boom)
+
+        tenant = _make_tenant(db_session, "Consent Fail Tenant")
+        result = build_command_center(db_session, tenant.id)
+
+        assert set(result.keys()) == {"headline", "kpis", "attention", "modules"}
+        consent = result["modules"]["consent"]
+        assert consent == {"score": None, "grade": None, "consent_rate_pct": None}
+        assert "recommendations" in result["modules"]
+        assert "funnel" in result["modules"]
+
+    def test_funnel_service_failure_degrades_gracefully(
+        self, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """If build_funnel raises, modules[funnel] is safe defaults."""
+        import ayaz.services.funnel as funnel_mod
+
+        def _boom(*a, **kw):
+            raise RuntimeError("simüle hata")
+
+        monkeypatch.setattr(funnel_mod, "build_funnel", _boom)
+
+        tenant = _make_tenant(db_session, "Funnel Fail Tenant")
+        result = build_command_center(db_session, tenant.id)
+
+        assert set(result.keys()) == {"headline", "kpis", "attention", "modules"}
+        funnel = result["modules"]["funnel"]
+        assert funnel == {
+            "overall_conversion_pct": None,
+            "biggest_dropoff_label": None,
+        }
+        assert "recommendations" in result["modules"]
+        assert "consent" in result["modules"]
+
+    def test_funnel_biggest_dropoff_label_formatted(
+        self, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When build_funnel returns a biggest_dropoff, label is 'X → Y'."""
+        import ayaz.services.funnel as funnel_mod
+
+        fake_funnel = {
+            "period": {"date_from": None, "date_to": None},
+            "total_events": 200,
+            "stages": [],
+            "entry_count": 100,
+            "final_count": 5,
+            "overall_conversion_pct": 5.0,
+            "biggest_dropoff": {
+                "from_label": "Sepete Ekleme",
+                "to_label": "Ödeme Başlatma",
+                "dropoff_pct": 60.0,
+            },
+        }
+        monkeypatch.setattr(
+            funnel_mod,
+            "build_funnel",
+            lambda *a, **kw: fake_funnel,
+        )
+
+        tenant = _make_tenant(db_session, "Funnel Dropoff Tenant")
+        result = build_command_center(db_session, tenant.id)
+
+        funnel = result["modules"]["funnel"]
+        assert funnel["overall_conversion_pct"] == 5.0
+        assert funnel["biggest_dropoff_label"] == "Sepete Ekleme → Ödeme Başlatma"

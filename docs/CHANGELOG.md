@@ -166,6 +166,17 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 81 — Komuta Merkezi Zenginleştirme (yeni modüller)
+- Vitrin güçlendirme: **Komuta Merkezi** modül durumu bloğuna 3 yeni kart eklendi — **Öneriler**
+  (açık + yüksek etkili), **KVKK Uyum** (skor/not/rıza oranı), **Dönüşüm Hunisi** (genel dönüşüm +
+  en büyük düşüş). "Tek panel" vitrini artık ürünün tamamını yansıtıyor.
+- Backend: `build_command_center` modules bloğuna 3 yeni anahtar (her biri ayrı try/except ile
+  dayanıklı — biri patlarsa vitrin bozulmaz); mevcut 5 blok byte-aynı. 10 yeni test (degradasyon
+  testleri dahil).
+- Frontend: command-center grid'ine 3 derin-bağlantılı kart (eski 5 kart değişmedi). Tipler genişledi
+  (geriye dönük uyumlu, opsiyonel bloklar). 6 yeni api testi.
+- Kalite: backend **2607 yeşil**, frontend **435 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 80 — Pazarlama Fırsat Takvimi (TR ticari günler)
 - TR-first farklılaştırıcı: **Pazarlama Fırsat Takvimi** — Türkiye'nin önemli ticari/sezonsal/resmi
   günlerini (Sevgililer, 11.11, Efsane Cuma, Okula Dönüş, bayramlar, Yılbaşı, vb.) **planlama
