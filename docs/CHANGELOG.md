@@ -166,6 +166,20 @@
 - Dashboard'a "En Çok Değişenler" widget'ı (kanal/kampanya + metrik seçici,
   ▲/▼ renk-kodlu delta rozeti); ErrorBoundary ile sarıldı.
 
+## Dalga 80 — Pazarlama Fırsat Takvimi (TR ticari günler)
+- TR-first farklılaştırıcı: **Pazarlama Fırsat Takvimi** — Türkiye'nin önemli ticari/sezonsal/resmi
+  günlerini (Sevgililer, 11.11, Efsane Cuma, Okula Dönüş, bayramlar, Yılbaşı, vb.) **planlama
+  lead-time'ı** ve **hazırlık durumuyla** (o güne yakın içerik planlandı mı? o ayın bütçesi var mı?)
+  zaman çizelgesi olarak gösterir + her fırsat için aksiyon CTA'ları. Rakiplerde olmayan, TR'ye özel
+  proaktif planlama aracı.
+- Backend: `GET /marketing-calendar/opportunities` (yeni tablo yok) — küratörlü `TR_KEY_DATES`
+  (sabit + değişken/dini yaklaşık tarihler) + ufuk içinde sonraki tarihlere çözümleme + days_until/
+  urgent + içerik/bütçe hazırlık sentezi. 55 yeni test.
+- Frontend: `/marketing-calendar` — özet kahramanı, ufuk seçici (3/6/12 ay), ay-bazlı zaman çizelgesi,
+  kategori/hacim rozetleri, hazırlık göstergeleri, derin-bağlantı CTA'ları; açık/koyu tema. 6 yeni
+  test (+ nav 33 link). Navigasyona **Fırsat Takvimi** eklendi (Planlama & Bütçe grubu).
+- Kalite: backend **2595 yeşil**, frontend **430 yeşil**, tsc temiz, build yeşil.
+
 ## Dalga 79 — Postgres Deploy Düzeltmesi + Demo Seed (KRİTİK)
 - KRİTİK: `alembic upgrade head` **Postgres'te tamamen kırıktı** — gerçek bir Postgres örneğinde
   uçtan uca doğrulandı ve iki ölümcül hata bulunup düzeltildi (demo/testler SQLite + create_all

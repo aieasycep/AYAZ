@@ -5,7 +5,7 @@
  *  (a) every NAV_LINKS href appears in exactly one group
  *  (b) every grouped href exists in NAV_LINKS
  *  (c) no duplicate hrefs across groups
- *  (d) group count === 7 and total grouped links === NAV_LINKS.length (32)
+ *  (d) group count === 7 and total grouped links === NAV_LINKS.length (33)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -20,9 +20,9 @@ describe('NAV_GROUPS integrity', () => {
     expect(NAV_GROUPS).toHaveLength(7);
   });
 
-  it('(d) total grouped links equals NAV_LINKS.length (32)', () => {
+  it('(d) total grouped links equals NAV_LINKS.length (33)', () => {
     expect(groupedLinks).toHaveLength(NAV_LINKS.length);
-    expect(NAV_LINKS).toHaveLength(32);
+    expect(NAV_LINKS).toHaveLength(33);
   });
 
   it('(c) no duplicate hrefs across groups', () => {

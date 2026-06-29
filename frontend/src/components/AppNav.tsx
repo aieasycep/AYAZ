@@ -39,6 +39,7 @@ export const NAV_LINKS = [
   { href: '/optimizer', label: 'Optimizasyon' },
   { href: '/goals', label: 'Hedefler' },
   { href: '/planning', label: 'Planlama' },
+  { href: '/marketing-calendar', label: 'Fırsat Takvimi' },
   { href: '/budget-simulator', label: 'Bütçe Senaryosu' },
   { href: '/automation', label: 'Otomasyon' },
   { href: '/tracking', label: 'Ölçümleme' },
@@ -110,6 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { href: '/goals', label: 'Hedefler' },
       { href: '/planning', label: 'Planlama' },
+      { href: '/marketing-calendar', label: 'Fırsat Takvimi' },
       { href: '/budget-simulator', label: 'Bütçe Senaryosu' },
       { href: '/automation', label: 'Otomasyon' },
     ],
