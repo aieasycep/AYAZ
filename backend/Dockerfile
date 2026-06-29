@@ -30,6 +30,10 @@ COPY alembic.ini ./
 # Operational scripts (demo seed + conditional seeder) — needed so the deploy
 # start command can run `python -m scripts.seed_if_enabled` after migrations.
 COPY scripts/ ./scripts/
+# Demo-seed fixtures (tiny JSON/XML). The demo seed reads these at runtime from
+# tests/fixtures/; without them SEED_DEMO crashes with FileNotFoundError and the
+# demo tenant comes up empty. .dockerignore re-includes only this subdirectory.
+COPY tests/fixtures/ ./tests/fixtures/
 # Container start script: migrate → (optional) seed → serve.
 COPY start.sh ./start.sh
 

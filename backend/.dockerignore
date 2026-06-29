@@ -13,8 +13,13 @@ build/
 venv/
 env/
 
-# Test suite
-tests/
+# Test suite — exclude test code, but KEEP the fixtures the demo seed reads at
+# runtime. scripts/seed_demo.py loads tests/fixtures/{sample_metrics.json,
+# google_ads_search_stream.json,sample_feed.xml}; without them in the image the
+# seed crashes with FileNotFoundError and SEED_DEMO yields an empty demo tenant.
+# Single source of truth: the same fixtures the test-suite uses.
+tests/*
+!tests/fixtures
 
 # Local databases (SQLite scratch)
 *.db
