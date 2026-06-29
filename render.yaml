@@ -48,7 +48,13 @@ services:
       - key: JWT_SECRET
         generateValue: true
 
-      # Set manually in the Render dashboard after first deploy.
+      # vault_token kullanılmıyor (Fernet için VAULT_KEY yeterli) ama production
+      # güvenlik kontrolü varsayılan "root" olmasını reddediyor → Render otomatik
+      # rastgele üretsin (kullanıcının elle girmesine gerek kalmasın).
+      - key: VAULT_TOKEN
+        generateValue: true
+
+      # Set manually in the Render dashboard.
       - key: VAULT_KEY
         sync: false
 
