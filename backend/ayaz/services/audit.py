@@ -474,6 +474,73 @@ def _check_goals(db: Session, tenant_id: uuid.UUID) -> dict:
     return {"key": "goals", "label": "Hedefler", "checks": checks}
 
 
+def _check_data_quality(db: Session, tenant_id: uuid.UUID) -> dict:
+    """Veri Kalitesi — check for duplicate ConnectedAccounts and KPI inconsistencies."""
+    from ayaz.services.data_quality import detect_duplicate_accounts, detect_kpi_inconsistencies
+
+    checks: list[dict] = []
+
+    try:
+        date_to = datetime.now(timezone.utc).date()
+        date_from = date_to - timedelta(days=29)
+
+        dupes = detect_duplicate_accounts(db, tenant_id)
+        if dupes:
+            dupe_summary = "; ".join(
+                f"{d['platform']}/{d['external_account_id']} ({d['count']}x)"
+                for d in dupes[:3]
+            )
+            if len(dupes) > 3:
+                dupe_summary += "..."
+            checks.append({
+                "id": "data_quality_duplicate_accounts",
+                "severity": "fail",
+                "title": f"{len(dupes)} yinelenen hesap bağlantısı",
+                "finding": (
+                    f"Aynı harici hesap birden fazla kez bağlanmış: {dupe_summary}. "
+                    f"Bu durum tüm metrik toplamlarında çift sayıma yol açmaktadır."
+                ),
+                "recommendation": "Yinelenen hesap bağlantılarını kaldırın.",
+            })
+
+        inconsistencies = detect_kpi_inconsistencies(db, tenant_id, date_from, date_to)
+        if inconsistencies:
+            rules = sorted({i["rule"] for i in inconsistencies})
+            checks.append({
+                "id": "data_quality_kpi_inconsistency",
+                "severity": "warn",
+                "title": "KPI tutarsızlıkları tespit edildi",
+                "finding": (
+                    f"{len(inconsistencies)} satırda veri tutarsızlığı bulundu "
+                    f"(kurallar: {', '.join(rules)})."
+                ),
+                "recommendation": (
+                    "Bağlı hesap veri akışını ve izleme yapılandırmasını kontrol edin."
+                ),
+            })
+
+        if not checks:
+            checks.append({
+                "id": "data_quality_healthy",
+                "severity": "pass",
+                "title": "Veri kalitesi sağlıklı",
+                "finding": "Yinelenen hesap veya KPI tutarsızlığı tespit edilmedi.",
+                "recommendation": "",
+            })
+
+    except Exception:
+        log.warning("audit: data_quality category failed", exc_info=True)
+        checks.append({
+            "id": "data_quality_error",
+            "severity": "warn",
+            "title": "Veri kalitesi kontrolü yapılamadı",
+            "finding": "Veri kalitesi kontrol verileri şu an erişilemez durumda.",
+            "recommendation": "Taramayı daha sonra tekrarlayın.",
+        })
+
+    return {"key": "data_quality", "label": "Veri Kalitesi", "checks": checks}
+
+
 def _check_insights(db: Session, tenant_id: uuid.UUID) -> dict:
     """İçgörüler — check for critical and warning-level insights."""
     from ayaz.services.copilot_tools import _get_insights
@@ -612,6 +679,7 @@ def run_account_audit(db: Session, tenant_id: uuid.UUID) -> dict:
         _check_content(db, tenant_id),
         _check_goals(db, tenant_id),
         _check_insights(db, tenant_id),
+        _check_data_quality(db, tenant_id),
     ]
 
     all_checks = [c for cat in categories for c in cat["checks"]]

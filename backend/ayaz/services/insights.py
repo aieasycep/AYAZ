@@ -996,6 +996,14 @@ def generate_insights(
     all_results.extend(detect_conversion_rate_drop(by_channel, as_of_date))
     all_results.extend(detect_positive_movement(by_channel, as_of_date))
 
+    # Data-quality detectors (category: data_quality)
+    # Lazy import avoids circular: data_quality imports DetectorResult from this module.
+    try:
+        from ayaz.services.data_quality import run_data_quality_detectors
+        all_results.extend(run_data_quality_detectors(db, tenant_id, as_of_date))
+    except Exception:
+        logger.warning("[insights] data_quality detectors failed", exc_info=True)
+
     counts = {"new_info": 0, "new_warning": 0, "new_critical": 0, "skipped": 0}
 
     for result in all_results:

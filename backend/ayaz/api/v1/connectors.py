@@ -107,6 +107,7 @@ def create_account(
     # Returns 402 Payment Required with a Turkish message when the limit is reached.
     # Agency plan is "unlimited" and always passes.
     _plan_gate: None = Depends(require_within_data_source_limit),
+    allow_duplicate: bool = False,
 ) -> ConnectedAccount:
     """Create a ConnectedAccount row after the OAuth flow completes.
 
@@ -114,8 +115,37 @@ def create_account(
     it has exchanged the auth code for tokens and stored them in Vault.
     The ``vault_secret_ref`` is the Vault path returned by the Broker.
 
+    Duplicate-link guard
+    --------------------
+    If an account with the same (platform, external_account_id) already exists
+    for this tenant, the endpoint returns HTTP 409 Conflict with a Turkish error
+    message and the list of existing accounts.  This prevents silent double-
+    counting in every SUM/ROAS aggregation.
+
+    To bypass the guard and link the account anyway (e.g. for migrations or
+    debugging), pass ``?allow_duplicate=true``.  The endpoint will proceed but
+    log a warning.
+
     TODO (Faz 1): add role check — only owner/admin may link new accounts.
     """
+    if not allow_duplicate:
+        from ayaz.services.data_quality import check_duplicate_before_link
+        dupe_check = check_duplicate_before_link(
+            db,
+            membership.tenant_id,
+            body.platform,
+            body.external_account_id,
+        )
+        if dupe_check["is_duplicate"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "duplicate_account",
+                    "message": dupe_check["warning"],
+                    "existing_accounts": dupe_check["existing_accounts"],
+                },
+            )
+
     account = ConnectedAccount(
         tenant_id=membership.tenant_id,
         platform=body.platform,

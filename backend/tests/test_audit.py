@@ -389,7 +389,7 @@ class TestEmptyTenantAudit:
         db_session.commit()
         result = run_account_audit(db_session, tenant.id)
         category_keys = {cat["key"] for cat in result["categories"]}
-        assert category_keys == {"ads", "tracking", "budget", "content", "goals", "insights"}
+        assert category_keys == {"ads", "tracking", "budget", "content", "goals", "insights", "data_quality"}
 
     def test_empty_tenant_has_tracking_fail(self, db_session: Session) -> None:
         """No TrackingSource → tracking category must emit a fail."""

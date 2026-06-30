@@ -303,6 +303,67 @@ class TemplateNarrator(InsightNarrator):
         )
         return title, body
 
+    def _narrate_data_quality(self, result: Any) -> tuple[str, str]:
+        """Template for data_quality category insights."""
+        data = result.data
+        rule = data.get("rule", result.metric)
+
+        if rule == "duplicate_accounts":
+            platform = data.get("platform", "")
+            ext_id = data.get("external_account_id", "")
+            count = data.get("count", 2)
+            title = f"Çift hesap bağlantısı tespit edildi: {platform} / {ext_id}"
+            body = (
+                f"{platform} platformunda '{ext_id}' harici hesabı {count} kez bağlanmış. "
+                f"Bu durum tüm metrik toplamlarında (harcama, gösterim, dönüşüm) çift sayıma "
+                f"yol açmaktadır — raporlardaki rakamlar gerçeğin {count} katı kadar görünebilir. "
+                f"Yinelenen hesap bağlantılarından {count - 1} tanesini kaldırın ve "
+                f"verileri yeniden senkronize edin."
+            )
+        elif rule == "double_count_risk":
+            platform = data.get("platform", "")
+            ext_id = data.get("external_account_id", "")
+            rows = data.get("overlapping_rows", 0)
+            title = f"Çift sayım riski: {platform} / {ext_id} verisi çakışıyor"
+            body = (
+                f"{platform} / '{ext_id}' hesabının {rows} metrik satırı birden fazla "
+                f"bağlantı üzerinden sisteme girmiş durumda. "
+                f"Bu durum; toplam harcama, ROAS ve dönüşüm toplamlarını yanlış gösteriyor. "
+                f"Yinelenen hesap bağlantısını kaldırın ve geçmiş verileri doğrulayın."
+            )
+        elif rule == "clicks_exceed_impressions":
+            title = "Veri kalitesi hatası: Tıklama sayısı gösterim sayısını aşıyor"
+            body = (
+                f"Bir veya daha fazla satırda tıklama sayısı gösterim sayısından fazla — "
+                f"bu istatistiksel olarak imkânsız bir durumdur. "
+                f"Platform API yanıtını, dönüşüm izleme yapılandırmasını veya veri normalleştirme "
+                f"mantığını kontrol edin. Bu hata ROAS ve CTR hesaplamalarını bozabilir."
+            )
+        elif rule == "conversions_exceed_clicks":
+            title = "Veri tutarsızlığı: Dönüşüm sayısı tıklama sayısından fazla"
+            body = (
+                f"Bir veya daha fazla satırda dönüşüm sayısı tıklama sayısını aşıyor. "
+                f"Bu durum çok kanallı ilişkilendirme, izleme pikseli çift tetikleme veya "
+                f"veri birleştirme sorununa işaret edebilir. "
+                f"Dönüşüm penceresini ve ilişkilendirme modelini gözden geçirin."
+            )
+        elif rule == "spend_without_impressions":
+            title = "Veri kalitesi uyarısı: Harcama var ama gösterim sıfır"
+            body = (
+                f"Bir veya daha fazla satırda sıfır gösterimle birlikte pozitif harcama bulunuyor. "
+                f"Bu durum eksik veri senkronizasyonuna, API gecikmesine veya "
+                f"raporlama penceresindeki uyumsuzluğa işaret edebilir. "
+                f"İlgili kampanyaların platform panelinde de aynı şekilde göründüğünü doğrulayın."
+            )
+        else:
+            title = "Veri kalitesi sorunu tespit edildi"
+            body = (
+                f"Metrik verilerinde bir tutarsızlık tespit edildi ({rule}). "
+                f"Kayıtları ve bağlı hesap yapılandırmalarını gözden geçirin."
+            )
+
+        return title, body
+
     def _narrate_generic(self, result: Any) -> tuple[str, str]:
         """Fallback for any category without a dedicated template."""
         channel = result.channel or "tüm kanallar"
