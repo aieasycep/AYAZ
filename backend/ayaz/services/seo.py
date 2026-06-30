@@ -18,6 +18,22 @@ from ayaz.models.insights import Insight
 
 logger = logging.getLogger(__name__)
 
+# ── Ingestion safety limits ─────────────────────────────────────────────────────
+#
+# ``query`` and ``page`` are both part of the ``uq_seo_search_metrics`` UNIQUE
+# index. Postgres' btree has a hard ~2704-byte limit for a single index tuple
+# (1/3 of an 8 KB page); the columns are also ``VARCHAR(2048)``. Real Search
+# Console data is short (queries are search terms, pages are URLs), but a
+# pathological long URL + long query could (a) exceed ``VARCHAR(2048)`` →
+# "value too long" error, or (b) push the combined index tuple past 2704 bytes →
+# "index row size … exceeds btree maximum" error. Either error would abort the
+# ingest transaction and, via the surrounding sync commit, could roll back the
+# whole sync. We cap both values well under those limits so ingestion can never
+# crash on adversarial input. Caps chosen so query+page+key-overhead < 2704.
+_MAX_QUERY_LEN = 512
+_MAX_PAGE_LEN = 1024
+
+
 # ── Severity score mapping ─────────────────────────────────────────────────────
 
 _SEVERITY_SCORE: dict[str, float] = {
@@ -593,8 +609,10 @@ def store_gsc_rows(
         elif raw_date is None:
             continue  # skip rows without a date
 
-        query_str = str(row.get("query") or "")
-        page_str = str(row.get("page") or "")
+        # Cap to safe lengths so an adversarial long query/page can never breach
+        # VARCHAR(2048) or the btree index-tuple limit (see _MAX_*_LEN above).
+        query_str = str(row.get("query") or "")[:_MAX_QUERY_LEN]
+        page_str = str(row.get("page") or "")[:_MAX_PAGE_LEN]
         clicks = int(row.get("clicks") or 0)
         impressions = int(row.get("impressions") or 0)
         ctr = float(row.get("ctr") or 0.0)

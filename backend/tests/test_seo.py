@@ -200,6 +200,33 @@ class TestStoreGscRows:
         )
         assert count is None
 
+    def test_caps_oversized_query_and_page(self, db_session: Session, tenant: Tenant) -> None:
+        """Adversarially long query/page must be capped before insert so they can
+        never breach VARCHAR(2048) or the Postgres btree index-tuple limit
+        (which would otherwise abort the ingest/sync transaction)."""
+        from ayaz.services.seo import store_gsc_rows, _MAX_QUERY_LEN, _MAX_PAGE_LEN
+
+        rows = [{
+            "date": "2026-06-01",
+            "query": "q" * 5000,
+            "page": "https://example.com/" + "p" * 5000,
+            "clicks": 1, "impressions": 10, "ctr": 0.1, "position": 5.0,
+        }]
+        count = store_gsc_rows(db_session, tenant.id, rows)
+        assert count == 1
+        stored = db_session.scalars(
+            select(SeoSearchMetric).where(SeoSearchMetric.tenant_id == tenant.id)
+        ).all()
+        assert len(stored) == 1
+        assert len(stored[0].query) == _MAX_QUERY_LEN
+        assert len(stored[0].page) == _MAX_PAGE_LEN
+        # Re-ingesting the same oversized row upserts (no duplicate, no crash).
+        store_gsc_rows(db_session, tenant.id, rows)
+        again = db_session.scalars(
+            select(SeoSearchMetric).where(SeoSearchMetric.tenant_id == tenant.id)
+        ).all()
+        assert len(again) == 1
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. get_overview
