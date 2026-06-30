@@ -84,6 +84,11 @@ from ayaz.models.recommendations import (  # noqa: F401
 from ayaz.models.ad_studio import (  # noqa: F401
     AdCopyDraft,
 )
+from ayaz.models.integrations import (  # noqa: F401
+    IntegrationConnection,
+    IntegrationRequest,
+    ProviderGrant,
+)
 
 __all__ = [
     "Base",
@@ -130,4 +135,7 @@ __all__ = [
     "SocialReply",
     "RecommendationState",
     "AdCopyDraft",
+    "ProviderGrant",
+    "IntegrationConnection",
+    "IntegrationRequest",
 ]
