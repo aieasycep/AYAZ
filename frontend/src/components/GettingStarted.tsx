@@ -184,7 +184,7 @@ export default function GettingStarted() {
                 Hesabını bağla
               </span>
               {!steps.hasAccount && (
-                <Link href="/connections" className={styles.ctaLink}>
+                <Link href="/integrations?tab=veri-kaynaklari" className={styles.ctaLink}>
                   Reklam/analitik hesabını bağla &rarr;
                 </Link>
               )}

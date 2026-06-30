@@ -10,7 +10,7 @@ export default function DashboardEmptyState() {
         Verilerinizi görmek için en az bir reklam veya analitik hesabı bağlayın.
         Bağlantı kurmak yalnızca birkaç dakika sürer.
       </p>
-      <Link href="/connections" className={styles.cta}>
+      <Link href="/integrations?tab=veri-kaynaklari" className={styles.cta}>
         Bağlantı Ekle
       </Link>
     </div>

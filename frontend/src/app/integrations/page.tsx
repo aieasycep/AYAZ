@@ -6,6 +6,7 @@ import { getToken } from '@/lib/api';
 import { parseApiError } from '@/lib/parseApiError';
 import EmptyState from '@/components/EmptyState';
 import AppNav from '@/components/AppNav';
+import DataSourcesPanel from '@/components/DataSourcesPanel';
 import {
   getCatalog,
   getConnections,
@@ -573,6 +574,22 @@ export default function IntegrationsPage() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [showWizard, setShowWizard] = useState(true);
 
+  // Primary tab: data sources (feed the dashboards) vs apps & actions.
+  // Default to "veri-kaynaklari" (connecting data is the foundational first step);
+  // a ?tab=uygulamalar query opens the apps/actions catalog directly.
+  const [mainTab, setMainTab] = useState<'veri-kaynaklari' | 'uygulamalar'>('veri-kaynaklari');
+
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t === 'uygulamalar') setMainTab('uygulamalar');
+  }, []);
+
+  const selectMainTab = useCallback((t: 'veri-kaynaklari' | 'uygulamalar') => {
+    setMainTab(t);
+    const url = t === 'uygulamalar' ? '/integrations?tab=uygulamalar' : '/integrations';
+    window.history.replaceState(null, '', url);
+  }, []);
+
   // Per-key action state
   const [connectingKeys, setConnectingKeys] = useState<Set<string>>(new Set());
   const [disconnectingKeys, setDisconnectingKeys] = useState<Set<string>>(new Set());
@@ -729,6 +746,35 @@ export default function IntegrationsPage() {
           </div>
         </div>
 
+        {/* Primary tabs — single front door, split by purpose */}
+        <div className={styles.mainTabs} role="tablist" aria-label="Entegrasyon bölümleri">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mainTab === 'veri-kaynaklari'}
+            className={`${styles.mainTab} ${mainTab === 'veri-kaynaklari' ? styles.mainTabActive : ''}`}
+            onClick={() => selectMainTab('veri-kaynaklari')}
+          >
+            Veri Kaynakları
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mainTab === 'uygulamalar'}
+            className={`${styles.mainTab} ${mainTab === 'uygulamalar' ? styles.mainTabActive : ''}`}
+            onClick={() => selectMainTab('uygulamalar')}
+          >
+            Uygulamalar &amp; Aksiyonlar
+            {connectedCount > 0 && <span className={styles.mainTabCount}>{connectedCount}</span>}
+          </button>
+        </div>
+
+        {/* ── Tab: Veri Kaynakları (data sources that feed the dashboards) ── */}
+        {mainTab === 'veri-kaynaklari' && <DataSourcesPanel />}
+
+        {/* ── Tab: Uygulamalar & Aksiyonlar (apps + automated actions) ── */}
+        {mainTab === 'uygulamalar' && (
+          <>
         {/* Error banner */}
         {error && !loading && (
           <div className={styles.errorBanner}>
@@ -891,6 +937,8 @@ export default function IntegrationsPage() {
               </div>
             )}
           </div>
+        )}
+          </>
         )}
       </main>
 
