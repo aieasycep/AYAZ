@@ -733,13 +733,23 @@ class TestLintRules:
         codes = [i["code"] for i in issues]
         assert "duplicate" in codes
 
-    def test_shadowed_set_value_flagged(self) -> None:
-        """Two set_value rules on the same field: earlier is shadowed."""
+    def test_shadowed_set_value_same_value_flagged(self) -> None:
+        """Two set_value rules on the same field with the SAME value → shadowed (redundant)."""
+        r1 = _StubRule("set_value", {"field": "brand", "value": "X"}, position=0)
+        r2 = _StubRule("set_value", {"field": "brand", "value": "X"}, position=1)
+        issues = lint_rules(list(PRODUCTS), [r1, r2])
+        codes = {i["code"] for i in issues}
+        # Same value → shadowed (earlier rule is redundant, not conflicting)
+        assert "shadowed" in codes
+
+    def test_conflict_set_value_different_values_flagged(self) -> None:
+        """Two set_value rules on the same field with DIFFERENT values → conflict."""
         r1 = _StubRule("set_value", {"field": "brand", "value": "X"}, position=0)
         r2 = _StubRule("set_value", {"field": "brand", "value": "Y"}, position=1)
         issues = lint_rules(list(PRODUCTS), [r1, r2])
         codes = {i["code"] for i in issues}
-        assert "shadowed" in codes
+        # Different values → conflict (earlier rule's work is wasted and surprising)
+        assert "conflict" in codes
 
     def test_excludes_all_flagged(self) -> None:
         """A filter that excludes all products should be flagged excludes_all."""

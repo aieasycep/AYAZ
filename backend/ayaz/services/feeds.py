@@ -594,6 +594,14 @@ def lint_rules(
 
     Checks performed
     ----------------
+    conflict
+        Two set_value rules target the same field with DIFFERENT values — the
+        earlier rule's work is entirely wasted and the outcome is surprising.
+        Also fired when a filter_include and filter_exclude share the same
+        (condition_field, condition_op, condition_value) triple — one of them
+        can never fire after the other.
+        Severity: warning.
+
     no_effect
         A rule whose affected_count AND excluded_count are both 0 (never matches
         anything in the current sample).
@@ -603,11 +611,14 @@ def lint_rules(
         products present before the rule), which is almost always a mistake.
 
     shadowed
-        A rule made redundant by an earlier rule.  Detected cases:
-        - Two consecutive set_value rules targeting the same field: the earlier
-          one is shadowed by the later one.
-        - A filter rule on a field that an earlier filter already fully excluded
-          from the working set (the field would never match again).
+        A rule made unreachable by an earlier rule.  Detected cases:
+        - Two set_value rules targeting the same field with the SAME value: the
+          earlier one is shadowed by (makes redundant) the later one. When the
+          values differ the issue code is ``conflict`` instead.
+        - A filter_include followed by a filter_exclude with the identical
+          condition: after the include only matching items remain, so the
+          exclude can never fire (all remaining items match, so exclude removes
+          them all — flagged as excludes_all instead).
 
     duplicate
         Two rules with identical (rule_type, config) pairs.
@@ -657,27 +668,93 @@ def lint_rules(
         else:
             seen_signatures[sig] = str(rule.id)
 
-    # ── shadowed detection (set_value on same field) ───────────────────────────
-    set_value_fields: dict[str, tuple[str, int]] = {}  # field → (rule_id, position)
+    # ── conflict / shadowed detection (set_value on same field) ──────────────
+    # conflict  — same field, DIFFERENT values  (earlier rule's work wasted)
+    # shadowed  — same field, SAME value        (earlier rule etkisiz)
+    # field → {"rule_id": str, "position": int, "value": str}
+    set_value_seen: dict[str, dict] = {}
     for rule in sorted(rules, key=lambda r: r.position):
         if rule.rule_type == "set_value":
             field = (rule.config or {}).get("field", "")
-            if field and field in set_value_fields:
-                earlier_id, earlier_pos = set_value_fields[field]
-                issues.append(
-                    {
-                        "severity": "info",
-                        "rule_id": earlier_id,
-                        "position": earlier_pos,
-                        "code": "shadowed",
-                        "message": (
-                            f"'{field}' alanına set_value kuralı, pozisyon "
-                            f"{rule.position}'deki kural tarafından geçersiz "
-                            "kılınıyor. Önceki kural etkisizdir."
-                        ),
-                    }
-                )
-            set_value_fields[field] = (str(rule.id), rule.position)
+            value = str((rule.config or {}).get("value", ""))
+            if field and field in set_value_seen:
+                earlier = set_value_seen[field]
+                earlier_value = earlier["value"]
+                if earlier_value != value:
+                    # Different values → conflict
+                    issues.append(
+                        {
+                            "severity": "warning",
+                            "rule_id": earlier["rule_id"],
+                            "position": earlier["position"],
+                            "code": "conflict",
+                            "message": (
+                                f"'{field}' alanına set_value kuralı çakışıyor: "
+                                f"pozisyon {earlier['position']}'de '{earlier_value}' "
+                                f"değeri, pozisyon {rule.position}'de '{value}' ile "
+                                "eziliyor. İlk kural etkisizdir ve değerler çelişiyor."
+                            ),
+                        }
+                    )
+                else:
+                    # Same value → shadowed (redundant, not conflicting)
+                    issues.append(
+                        {
+                            "severity": "info",
+                            "rule_id": earlier["rule_id"],
+                            "position": earlier["position"],
+                            "code": "shadowed",
+                            "message": (
+                                f"'{field}' alanına set_value kuralı, pozisyon "
+                                f"{rule.position}'deki aynı değeri yazan kural tarafından "
+                                "gölgeleniyor. Önceki kural etkisizdir (değer aynı)."
+                            ),
+                        }
+                    )
+            set_value_seen[field] = {
+                "rule_id": str(rule.id),
+                "position": rule.position,
+                "value": value,
+            }
+
+    # ── filter-level conflict detection ───────────────────────────────────────
+    # filter_include + filter_exclude with identical condition triple → conflict
+    # (one of them can never have any effect after the other runs)
+    # Key: (condition_field, condition_op, condition_value) → (rule_id, position, rule_type)
+    filter_conditions: dict[tuple, dict] = {}
+    for rule in sorted(rules, key=lambda r: r.position):
+        if rule.rule_type in ("filter_include", "filter_exclude"):
+            cfg = rule.config or {}
+            cond_key = (
+                cfg.get("condition_field", ""),
+                cfg.get("condition_op", "eq"),
+                str(cfg.get("condition_value", "")),
+            )
+            if cond_key in filter_conditions:
+                earlier = filter_conditions[cond_key]
+                if earlier["rule_type"] != rule.rule_type:
+                    # include + exclude on same condition → conflict
+                    issues.append(
+                        {
+                            "severity": "warning",
+                            "rule_id": str(rule.id),
+                            "position": rule.position,
+                            "code": "conflict",
+                            "message": (
+                                f"'{cond_key[0]}' alanında çakışan filtre kuralları: "
+                                f"pozisyon {earlier['position']}'de "
+                                f"'{earlier['rule_type']}' ve pozisyon {rule.position}'de "
+                                f"'{rule.rule_type}' aynı koşulu kullanıyor. "
+                                "Bu iki kural birlikte tüm ürünleri dışarıda bırakabilir."
+                            ),
+                        }
+                    )
+            else:
+                filter_conditions[cond_key] = {
+                    "rule_id": str(rule.id),
+                    "position": rule.position,
+                    "rule_type": rule.rule_type,
+                }
 
     # ── no_effect and excludes_all (skip paused rules) ───────────────────────
     active_rules = [r for r in sorted(rules, key=lambda r: r.position)
