@@ -500,6 +500,50 @@ export default function BillingPage() {
           )}
         </SectionCard>
 
+        {/* Fatura Bilgileri section — rendered from existing subscription state, no new endpoint */}
+        <SectionCard title="Fatura Bilgileri">
+          {subLoading ? (
+            <div className={styles.stateBox}>
+              <div className={styles.muted}>Yükleniyor...</div>
+            </div>
+          ) : subError ? null : subscription == null ? null : (
+            <div className={styles.invoiceSection}>
+              <div className={styles.invoiceRow}>
+                <span className={styles.invoiceLabel}>Plan</span>
+                <span className={styles.invoiceValue}>
+                  {currentPlan?.name ?? subscription.plan_code}
+                  {' '}
+                  <span className={`${styles.statusBadge} ${STATUS_CSS[subscription.status] ?? styles.statusCanceled}`}>
+                    {STATUS_LABELS[subscription.status] ?? subscription.status}
+                  </span>
+                </span>
+              </div>
+              {(subscription.current_period_end || subscription.trial_end) && (
+                <div className={styles.invoiceRow}>
+                  <span className={styles.invoiceLabel}>
+                    {subscription.status === 'trialing' ? 'Deneme bitiş tarihi' : 'Yenileme tarihi'}
+                  </span>
+                  <span className={styles.invoiceValue}>
+                    {formatDate(
+                      subscription.status === 'trialing'
+                        ? subscription.trial_end
+                        : subscription.current_period_end,
+                    )}
+                  </span>
+                </div>
+              )}
+              <div className={styles.invoiceRow}>
+                <span className={styles.invoiceLabel}>Fatura geçmişi</span>
+                <span className={styles.invoicePlaceholder}>
+                  {subscription.plan_code === 'free'
+                    ? 'Ücretsiz planda fatura geçmişi bulunmuyor. Ücretli plana geçince faturalarınız burada listelenir.'
+                    : 'Fatura geçmişi henüz kullanılabilir değil.'}
+                </span>
+              </div>
+            </div>
+          )}
+        </SectionCard>
+
         {/* Plan comparison section */}
         <div id="plan-comparison"><SectionCard title="Plan Karşılaştırma">
           {upgradeError && (

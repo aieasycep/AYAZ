@@ -8,6 +8,7 @@
   flex-direction: column;
   gap: 0.25rem;
   min-width: 0;
+  position: relative;
 }
 
 .label {
@@ -59,4 +60,42 @@
 .deltaNeutral {
   background: var(--color-border);
   color: var(--color-text-muted);
+}
+
+/* ---- Data-quality trust signals ---- */
+/* Both indicators sit in the top-right corner of the card.
+   They are visually subtle by design — present only when needed. */
+
+.dqWarn,
+.dqStale {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 10px;
+  line-height: 1;
+}
+
+/* Amber dot — data quality warning */
+.dqWarn {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
+/* Grey clock glyph — stale data */
+.dqStale {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  width: auto;
+  height: auto;
+  top: calc(var(--space-3) - 1px);
+  right: calc(var(--space-3) - 1px);
+  line-height: 1;
 }
