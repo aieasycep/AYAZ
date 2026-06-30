@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,6 +13,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { channelColor } from '@/lib/chartColors';
 import AppNav from '@/components/AppNav';
 import {
   getBaseline,
@@ -222,6 +224,7 @@ export default function BudgetSimulatorPage() {
         const baselineCh = baseline?.channels.find((b) => b.key === ch.key);
         return {
           name: ch.label,
+          channelKey: ch.key,
           'Baz Dönüşüm': baselineCh?.conversions ?? 0,
           'Senaryo Dönüşüm': ch.conversions,
         };
@@ -475,16 +478,30 @@ export default function BudgetSimulatorPage() {
                       />
                       <Bar
                         dataKey="Baz Dönüşüm"
-                        fill="var(--color-border)"
                         radius={[4, 4, 0, 0]}
                         isAnimationActive={false}
-                      />
+                      >
+                        {chartData.map((entry) => (
+                          <Cell
+                            key={`base-${entry.channelKey}`}
+                            fill={channelColor(entry.channelKey)}
+                            fillOpacity={0.35}
+                          />
+                        ))}
+                      </Bar>
                       <Bar
                         dataKey="Senaryo Dönüşüm"
-                        fill="var(--color-primary)"
                         radius={[4, 4, 0, 0]}
                         isAnimationActive={false}
-                      />
+                      >
+                        {chartData.map((entry) => (
+                          <Cell
+                            key={`scenario-${entry.channelKey}`}
+                            fill={channelColor(entry.channelKey)}
+                            fillOpacity={1}
+                          />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

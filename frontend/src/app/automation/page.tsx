@@ -19,6 +19,7 @@ import {
   type RuleRun,
 } from '@/lib/automation-api';
 import AppNav from '@/components/AppNav';
+import EmptyState from '@/components/EmptyState';
 import styles from './automation.module.css';
 
 // ---------------------------------------------------------------------------
@@ -784,12 +785,34 @@ export default function AutomationPage() {
               </button>
             </div>
           ) : rules.length === 0 ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Henüz otomasyon kuralı tanımlanmamış. &ldquo;Yeni Kural&rdquo;
-                ile başlayın.
-              </span>
-            </div>
+            <EmptyState
+              icon={
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 48 48"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <rect x="6" y="10" width="36" height="28" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <path d="M6 18h36" stroke="currentColor" strokeWidth="2" />
+                  <path d="M16 28h8M16 33h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="36" cy="30" r="6" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <path d="M36 27v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              }
+              title="Henüz otomasyon kuralı yok"
+              subtitle="Metrik koşullarına göre otomatik uyarılar ve öneriler tanımlayın. İlk kuralınızı oluşturun."
+              action={{
+                label: 'Yeni Kural',
+                onClick: () => {
+                  setShowForm(true);
+                  setFormError(null);
+                  setForm(EMPTY_FORM);
+                },
+              }}
+            />
           ) : (
             <div className={styles.rulesList}>
               {rules.map((rule) => {

@@ -21,6 +21,9 @@ import {
 import KpiCard from '@/components/KpiCard';
 import ChannelTable from '@/components/ChannelTable';
 import AppNav from '@/components/AppNav';
+import EmptyState from '@/components/EmptyState';
+import SectionCard from '@/components/SectionCard';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './reports.module.css';
 
 // --- Date helpers ---
@@ -150,7 +153,7 @@ export default function ReportsPage() {
       const data = await getReports();
       setReports(data);
     } catch (err: unknown) {
-      setReportsError(err instanceof Error ? err.message : 'Raporlar yüklenemedi');
+      setReportsError(parseApiError(err));
     } finally {
       setReportsLoading(false);
     }
@@ -406,15 +409,6 @@ export default function ReportsPage() {
               Performans raporları oluşturun, paylaşın ve zamanlayın.
             </p>
           </div>
-          <button
-            className={styles.primaryBtn}
-            onClick={() => {
-              setShowNewForm((v) => !v);
-              setReportFormError(null);
-            }}
-          >
-            {showNewForm ? 'İptal' : 'Yeni Rapor'}
-          </button>
         </div>
 
         {/* New report form */}
@@ -523,13 +517,20 @@ export default function ReportsPage() {
         )}
 
         {/* Reports list */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>
-              Rapor Listesi{reports.length > 0 ? ` (${reports.length})` : ''}
-            </h2>
-          </div>
-
+        <SectionCard
+          title={`Rapor Listesi${reports.length > 0 ? ` (${reports.length})` : ''}`}
+          right={
+            <button
+              className={styles.primaryCtaBtn}
+              onClick={() => {
+                setShowNewForm((v) => !v);
+                setReportFormError(null);
+              }}
+            >
+              {showNewForm ? 'İptal' : '+ Yeni Rapor Oluştur'}
+            </button>
+          }
+        >
           {reportsLoading ? (
             <div className={styles.stateBox}>
               <span className={styles.muted}>Raporlar yükleniyor...</span>
@@ -543,56 +544,97 @@ export default function ReportsPage() {
               </button>
             </div>
           ) : reports.length === 0 ? (
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Henüz rapor tanımlanmamış. "Yeni Rapor" ile başlayın.
-              </span>
-            </div>
+            <EmptyState
+              icon={
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 48 48"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <rect x="8" y="6" width="32" height="36" rx="4" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <path d="M16 16h16M16 22h16M16 28h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="36" cy="36" r="6" fill="var(--color-primary)" />
+                  <path d="M36 33v3l2 2" stroke="var(--color-on-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              }
+              title="Henüz rapor oluşturulmadı"
+              subtitle="Kanal bazlı performans raporları oluşturun, paylaşın ve zamanlayın."
+              action={{
+                label: '+ Yeni Rapor Oluştur',
+                onClick: () => {
+                  setShowNewForm(true);
+                  setReportFormError(null);
+                },
+              }}
+            />
           ) : (
-            <div className={styles.reportList}>
+            <div className={styles.reportCardGrid}>
               {reports.map((report) => (
                 <div
                   key={report.id}
-                  className={`${styles.reportRow} ${selectedId === report.id ? styles.reportRowActive : ''}`}
+                  className={`${styles.reportCard} ${selectedId === report.id ? styles.reportCardActive : ''}`}
                   onClick={() =>
                     setSelectedId(selectedId === report.id ? null : report.id)
                   }
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setSelectedId(selectedId === report.id ? null : report.id);
+                    }
+                  }}
+                  aria-pressed={selectedId === report.id}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className={styles.reportName}>{report.name}</div>
-                    <div className={styles.reportMeta}>
-                      Oluşturuldu: {fmtDateDisplay(report.created_at)}
-                      {report.config.channels && report.config.channels.length > 0
-                        ? ` · ${report.config.channels.join(', ')}`
-                        : ''}
+                  <div className={styles.reportCardTop}>
+                    <div className={styles.reportCardIcon} aria-hidden="true">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2h-2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                        <rect x="9" y="13" width="6" height="8" rx="1" stroke="currentColor" strokeWidth="1.75" />
+                      </svg>
+                    </div>
+                    <div className={styles.reportCardActions}>
+                      <button
+                        className={styles.outlineBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedId(selectedId === report.id ? null : report.id);
+                        }}
+                      >
+                        {selectedId === report.id ? 'Kapat' : 'Görüntüle'}
+                      </button>
+                      <button
+                        className={styles.dangerBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(report.id);
+                        }}
+                        disabled={deleteBusy[report.id]}
+                      >
+                        Sil
+                      </button>
                     </div>
                   </div>
-                  <div className={styles.reportActions}>
-                    <button
-                      className={styles.outlineBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedId(selectedId === report.id ? null : report.id);
-                      }}
-                    >
-                      {selectedId === report.id ? 'Kapat' : 'Görüntüle'}
-                    </button>
-                    <button
-                      className={styles.dangerBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(report.id);
-                      }}
-                      disabled={deleteBusy[report.id]}
-                    >
-                      Sil
-                    </button>
+
+                  <div className={styles.reportCardName}>{report.name}</div>
+                  <div className={styles.reportCardDate}>
+                    {fmtDateDisplay(report.created_at)}
                   </div>
+
+                  {report.config.channels && report.config.channels.length > 0 && (
+                    <div className={styles.reportCardPills}>
+                      {report.config.channels.map((ch) => (
+                        <span key={ch} className={styles.channelPill}>{ch}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
-        </section>
+        </SectionCard>
 
         {/* Report detail panel */}
         {selectedReport && (

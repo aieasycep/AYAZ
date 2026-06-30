@@ -296,18 +296,32 @@
   color: var(--color-text-muted);
 }
 
-/* Platform badge in library */
+/* Platform badge in library — background set inline via channelColor() */
 
 .platformBadge {
   display: inline-flex;
   align-items: center;
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.175rem 0.55rem;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  padding: var(--space-1) var(--space-2);
   border-radius: 999px;
-  background: var(--color-badge-channel-bg);
-  color: var(--color-badge-channel-text);
   white-space: nowrap;
+  opacity: 0.92;
+}
+
+/* AI badge — sits next to source chip */
+.sourceChipAiBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-heavy);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 999px;
+  background: var(--color-ai-bg);
+  color: var(--color-ai-text);
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  text-transform: uppercase;
 }
 
 /* Variant card */
@@ -455,26 +469,12 @@
   word-break: break-word;
 }
 
-/* Library section */
+/* Library section — now rendered inside SectionCard */
 
 .librarySection {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-
-.librarySectionHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.libraryTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-text);
+  gap: var(--space-4);
 }
 
 .filterBar {

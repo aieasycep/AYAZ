@@ -205,6 +205,68 @@
   font-size: 0.9rem;
 }
 
+/* Prompt hint empty state */
+
+.promptHint {
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  padding: 3rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.promptHintIcon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--color-primary);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.promptHintTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.promptHintSub {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  max-width: 400px;
+  line-height: 1.55;
+}
+
+.promptHintChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+
+.promptHintChip {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  transition: all 0.15s;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.promptHintChip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(59, 91, 219, 0.06);
+}
+
 /* Generated report */
 
 .reportSection {
@@ -255,7 +317,7 @@
   gap: 1rem;
 }
 
-/* Cards */
+/* Legacy card classes - kept for any remaining references */
 
 .card {
   background: var(--color-surface);
@@ -300,7 +362,7 @@
 }
 
 .toastLink {
-  color: #93c5fd;
+  color: var(--color-primary-light, #93c5fd);
   font-weight: 700;
   text-decoration: underline;
   cursor: pointer;
@@ -317,7 +379,7 @@
   }
 }
 
-/* Empty prompt state */
+/* Legacy empty state classes kept for safety */
 
 .emptyState {
   background: var(--color-surface);
@@ -358,5 +420,10 @@
 
   .submitBtn {
     width: 100%;
+  }
+
+  .promptHintChips {
+    flex-direction: column;
+    align-items: center;
   }
 }

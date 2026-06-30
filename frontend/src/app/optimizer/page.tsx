@@ -9,7 +9,9 @@ import {
   type ChannelAllocation,
   type BudgetSuggestion,
 } from '@/lib/optimizer-api';
+import { parseApiError } from '@/lib/parseApiError';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import styles from './optimizer.module.css';
 
 // --- Date helpers ---
@@ -140,7 +142,7 @@ export default function OptimizerPage() {
         setResult(data);
         setHasCalculated(true);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Optimizasyon hesaplanamadı');
+        setError(parseApiError(err));
       } finally {
         setLoading(false);
       }
@@ -201,7 +203,30 @@ export default function OptimizerPage() {
             </div>
             <div className={styles.shiftGroup}>
               <label className={styles.shiftLabel} htmlFor="opt-shift">
-                Max Kaydırma %
+                MAX KAYDIRMA %{' '}
+                <span
+                  className={styles.tooltipAnchor}
+                  aria-label="Bir kanaldan diğerine aktarılabilecek maksimum bütçe yüzdesi. Örnek: 20 girilirse mevcut harcamanın en fazla %20'si taşınabilir."
+                  role="tooltip"
+                  tabIndex={0}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={styles.tooltipIcon}
+                  >
+                    <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M8 7v5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="8" cy="4.5" r="0.75" fill="currentColor" />
+                  </svg>
+                  <span className={styles.tooltipPopup} role="presentation">
+                    Bir kanaldan diğerine aktarılabilecek maksimum bütçe yüzdesi. Örn: 20 girilirse mevcut harcamanın en fazla %20&apos;si taşınabilir.
+                  </span>
+                </span>
               </label>
               <input
                 id="opt-shift"
@@ -226,13 +251,50 @@ export default function OptimizerPage() {
 
         {/* Results */}
         {!hasCalculated && !loading && !error && (
-          <section className={styles.section}>
-            <div className={styles.stateBox}>
-              <span className={styles.muted}>
-                Parametreleri ayarlayıp "Optimizasyonu Hesapla" butonuna basın.
-              </span>
+          <>
+            <section className={styles.section}>
+              <div className={styles.stateBox}>
+                <span className={styles.muted}>
+                  Parametreleri ayarlayıp &ldquo;Optimizasyonu Hesapla&rdquo; butonuna basın.
+                </span>
+              </div>
+            </section>
+
+            {/* Ghost preview — shows the output shape before first run */}
+            <div className={styles.previewGhost} aria-hidden="true">
+              <SectionCard title="Mevcut Dağılım (Önizleme)">
+                <div className={styles.previewAllocationGrid}>
+                  {['Kanal A', 'Kanal B', 'Kanal C'].map((name) => (
+                    <div key={name} className={styles.previewChannelCard}>
+                      <div className={styles.previewLabel}>{name}</div>
+                      <div className={styles.previewValue}>₺ — —</div>
+                      <div className={styles.previewBar}>
+                        <div className={styles.previewBarFill} style={{ width: '55%' }} />
+                      </div>
+                      <div className={styles.previewMeta}>Pay: —%  ROAS: —x</div>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Öneriler (Önizleme)">
+                <div className={styles.previewSuggestions}>
+                  {[1, 2].map((i) => (
+                    <div key={i} className={styles.previewSuggestionRow}>
+                      <div className={styles.previewSuggestionMove}>₺ — —  Kanal X &rarr; Kanal Y</div>
+                      <div className={styles.previewSuggestionRationale}>
+                        Daha yüksek ROAS potansiyeline sahip kanala yönlendirme önerisi
+                      </div>
+                      <div className={styles.previewChips}>
+                        <span className={styles.previewChipFrom}>X: —x</span>
+                        <span className={styles.previewChipTo}>Y: —x</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
             </div>
-          </section>
+          </>
         )}
 
         {loading && (

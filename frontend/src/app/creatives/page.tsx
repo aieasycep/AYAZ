@@ -10,6 +10,7 @@ import {
   type CreativesPerformanceResponse,
 } from '@/lib/creatives-api';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import DateRangePresets, {
   detectPreset,
   type PresetKey,
@@ -125,11 +126,15 @@ const COLUMNS: ColDef[] = [
     align: 'right',
     sortable: true,
     sortKey: 'roas',
-    render: (ad) => (
-      <span className={ad.roas >= 1 ? styles.roasPositive : styles.roasNegative}>
-        {fmtRoas(ad.roas)}
-      </span>
-    ),
+    render: (ad) => {
+      const cls =
+        ad.roas >= 2
+          ? styles.roasGood
+          : ad.roas < 1
+          ? styles.roasBad
+          : styles.roasNeutral;
+      return <span className={cls}>{fmtRoas(ad.roas)}</span>;
+    },
   },
   {
     key: 'ctr',
@@ -354,62 +359,66 @@ export default function CreativesPage() {
             {/* Top / Bottom highlights */}
             {(topAds.length > 0 || bottomAds.length > 0) && (
               <div className={styles.highlightsRow}>
-                {/* En iyi */}
-                <div className={styles.highlightCard}>
-                  <div className={styles.highlightHeader}>
-                    <span className={styles.badgeTop}>En iyi</span>
-                    <span className={styles.highlightTitle}>En Yuksek ROAS</span>
+                {/* En İYİ */}
+                <SectionCard
+                  title=""
+                  right={<span className={styles.badgeTop}>EN İYİ</span>}
+                >
+                  <div className={styles.highlightCardInner}>
+                    <span className={styles.highlightTitle}>En Yüksek ROAS</span>
+                    {topAds.length === 0 ? (
+                      <div className={styles.stateBox}>
+                        <span className={styles.muted}>Veri yok</span>
+                      </div>
+                    ) : (
+                      <ul className={styles.highlightList}>
+                        {topAds.map((ad) => (
+                          <li key={ad.ad_id} className={styles.highlightItem}>
+                            <span className={styles.highlightAdName} title={ad.ad_name}>
+                              {ad.ad_name}
+                              <span className={styles.highlightChannel}> · {ad.channel}</span>
+                            </span>
+                            <span className={styles.roasGood}>{fmtRoas(ad.roas)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                  {topAds.length === 0 ? (
-                    <div className={styles.stateBox}>
-                      <span className={styles.muted}>Veri yok</span>
-                    </div>
-                  ) : (
-                    <ul className={styles.highlightList}>
-                      {topAds.map((ad) => (
-                        <li key={ad.ad_id} className={styles.highlightItem}>
-                          <span className={styles.highlightAdName} title={ad.ad_name}>
-                            {ad.ad_name}
-                            <span className={styles.highlightChannel}> · {ad.channel}</span>
-                          </span>
-                          <span className={styles.highlightRoas}>{fmtRoas(ad.roas)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                </SectionCard>
 
-                {/* En kötü */}
-                <div className={styles.highlightCard}>
-                  <div className={styles.highlightHeader}>
-                    <span className={styles.badgeBottom}>En kötü</span>
+                {/* EN KÖTÜ */}
+                <SectionCard
+                  title=""
+                  right={<span className={styles.badgeBottom}>EN KÖTÜ</span>}
+                >
+                  <div className={styles.highlightCardInner}>
                     <span className={styles.highlightTitle}>En Düşük ROAS</span>
+                    {bottomAds.length === 0 ? (
+                      <div className={styles.stateBox}>
+                        <span className={styles.muted}>Veri yok</span>
+                      </div>
+                    ) : (
+                      <ul className={styles.highlightList}>
+                        {bottomAds.map((ad) => (
+                          <li key={ad.ad_id} className={styles.highlightItem}>
+                            <span className={styles.highlightAdName} title={ad.ad_name}>
+                              {ad.ad_name}
+                              <span className={styles.highlightChannel}> · {ad.channel}</span>
+                            </span>
+                            <span className={styles.roasBad}>{fmtRoas(ad.roas)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
-                  {bottomAds.length === 0 ? (
-                    <div className={styles.stateBox}>
-                      <span className={styles.muted}>Veri yok</span>
-                    </div>
-                  ) : (
-                    <ul className={styles.highlightList}>
-                      {bottomAds.map((ad) => (
-                        <li key={ad.ad_id} className={styles.highlightItem}>
-                          <span className={styles.highlightAdName} title={ad.ad_name}>
-                            {ad.ad_name}
-                            <span className={styles.highlightChannel}> · {ad.channel}</span>
-                          </span>
-                          <span className={styles.highlightRoas}>{fmtRoas(ad.roas)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                </SectionCard>
               </div>
             )}
 
             {/* Main ad table */}
-            <section className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h2 className={styles.cardTitle}>Reklam Tablosu</h2>
+            <SectionCard
+              title="Reklam Tablosu"
+              right={
                 <div className={styles.sortPicker}>
                   <span className={styles.sortLabel}>Sırala:</span>
                   <select
@@ -424,8 +433,8 @@ export default function CreativesPage() {
                     ))}
                   </select>
                 </div>
-              </div>
-
+              }
+            >
               {ads.length === 0 ? (
                 <div className={styles.stateBox}>
                   <span className={styles.muted}>
@@ -484,7 +493,7 @@ export default function CreativesPage() {
                   </table>
                 </div>
               )}
-            </section>
+            </SectionCard>
           </>
         )}
 

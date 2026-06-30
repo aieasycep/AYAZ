@@ -13,6 +13,7 @@ import KpiCard from '@/components/KpiCard';
 import TimeSeriesChart from '@/components/TimeSeriesChart';
 import ChannelTable from '@/components/ChannelTable';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import type { ChannelRow } from '@/lib/api';
 import styles from './report-builder.module.css';
 
@@ -92,6 +93,26 @@ const EXAMPLE_CHIPS = [
   'Bu ay tüm kanalların özeti',
   'En çok dönüşüm getiren kanal',
 ];
+
+// --- Prompt hint icon ---
+
+function PromptHintIcon() {
+  return (
+    <svg
+      className={styles.promptHintIcon}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
 
 // --- Component ---
 
@@ -297,14 +318,32 @@ export default function ReportBuilderPage() {
           </div>
         )}
 
-        {/* Empty / initial state */}
+        {/* Empty / initial state — interactive prompt */}
         {!loading && !error && !report && (
-          <div className={styles.emptyState}>
-            <span className={styles.emptyTitle}>Raporunu oluştur</span>
-            <span className={styles.emptySubtitle}>
-              Yukarıya bir soru yaz veya örnek chiplerden birini seç
-            </span>
-          </div>
+          <SectionCard>
+            <div className={styles.promptHint}>
+              <div className={styles.promptHintIconWrap}>
+                <PromptHintIcon />
+              </div>
+              <div className={styles.promptHintTitle}>Sorunuzu yazın, rapor hazır</div>
+              <div className={styles.promptHintSub}>
+                Doğal Türkçe ile aşağıdaki örneklerden birini seçin ya da kendiniz yazın — rapor saniyeler içinde hazırlanır.
+              </div>
+              <div className={styles.promptHintChips}>
+                {EXAMPLE_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    className={styles.promptHintChip}
+                    onClick={() => {
+                      handleChip(chip);
+                    }}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </SectionCard>
         )}
 
         {/* Generated report */}
@@ -333,10 +372,7 @@ export default function ReportBuilderPage() {
 
             {/* Timeseries chart */}
             {tsPoints.length > 0 && (
-              <section className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <h3 className={styles.cardTitle}>Zaman Serisi</h3>
-                </div>
+              <SectionCard title="Zaman Serisi">
                 <TimeSeriesChart
                   points={tsPoints}
                   metricLabel={
@@ -347,20 +383,17 @@ export default function ReportBuilderPage() {
                   loading={false}
                   error={null}
                 />
-              </section>
+              </SectionCard>
             )}
 
             {/* Channel table */}
-            <section className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>Kanala Göre Performans</h3>
-              </div>
+            <SectionCard title="Kanala Göre Performans">
               <ChannelTable
                 rows={channelRows}
                 loading={false}
                 error={null}
               />
-            </section>
+            </SectionCard>
           </div>
         )}
       </main>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import {
   getOpportunities,
   CATEGORY_LABELS,
@@ -85,6 +86,72 @@ function LoadingSkeleton() {
   );
 }
 
+// --- Hazırla dropdown button ---
+
+interface HazirlaButtonProps {
+  actions: Opportunity['suggested_actions'];
+}
+
+function HazirlaButton({ actions }: HazirlaButtonProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  if (actions.length === 0) return null;
+
+  const primaryHref = actions[0].href;
+  const subActions = actions.slice(1);
+
+  return (
+    <div className={styles.hazirlaWrap} ref={ref}>
+      <div className={styles.hazirlaGroup}>
+        <Link href={primaryHref} className={styles.hazirlaBtn}>
+          Hazırla
+        </Link>
+        {subActions.length > 0 && (
+          <button
+            type="button"
+            className={styles.hazirlaChevron}
+            aria-label="Diğer eylemler"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+      {open && subActions.length > 0 && (
+        <div className={styles.hazirlaDropdown} role="menu">
+          {subActions.map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className={styles.hazirlaDropdownItem}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Opportunity card ---
 
 function OpportunityCard({ opp }: { opp: Opportunity }) {
@@ -122,7 +189,7 @@ function OpportunityCard({ opp }: { opp: Opportunity }) {
         <div className={styles.oppRightMeta}>
           <span className={styles.countdown}>{opp.days_until} gün sonra</span>
           {isUrgent && (
-            <span className={styles.urgentBadge}>Acil — şimdi planla</span>
+            <span className={styles.urgentBadge}>Acil</span>
           )}
         </div>
       </div>
@@ -132,30 +199,23 @@ function OpportunityCard({ opp }: { opp: Opportunity }) {
         <p className={styles.marketingTip}>{opp.marketing_tip}</p>
       )}
 
-      {/* Readiness indicators */}
+      {/* Readiness — two compact status pills */}
       <div className={styles.readinessRow}>
-        <span className={styles.readinessLabel}>Hazırlık:</span>
-        <span className={`${styles.readinessItem} ${contentOk ? styles.readinessItemOk : ''}`}>
-          <span className={styles.readinessIcon}>{contentOk ? '✓' : '✗'}</span>
-          {contentOk
-            ? `İçerik: ${opp.readiness.content_scheduled} planlandı`
-            : 'İçerik: planlanmadı'}
+        <span
+          className={`${styles.readinessPill} ${contentOk ? styles.readinessPillOk : styles.readinessPillNo}`}
+        >
+          {contentOk ? '✓' : '·'} İçerik
         </span>
-        <span className={`${styles.readinessItem} ${budgetOk ? styles.readinessItemOk : ''}`}>
-          <span className={styles.readinessIcon}>{budgetOk ? '✓' : '✗'}</span>
-          {budgetOk ? 'Bütçe: planlandı' : 'Bütçe: planlanmadı'}
+        <span
+          className={`${styles.readinessPill} ${budgetOk ? styles.readinessPillOk : styles.readinessPillNo}`}
+        >
+          {budgetOk ? '✓' : '·'} Bütçe
         </span>
       </div>
 
-      {/* Suggested actions */}
+      {/* Single Hazırla button + dropdown of sub-actions */}
       {opp.suggested_actions.length > 0 && (
-        <div className={styles.actionsRow}>
-          {opp.suggested_actions.map((action) => (
-            <Link key={action.href} href={action.href} className={styles.actionLink}>
-              {action.label}
-            </Link>
-          ))}
-        </div>
+        <HazirlaButton actions={opp.suggested_actions} />
       )}
     </article>
   );
@@ -276,12 +336,13 @@ export default function MarketingCalendarPage() {
         ) : (
           <div className={styles.timeline}>
             {Array.from(grouped.entries()).map(([monthLabel, opportunities]) => (
-              <section key={monthLabel} className={styles.monthGroup}>
-                <h2 className={styles.monthHeader}>{monthLabel}</h2>
-                {opportunities.map((opp) => (
-                  <OpportunityCard key={`${opp.date}-${opp.name}`} opp={opp} />
-                ))}
-              </section>
+              <SectionCard key={monthLabel} title={monthLabel}>
+                <div className={styles.monthCardBody}>
+                  {opportunities.map((opp) => (
+                    <OpportunityCard key={`${opp.date}-${opp.name}`} opp={opp} />
+                  ))}
+                </div>
+              </SectionCard>
             ))}
           </div>
         )}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import {
   getCreativeInsights,
   type CreativeLens,
@@ -119,11 +120,11 @@ function CreativeCard({ row }: { row: CreativeRow }) {
         </div>
       </div>
 
-      {/* Insight */}
+      {/* Insight — compact tag instead of full prose sentence */}
       {row.insight && (
-        <div className={styles.insightRow}>
-          <span className={styles.insightIcon} aria-hidden="true">i</span>
-          <span className={styles.insightText}>{row.insight}</span>
+        <div className={styles.insightTag}>
+          <span className={styles.insightTagLabel}>Analiz</span>
+          <span className={styles.insightTagText}>{row.insight}</span>
         </div>
       )}
 
@@ -195,7 +196,7 @@ export default function CreativeLensPage() {
         {loading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <div className={styles.sectionCard}>
+          <SectionCard>
             <div className={styles.stateBox}>
               <span className={styles.errorText}>{error}</span>
               <br />
@@ -203,7 +204,7 @@ export default function CreativeLensPage() {
                 Tekrar Dene
               </button>
             </div>
-          </div>
+          </SectionCard>
         ) : data ? (
           <>
             {/* Headline banner */}
@@ -236,15 +237,16 @@ export default function CreativeLensPage() {
             </div>
 
             {/* Öne Çıkan Kreatifler */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>Öne Çıkan Kreatifler</span>
+            <SectionCard
+              title="Öne Çıkan Kreatifler"
+              right={
                 <span className={styles.periodLabel}>
                   {data.period.date_from} — {data.period.date_to}
                 </span>
-              </div>
+              }
+            >
               <CreativesSection creatives={data.top_creatives} />
-            </div>
+            </SectionCard>
           </>
         ) : null}
       </main>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import {
   generateAdCopy,
   saveDraft,
@@ -18,6 +19,7 @@ import {
   type AdCopyDraft,
   type DraftStatus,
 } from '@/lib/ad-studio-api';
+import { channelColor } from '@/lib/chartColors';
 import styles from './ad-studio.module.css';
 
 // ---------------------------------------------------------------------------
@@ -187,9 +189,15 @@ function DraftRow({ draft, onRefresh, onToast }: DraftRowProps) {
       <div className={styles.draftCardMain}>
         <div className={styles.draftCardMeta}>
           <div className={styles.draftCardBadges}>
-            <span className={styles.platformBadge}>
+            <span
+              className={styles.platformBadge}
+              style={{ background: channelColor(draft.platform), color: '#fff' }}
+            >
               {draft.platform_label || PLATFORM_LABELS[draft.platform]}
             </span>
+            {draft.source === 'ai' && (
+              <span className={styles.sourceChipAiBadge}>AI</span>
+            )}
             <span
               className={`${styles.sourceChip} ${
                 draft.source === 'ai' ? styles.sourceChipAi : styles.sourceChipTemplate
@@ -280,24 +288,23 @@ function LibrarySection({ drafts, loading, error, onRefresh, onToast }: LibraryS
 
   const visible = drafts.filter((d) => filter === 'all' || d.status === filter);
 
-  return (
-    <div className={styles.librarySection}>
-      <div className={styles.librarySectionHeader}>
-        <h2 className={styles.libraryTitle}>Taslak Kütüphanesi</h2>
-        <div className={styles.filterBar}>
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className={`${styles.filterChip} ${filter === f.key ? styles.filterChipActive : ''}`}
-              onClick={() => setFilter(f.key)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+  const filterBar = (
+    <div className={styles.filterBar}>
+      {filters.map((f) => (
+        <button
+          key={f.key}
+          type="button"
+          className={`${styles.filterChip} ${filter === f.key ? styles.filterChipActive : ''}`}
+          onClick={() => setFilter(f.key)}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  );
 
+  return (
+    <SectionCard title="Taslak Kütüphanesi" right={filterBar}>
       {loading ? (
         <div className={styles.draftList}>
           {[0, 1, 2].map((i) => (
@@ -325,7 +332,7 @@ function LibrarySection({ drafts, loading, error, onRefresh, onToast }: LibraryS
           ))}
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }
 
