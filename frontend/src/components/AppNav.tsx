@@ -41,6 +41,7 @@ export const NAV_LINKS = [
   { href: '/goals', label: 'Hedefler' },
   { href: '/planning', label: 'Bütçe Planlayıcı' },
   { href: '/automation', label: 'Otomasyon' },
+  { href: '/integrations', label: 'Entegrasyonlar' },
   { href: '/connections', label: 'Bağlantılar' },
   { href: '/feeds', label: 'Feed Yönetimi' },
   { href: '/tracking', label: 'Ölçümleme' },
@@ -133,6 +134,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Veri & Entegrasyon',
     links: [
+      { href: '/integrations', label: 'Entegrasyonlar' },
       { href: '/connections', label: 'Bağlantılar' },
       { href: '/feeds', label: 'Feed Yönetimi' },
       { href: '/tracking', label: 'Ölçümleme' },

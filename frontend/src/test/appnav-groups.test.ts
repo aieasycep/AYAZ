@@ -7,7 +7,7 @@
  *  (b) every grouped href and every ACCOUNT_LINKS href exists in NAV_LINKS
  *  (c) no duplicate hrefs across groups or ACCOUNT_LINKS
  *  (d) NAV_GROUPS count === 9 and ACCOUNT_LINKS length === 6
- *      combined grouped links === NAV_LINKS.length (35)
+ *      combined grouped links === NAV_LINKS.length (36)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -29,9 +29,9 @@ describe('NAV_GROUPS integrity', () => {
     expect(ACCOUNT_LINKS).toHaveLength(6);
   });
 
-  it('(d) combined grouped links + account links equals NAV_LINKS.length (35)', () => {
+  it('(d) combined grouped links + account links equals NAV_LINKS.length (36)', () => {
     expect(allGroupedHrefs).toHaveLength(NAV_LINKS.length);
-    expect(NAV_LINKS).toHaveLength(35);
+    expect(NAV_LINKS).toHaveLength(36);
   });
 
   it('(c) no duplicate hrefs across NAV_GROUPS and ACCOUNT_LINKS', () => {
@@ -77,5 +77,12 @@ describe('NAV_GROUPS integrity', () => {
     expect(labels).toContain('Planlama');
     expect(labels).toContain('Veri & Entegrasyon');
     expect(labels).toContain('AI Asistanı');
+  });
+
+  it('Veri & Entegrasyon group contains /integrations as first link', () => {
+    const veriGroup = NAV_GROUPS.find((g) => g.label === 'Veri & Entegrasyon');
+    expect(veriGroup).toBeDefined();
+    expect(veriGroup!.links[0].href).toBe('/integrations');
+    expect(veriGroup!.links[0].label).toBe('Entegrasyonlar');
   });
 });
