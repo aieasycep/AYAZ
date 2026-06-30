@@ -46,6 +46,7 @@ export const NAV_LINKS = [
   { href: '/feeds', label: 'Feed Yönetimi' },
   { href: '/tracking', label: 'Ölçümleme' },
   { href: '/consent', label: 'KVKK Rıza Merkezi' },
+  { href: '/seo', label: 'SEO Paneli' },
   { href: '/assistant', label: 'AI Asistanı' },
   { href: '/settings', label: 'Ayarlar' },
   { href: '/workspaces', label: 'Çalışma Alanları' },
@@ -70,7 +71,7 @@ export interface NavGroup {
   links: NavGroupLink[];
 }
 
-/** 9 sidebar section groups. */
+/** 10 sidebar section groups. */
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Genel Bakış',
@@ -114,6 +115,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/funnel', label: 'Dönüşüm Hunisi' },
       { href: '/benchmark', label: 'Sektör Kıyaslama' },
       { href: '/audit', label: 'Hesap Taraması' },
+    ],
+  },
+  {
+    label: 'SEO',
+    links: [
+      { href: '/seo', label: 'SEO Paneli' },
     ],
   },
   {
@@ -255,6 +262,17 @@ function IconAI() {
   );
 }
 
+function IconSEO() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"/>
+      <line x1="16.65" y1="16.65" x2="21" y2="21"/>
+      <line x1="8" y1="11" x2="14" y2="11"/>
+      <line x1="11" y1="8" x2="11" y2="14"/>
+    </svg>
+  );
+}
+
 const GROUP_ICONS: Record<string, () => JSX.Element> = {
   'Genel Bakış': IconGenel,
   'Sosyal Medya': IconSosyal,
@@ -264,6 +282,7 @@ const GROUP_ICONS: Record<string, () => JSX.Element> = {
   'Raporlar': IconRaporlar,
   'Planlama': IconPlanlama,
   'Veri & Entegrasyon': IconVeri,
+  'SEO': IconSEO,
   'AI Asistanı': IconAI,
 };
 

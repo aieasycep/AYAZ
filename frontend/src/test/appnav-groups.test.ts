@@ -1,13 +1,13 @@
 /**
  * AppNav groups integrity test.
  *
- * Asserts that NAV_GROUPS (9 sidebar sections) + ACCOUNT_LINKS (account/utility
+ * Asserts that NAV_GROUPS (10 sidebar sections) + ACCOUNT_LINKS (account/utility
  * area) together cover every route in NAV_LINKS:
  *  (a) every NAV_LINKS href appears in exactly one group or in ACCOUNT_LINKS
  *  (b) every grouped href and every ACCOUNT_LINKS href exists in NAV_LINKS
  *  (c) no duplicate hrefs across groups or ACCOUNT_LINKS
- *  (d) NAV_GROUPS count === 9 and ACCOUNT_LINKS length === 6
- *      combined grouped links === NAV_LINKS.length (36)
+ *  (d) NAV_GROUPS count === 10 and ACCOUNT_LINKS length === 6
+ *      combined grouped links === NAV_LINKS.length (37)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -21,17 +21,17 @@ describe('NAV_GROUPS integrity', () => {
   // All reachable hrefs = nav groups + account area combined
   const allGroupedHrefs = [...groupedHrefs, ...accountHrefs];
 
-  it('(d) NAV_GROUPS count is 9', () => {
-    expect(NAV_GROUPS).toHaveLength(9);
+  it('(d) NAV_GROUPS count is 10', () => {
+    expect(NAV_GROUPS).toHaveLength(10);
   });
 
   it('(d) ACCOUNT_LINKS count is 6', () => {
     expect(ACCOUNT_LINKS).toHaveLength(6);
   });
 
-  it('(d) combined grouped links + account links equals NAV_LINKS.length (36)', () => {
+  it('(d) combined grouped links + account links equals NAV_LINKS.length (37)', () => {
     expect(allGroupedHrefs).toHaveLength(NAV_LINKS.length);
-    expect(NAV_LINKS).toHaveLength(36);
+    expect(NAV_LINKS).toHaveLength(37);
   });
 
   it('(c) no duplicate hrefs across NAV_GROUPS and ACCOUNT_LINKS', () => {
@@ -73,10 +73,23 @@ describe('NAV_GROUPS integrity', () => {
     expect(labels).toContain('Reklam');
     expect(labels).toContain('Kreatif');
     expect(labels).toContain('Analiz');
+    expect(labels).toContain('SEO');
     expect(labels).toContain('Raporlar');
     expect(labels).toContain('Planlama');
     expect(labels).toContain('Veri & Entegrasyon');
     expect(labels).toContain('AI Asistanı');
+  });
+
+  it('SEO group contains /seo as its first link', () => {
+    const seoGroup = NAV_GROUPS.find((g) => g.label === 'SEO');
+    expect(seoGroup).toBeDefined();
+    expect(seoGroup!.links[0].href).toBe('/seo');
+    expect(seoGroup!.links[0].label).toBe('SEO Paneli');
+  });
+
+  it('/seo is present in NAV_LINKS', () => {
+    const hrefs = NAV_LINKS.map((l) => l.href);
+    expect(hrefs).toContain('/seo');
   });
 
   it('Veri & Entegrasyon group contains /integrations as first link', () => {
