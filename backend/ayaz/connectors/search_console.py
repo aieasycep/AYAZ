@@ -385,6 +385,74 @@ class SearchConsoleConnector(Connector):
 
         return records
 
+    def fetch_query_page(
+        self,
+        since: date,
+        until: date,
+    ) -> list[dict[str, Any]]:
+        """Fetch query+page-level rows from Search Console.
+
+        Uses ``dimensions=["date", "query", "page"]`` to produce one row per
+        (date, query, page) combination.  These rows are stored in
+        ``seo_search_metrics`` by the sync pipeline.
+
+        Each returned dict contains: ``date``, ``query``, ``page``,
+        ``clicks``, ``impressions``, ``ctr``, ``position``.
+
+        Parameters
+        ----------
+        since:
+            Inclusive start date (UTC).
+        until:
+            Inclusive end date (UTC).
+
+        Returns
+        -------
+        list[dict]
+            Flat dicts with date, query, page, and metric fields.
+        """
+        payload: dict[str, Any] = {
+            "startDate": since.isoformat(),
+            "endDate": until.isoformat(),
+            "dimensions": ["date", "query", "page"],
+            "rowLimit": _ROW_LIMIT,
+        }
+
+        resp = httpx.post(
+            self._query_url(),
+            headers=self._auth_headers(),
+            json=payload,
+            timeout=60,
+        )
+        resp.raise_for_status()
+        body: dict[str, Any] = resp.json()
+        raw_rows: list[dict[str, Any]] = body.get("rows", [])
+
+        # Flatten: keys=[date, query, page]
+        result: list[dict[str, Any]] = []
+        for row in raw_rows:
+            keys = row.get("keys", [])
+            if len(keys) < 3:
+                continue
+            result.append({
+                "date": keys[0],
+                "query": keys[1],
+                "page": keys[2],
+                "clicks": int(row.get("clicks", 0)),
+                "impressions": int(row.get("impressions", 0)),
+                "ctr": float(row.get("ctr", 0.0)),
+                "position": float(row.get("position", 0.0)),
+            })
+
+        logger.info(
+            "%s fetch_query_page: %d rows between %s and %s",
+            self._log_prefix(),
+            len(result),
+            since.isoformat(),
+            until.isoformat(),
+        )
+        return result
+
     def incremental_state(self) -> dict[str, Any]:
         """Return the watermark cursor from the last ``fetch()`` call.
 

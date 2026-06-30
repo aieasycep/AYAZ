@@ -39,6 +39,7 @@ import ayaz.integrations.google_bundle  # noqa: F401  — registers google_works
 import ayaz.integrations.slack          # noqa: F401  — registers "slack"
 import ayaz.integrations.google_sheets  # noqa: F401  — registers "google_sheets"
 import ayaz.integrations.gmail          # noqa: F401  — registers "gmail"
+import ayaz.integrations.dataforseo     # noqa: F401  — registers "dataforseo" (SEO category)
 
 __all__ = [
     "ActionContext",

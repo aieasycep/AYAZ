@@ -89,6 +89,9 @@ from ayaz.models.integrations import (  # noqa: F401
     IntegrationRequest,
     ProviderGrant,
 )
+from ayaz.models.seo import (  # noqa: F401
+    SeoSearchMetric,
+)
 
 __all__ = [
     "Base",
@@ -138,4 +141,5 @@ __all__ = [
     "ProviderGrant",
     "IntegrationConnection",
     "IntegrationRequest",
+    "SeoSearchMetric",
 ]

@@ -387,6 +387,26 @@ def sync_connected_account(
             latest_date = max(r.date_key for r in all_records)
             account.watermark = latest_date.isoformat()
 
+        # 5b. For Search Console: also ingest query+page-level data into
+        # seo_search_metrics using the "search_query_metrics" extended stream.
+        # This is a best-effort step — failure does not roll back the main sync.
+        if platform_key == "search_console":
+            try:
+                gsc_rows = connector.fetch_query_page(since=since, until=until)
+                from ayaz.services.seo import store_gsc_rows
+                gsc_written = store_gsc_rows(db, tenant_id, gsc_rows)
+                logger.info(
+                    "[sync] GSC seo_search_metrics: wrote %d rows for tenant=%s",
+                    gsc_written,
+                    tenant_id,
+                )
+            except Exception:
+                logger.warning(
+                    "[sync] GSC seo_search_metrics ingest skipped (connector not authenticated "
+                    "or fetch_query_page not available) for account=%s",
+                    account.id,
+                )
+
         # 6. Mark success
         account.sync_status = SyncStatus.success
         db.commit()

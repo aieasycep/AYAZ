@@ -102,6 +102,8 @@ from ayaz.models.oltp import (
 from ayaz.services.auth import hash_password
 from ayaz.services.feeds import ingest_feed_source
 from ayaz.services.insights import generate_insights
+from ayaz.models.seo import SeoSearchMetric  # noqa: F401 — ensure table known to metadata
+from ayaz.services.seo import store_gsc_rows
 from ayaz.services.tracking import compute_match_quality, hash_identity
 from ayaz.services.sync import (
     _ensure_dim_date,
@@ -1888,6 +1890,92 @@ def _seed_reports(db, tenant: Tenant, user: User) -> dict:
     return counts
 
 
+# ── SEO seed ──────────────────────────────────────────────────────────────────
+
+# Realistic Turkish e-commerce search queries with their pages for demo data.
+# Covers striking-distance, low-CTR, and cannibalization scenarios.
+_SEO_QUERIES: list[dict] = [
+    # High-traffic brand queries (top performers)
+    {"query": "ayaz demo mağaza", "page": "https://demo.ayaz.app/", "base_clicks": 85, "base_impressions": 980, "base_position": 1.8},
+    {"query": "demo ürünler online", "page": "https://demo.ayaz.app/urunler", "base_clicks": 60, "base_impressions": 720, "base_position": 2.5},
+    # Striking distance — position 8-20
+    {"query": "ucuz spor ayakkabı", "page": "https://demo.ayaz.app/kategori/spor", "base_clicks": 12, "base_impressions": 580, "base_position": 9.2},
+    {"query": "en iyi koşu ayakkabısı", "page": "https://demo.ayaz.app/kategori/kosu", "base_clicks": 8, "base_impressions": 410, "base_position": 12.5},
+    {"query": "kadın spor giyim indirim", "page": "https://demo.ayaz.app/kadin-spor", "base_clicks": 6, "base_impressions": 320, "base_position": 15.3},
+    {"query": "erkek forma satın al", "page": "https://demo.ayaz.app/erkek/forma", "base_clicks": 9, "base_impressions": 280, "base_position": 11.8},
+    {"query": "spor tayt ucuz", "page": "https://demo.ayaz.app/kadin/tayt", "base_clicks": 5, "base_impressions": 190, "base_position": 18.7},
+    # Low CTR — high impressions, low clicks, top-10 position
+    {"query": "online spor mağazası", "page": "https://demo.ayaz.app/", "base_clicks": 3, "base_impressions": 850, "base_position": 5.1},
+    {"query": "spor malzemeleri", "page": "https://demo.ayaz.app/urunler", "base_clicks": 4, "base_impressions": 920, "base_position": 6.4},
+    {"query": "fitness ekipmanları", "page": "https://demo.ayaz.app/fitness", "base_clicks": 2, "base_impressions": 640, "base_position": 7.8},
+    # Cannibalization — same query, multiple pages
+    {"query": "koşu bandı fiyat", "page": "https://demo.ayaz.app/urunler/kosu-bandi", "base_clicks": 15, "base_impressions": 340, "base_position": 4.2},
+    {"query": "koşu bandı fiyat", "page": "https://demo.ayaz.app/kategori/fitness/kosu-bandlari", "base_clicks": 7, "base_impressions": 180, "base_position": 7.9},
+    {"query": "yoga matı", "page": "https://demo.ayaz.app/urunler/yoga-mati", "base_clicks": 22, "base_impressions": 260, "base_position": 3.1},
+    {"query": "yoga matı", "page": "https://demo.ayaz.app/yoga", "base_clicks": 9, "base_impressions": 145, "base_position": 6.5},
+    # Good performers (context)
+    {"query": "spor çorap toplu alım", "page": "https://demo.ayaz.app/corap", "base_clicks": 34, "base_impressions": 210, "base_position": 2.1},
+    {"query": "dambıl seti", "page": "https://demo.ayaz.app/agirlik/dambilar", "base_clicks": 28, "base_impressions": 175, "base_position": 2.8},
+    {"query": "protein tozu türkiye", "page": "https://demo.ayaz.app/beslenme/protein", "base_clicks": 19, "base_impressions": 155, "base_position": 3.4},
+    {"query": "spor su şişesi", "page": "https://demo.ayaz.app/aksesuar/su-sisesi", "base_clicks": 41, "base_impressions": 280, "base_position": 1.5},
+]
+
+_SEO_SEED_END_DATE = date(2026, 6, 25)
+_SEO_SEED_START_DATE = _SEO_SEED_END_DATE - timedelta(days=44)  # 45 days
+
+
+def _seo_noise(base: float, day_idx: int, query_idx: int) -> float:
+    """Deterministic multiplicative noise in ±15%."""
+    factor = 1.0 + 0.15 * (((day_idx * 7 + query_idx * 11) % 17) - 8) / 8.0
+    return max(0.0, base * factor)
+
+
+def _seed_seo_metrics(db, tenant: Tenant) -> int:
+    """Insert 45 days of demo GSC search metrics into seo_search_metrics.
+
+    Idempotent: rows already present are updated, not duplicated.
+    Returns total rows written.
+    """
+    from sqlalchemy import func as _func
+
+    # Check if data already exists to be idempotent
+    existing_count = db.scalar(
+        select(_func.count()).select_from(SeoSearchMetric).where(
+            SeoSearchMetric.tenant_id == tenant.id
+        )
+    ) or 0
+
+    rows_to_write = []
+    for day_idx in range(45):
+        d = _SEO_SEED_START_DATE + timedelta(days=day_idx)
+        for q_idx, spec in enumerate(_SEO_QUERIES):
+            impressions = max(1, int(_seo_noise(spec["base_impressions"], day_idx, q_idx)))
+            clicks = max(0, int(_seo_noise(spec["base_clicks"], day_idx, q_idx + 3)))
+            clicks = min(clicks, impressions)
+            # Apply position drift: last 10 days improve some striking-distance queries
+            pos = spec["base_position"]
+            if day_idx >= 35 and 8.0 <= pos <= 20.0:
+                # gradual improvement for top_movers signal
+                pos = max(1.0, pos - (day_idx - 34) * 0.3)
+            pos = round(_seo_noise(pos, day_idx, q_idx + 7), 2)
+            ctr = round(clicks / impressions, 4) if impressions > 0 else 0.0
+            rows_to_write.append({
+                "date": d.isoformat(),
+                "query": spec["query"],
+                "page": spec["page"],
+                "clicks": clicks,
+                "impressions": impressions,
+                "ctr": ctr,
+                "position": pos,
+            })
+
+    if existing_count >= len(rows_to_write) // 2:
+        # Likely already seeded — still call store_gsc_rows for update semantics
+        print(f"  SEO metrics: {existing_count} rows already present — refreshing...")
+
+    return store_gsc_rows(db, tenant.id, rows_to_write)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -2105,6 +2193,17 @@ def run_seed() -> None:
             f"rules={feed_counts['rules']}"
         )
 
+        # ── Step 6b: SEO demo data (seo_search_metrics) ──────────────────────
+        print("\n[6b/7] Seeding SEO search metrics (GSC demo rows, 45 days)...")
+        try:
+            seo_count = _seed_seo_metrics(db, tenant)
+            db.commit()
+            summary["seo_metrics"] = seo_count
+            print(f"  SEO metrics: {seo_count} rows written (idempotent)")
+        except Exception as _seo_err:
+            print(f"  WARNING: SEO seed skipped — {_seo_err}")
+            db.rollback()
+
         # ── Step 7: Insights ──────────────────────────────────────────────────
         print("\n[7/7] Generating insights (running all detectors)...")
         insight_counts = generate_insights(
@@ -2172,6 +2271,10 @@ def run_seed() -> None:
     print("Reports:")
     print(f"  Definitions : {rpts.get('report_definitions', 0) or '(already existed)'}")
     print(f"  Shared link : /api/v1/reports/public/{_SHARED_REPORT_TOKEN}")
+    print()
+    seo = summary.get("seo_metrics", 0)
+    print("SEO search metrics (seo_search_metrics):")
+    print(f"  Rows : {seo} (18 queries x 45 days = {18*45} expected)")
     print()
     print("Demo login credentials:")
     print(f"  Email    : {DEMO_EMAIL}")
