@@ -39,6 +39,7 @@ celery_app = Celery(
         "ayaz.tasks.automation_tasks",
         "ayaz.tasks.briefing_tasks",
         "ayaz.tasks.token_refresh",
+        "ayaz.tasks.shield_tasks",
     ],
 )
 
@@ -85,6 +86,14 @@ celery_app.conf.beat_schedule = {
     "refresh-due-grants": {
         "task": "ayaz.tasks.token_refresh.refresh_due_grants",
         "schedule": crontab(minute="*/15"),
+        "options": {"queue": "beat"},
+    },
+    # Usage shield: check limits and idle connectors for all tenants daily.
+    # Runs at 00:15 UTC (after midnight, before daily briefings at 07:00).
+    # Each tenant's check is fan-out as an independent task.
+    "usage-shield-daily": {
+        "task": "ayaz.tasks.shield_tasks.check_shield_all_tenants",
+        "schedule": crontab(minute=15, hour=0),
         "options": {"queue": "beat"},
     },
 }

@@ -55,6 +55,7 @@ from ayaz.api.v1 import marketing_calendar as marketing_calendar_router
 from ayaz.api.v1 import health_index as health_index_router
 from ayaz.api.v1 import integrations as integrations_router
 from ayaz.api.v1 import data_quality as data_quality_router
+from ayaz.api.v1 import usage_shield as usage_shield_router
 from ayaz.config import settings
 from ayaz.observability import (
     RequestIDMiddleware,
@@ -140,6 +141,7 @@ app.include_router(marketing_calendar_router.router, prefix=_PREFIX)
 app.include_router(health_index_router.router, prefix=_PREFIX)
 app.include_router(integrations_router.router, prefix=_PREFIX)
 app.include_router(data_quality_router.router, prefix=_PREFIX)
+app.include_router(usage_shield_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
