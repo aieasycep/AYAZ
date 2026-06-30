@@ -614,6 +614,7 @@ export default function AppNav() {
       <nav
         className={styles.sidebar}
         aria-label="Ana menü"
+        data-app-sidebar
       >
         {/* Brand */}
         <div className={styles.sidebarBrand}>

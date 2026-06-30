@@ -353,14 +353,17 @@ textarea:focus-visible,
 
 /* ============================================================
    Sidebar layout offset — desktop ≥ 1024px
-   The fixed left sidebar is 248px wide. Shift all page content
-   to the right so it never overlaps the sidebar.
-   The sticky top strip (52px) is rendered as the first child
-   inside each page's own flow — no extra top padding needed here.
+   The fixed left sidebar is 248px wide. Shift page content right so
+   it never overlaps the sidebar — but ONLY on pages that actually
+   render the sidebar. `body:has([data-app-sidebar])` matches the
+   server-rendered sidebar <nav>, so auth pages (login/signup) and the
+   landing page — which have no sidebar — keep full width and no blank
+   left band. Using :has() (not a JS-toggled class) means the offset is
+   correct on first paint with no hydration flash.
    ============================================================ */
 
 @media (min-width: 1024px) {
-  body {
+  body:has([data-app-sidebar]) {
     padding-left: 248px;
   }
 }
