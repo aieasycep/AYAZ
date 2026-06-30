@@ -45,6 +45,8 @@ function severityStripeClass(severity: NotificationSeverity): string {
       return styles.stripeCritical;
     case 'warning':
       return styles.stripeWarning;
+    case 'limit':
+      return styles.stripePlan;
     default:
       return styles.stripeInfo;
   }
@@ -56,6 +58,8 @@ function severityLabel(severity: NotificationSeverity): string {
       return 'Kritik';
     case 'warning':
       return 'Uyarı';
+    case 'limit':
+      return 'Limit';
     default:
       return 'Bilgi';
   }
@@ -73,6 +77,7 @@ const SEVERITY_OPTS: { value: SeverityFilter; label: string }[] = [
   { value: 'info', label: 'Bilgi' },
   { value: 'warning', label: 'Uyarı' },
   { value: 'critical', label: 'Kritik' },
+  { value: 'limit', label: 'Limit' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -296,6 +301,17 @@ export default function NotificationsPage() {
                         <span className={styles.time}>
                           {formatRelativeTr(n.created_at)}
                         </span>
+                        {(n.severity === 'critical' || n.severity === 'warning') && n.link && (
+                          <span className={styles.goRow}>
+                            <a
+                              href={n.link}
+                              className={styles.goBtn}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Git &rarr;
+                            </a>
+                          </span>
+                        )}
                       </span>
 
                       {/* Unread dot */}

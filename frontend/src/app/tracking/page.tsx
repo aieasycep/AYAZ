@@ -832,6 +832,7 @@ function SourceDetailPanel({ source: initialSource, onSourceUpdated }: { source:
   const [destError, setDestError] = useState<string | null>(null);
   const [showDestForm, setShowDestForm] = useState(false);
   const [deletingDestId, setDeletingDestId] = useState<string | null>(null);
+  const [expandedDestIds, setExpandedDestIds] = useState<Set<string>>(new Set());
 
   const [stats, setStats] = useState<TrackingStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -947,21 +948,38 @@ function SourceDetailPanel({ source: initialSource, onSourceUpdated }: { source:
               <div className={styles.stateBoxSm}><span className={styles.muted}>Henüz hedef eklenmedi.</span></div>
             ) : (
               <div className={styles.destList}>
-                {destinations.map((dest) => (
-                  <div key={dest.id} className={styles.destCard}>
-                    <div className={styles.destRow}>
-                      <span className={styles.destPlatformBadge}>{PLATFORM_LABELS[dest.platform] ?? dest.platform}</span>
-                      <span className={styles.destConfig}>{destConfigSummary(dest.platform, dest.config)}</span>
-                      <span className={`${styles.consentBadge} ${dest.consent_required ? styles.consentOn : styles.consentOff}`}>
-                        {dest.consent_required ? 'KVKK rıza' : 'Rıza yok'}
-                      </span>
-                      <button className={styles.dangerBtn} disabled={deletingDestId === dest.id} onClick={() => handleDeleteDest(dest.id)}>
-                        {deletingDestId === dest.id ? '...' : 'Sil'}
-                      </button>
+                {destinations.map((dest) => {
+                  const isExpanded = expandedDestIds.has(dest.id);
+                  return (
+                    <div key={dest.id} className={styles.destCard}>
+                      <div className={styles.destRow}>
+                        <span className={styles.destPlatformBadge}>{PLATFORM_LABELS[dest.platform] ?? dest.platform}</span>
+                        <span className={styles.destConfig}>{destConfigSummary(dest.platform, dest.config)}</span>
+                        <span className={`${styles.consentBadge} ${dest.consent_required ? styles.consentOn : styles.consentOff}`}>
+                          {dest.consent_required ? 'KVKK rıza' : 'Rıza yok'}
+                        </span>
+                        <button
+                          className={styles.destExpandBtn}
+                          aria-expanded={isExpanded}
+                          onClick={() => setExpandedDestIds((prev) => {
+                            const n = new Set(prev);
+                            n.has(dest.id) ? n.delete(dest.id) : n.add(dest.id);
+                            return n;
+                          })}
+                          aria-label={isExpanded ? 'Rıza sinyallerini gizle' : 'Rıza sinyallerini göster'}
+                        >
+                          {isExpanded ? '▲' : '▼'}
+                        </button>
+                        <button className={styles.dangerBtn} disabled={deletingDestId === dest.id} onClick={() => handleDeleteDest(dest.id)}>
+                          {deletingDestId === dest.id ? '...' : 'Sil'}
+                        </button>
+                      </div>
+                      {isExpanded && (
+                        <DestConsentSignals dest={dest} onSaved={(updated) => setDestinations((prev) => prev.map((d) => (d.id === updated.id ? updated : d)))} />
+                      )}
                     </div>
-                    <DestConsentSignals dest={dest} onSaved={(updated) => setDestinations((prev) => prev.map((d) => (d.id === updated.id ? updated : d)))} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {showDestForm ? (

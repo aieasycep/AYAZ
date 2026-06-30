@@ -20,6 +20,7 @@ import {
 } from '@/lib/automation-api';
 import AppNav from '@/components/AppNav';
 import EmptyState from '@/components/EmptyState';
+import SuggestionsStrip from '@/components/SuggestionsStrip';
 import styles from './automation.module.css';
 
 // ---------------------------------------------------------------------------
@@ -975,6 +976,15 @@ export default function AutomationPage() {
             </div>
           )}
         </section>
+
+        <SuggestionsStrip
+          title="Örnek otomasyonlar"
+          suggestions={[
+            { label: 'ROAS < 2x olunca uyar', href: '/automation' },
+            { label: 'Bütçe aşımı alertı', href: '/automation' },
+            { label: 'Dönüşüm düşüşü tespit', href: '/automation' },
+          ]}
+        />
       </main>
     </div>
   );

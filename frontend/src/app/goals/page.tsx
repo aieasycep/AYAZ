@@ -17,6 +17,7 @@ import {
   type CreateGoalPayload,
 } from '@/lib/goals-api';
 import AppNav from '@/components/AppNav';
+import SuggestionsStrip from '@/components/SuggestionsStrip';
 import styles from './goals.module.css';
 
 // --- Formatters ---
@@ -498,6 +499,15 @@ export default function GoalsPage() {
             </div>
           )}
         </section>
+
+        <SuggestionsStrip
+          title="Örnek hedefler"
+          suggestions={[
+            { label: 'Aylık ₺500K gelir hedefi', href: '/goals' },
+            { label: 'ROAS hedefi koy', href: '/goals' },
+            { label: 'Dönüşüm hedefi izle', href: '/goals' },
+          ]}
+        />
       </main>
 
       {/* New goal form modal */}

@@ -125,21 +125,62 @@ interface UsageBarProps {
 }
 
 function UsageBar({ used, limit }: UsageBarProps) {
-  const pct = limit == null ? 0 : Math.min(100, (used / limit) * 100);
-  const fillClass =
-    pct >= 90
-      ? styles.usageBarFillDanger
-      : pct >= 70
-      ? styles.usageBarFillWarning
-      : styles.usageBarFill;
+  const pct = limit == null ? 0 : (used / limit) * 100;
+  const pctDisplay = limit == null ? 0 : Math.min(100, Math.round(pct));
 
+  // >= 100%: critical shield panel
+  if (limit !== null && pct >= 100) {
+    return (
+      <div className={styles.usageShieldPanel}>
+        <div className={styles.usageShieldHeader}>
+          <span className={styles.usageShieldIcon} aria-hidden="true">!</span>
+          <span className={styles.usageShieldTitle}>Plan Limitini Aştınız</span>
+        </div>
+        <div className={styles.usageShieldStats}>
+          {used} bağlı kaynak / limit: {limit}
+        </div>
+        <div className={styles.usageBarTrack}>
+          <div className={`${styles.usageBarFill} ${styles.usageBarFillDanger}`} style={{ width: '100%' }} />
+        </div>
+        <div className={styles.usageShieldConsequence}>
+          Yeni verileri senkronize etmek için planınızı yükseltin.
+        </div>
+        <a href="#plan-comparison" className={styles.usageShieldBtn}>
+          Hemen Yükselt
+        </a>
+      </div>
+    );
+  }
+
+  // 80-99%: warning bar + amber note
+  if (limit !== null && pct >= 80) {
+    return (
+      <div className={styles.usageBox}>
+        <div className={styles.usageLabel}>Kaynak Kullanımı</div>
+        <div className={styles.usageBarTrack}>
+          <div
+            className={`${styles.usageBarFill} ${styles.usageBarFillWarning}`}
+            style={{ width: `${pctDisplay}%` }}
+          />
+        </div>
+        <div className={styles.usageText}>
+          {used} kaynak kullanımda · plan limiti {limit}
+        </div>
+        <div className={styles.usageWarningNote}>
+          Limite yaklaşıyorsunuz — limitin %{pctDisplay}&apos;ini kullandınız.
+        </div>
+      </div>
+    );
+  }
+
+  // <80%: quiet bar (original)
   return (
     <div className={styles.usageBox}>
       <div className={styles.usageLabel}>Kaynak Kullanımı</div>
       <div className={styles.usageBarTrack}>
         <div
-          className={`${styles.usageBarFill} ${fillClass}`}
-          style={{ width: limit == null ? '0%' : `${pct}%` }}
+          className={`${styles.usageBarFill} ${styles.usageBarFill}`}
+          style={{ width: limit == null ? '0%' : `${pctDisplay}%` }}
         />
       </div>
       <div className={styles.usageText}>
@@ -460,7 +501,7 @@ export default function BillingPage() {
         </SectionCard>
 
         {/* Plan comparison section */}
-        <SectionCard title="Plan Karşılaştırma">
+        <div id="plan-comparison"><SectionCard title="Plan Karşılaştırma">
           {upgradeError && (
             <div className={styles.errorText} style={{ marginBottom: '1rem' }}>
               {upgradeError}
@@ -497,7 +538,7 @@ export default function BillingPage() {
               ))}
             </div>
           )}
-        </SectionCard>
+        </SectionCard></div>
       </main>
 
       {showCancelDialog && (

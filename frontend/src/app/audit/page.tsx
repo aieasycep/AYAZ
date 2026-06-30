@@ -284,9 +284,24 @@ export default function AuditPage() {
 
             {/* Category cards */}
             <div className={styles.categoryGrid}>
-              {data.categories.map((category) => (
-                <CategoryCard key={category.key} category={category} />
-              ))}
+              {(() => {
+                // Reorder: veri_kalitesi / data_quality comes position 2 (after index 0)
+                const dqIdx = data.categories.findIndex(
+                  (c) => c.key === 'veri_kalitesi' || c.key === 'data_quality',
+                );
+                const orderedCategories =
+                  dqIdx <= 1
+                    ? data.categories
+                    : (() => {
+                        const reordered = [...data.categories];
+                        const [dqCat] = reordered.splice(dqIdx, 1);
+                        reordered.splice(1, 0, dqCat);
+                        return reordered;
+                      })();
+                return orderedCategories.map((category) => (
+                  <CategoryCard key={category.key} category={category} />
+                ));
+              })()}
             </div>
           </>
         ) : null}

@@ -22,6 +22,7 @@ import {
 } from '@/lib/budget-api';
 import AppNav from '@/components/AppNav';
 import EmptyState from '@/components/EmptyState';
+import SuggestionsStrip from '@/components/SuggestionsStrip';
 import styles from './planning.module.css';
 
 // --- Currency formatter ---
@@ -923,6 +924,15 @@ export default function PlanningPage() {
             ) : null}
           </div>
         )}
+
+        <SuggestionsStrip
+          title="Planlama araçları"
+          suggestions={[
+            { label: 'Bütçe simülatörü', href: '/budget-simulator' },
+            { label: 'Kanal performansı', href: '/ads' },
+            { label: 'Hedefler', href: '/goals' },
+          ]}
+        />
       </main>
     </div>
   );

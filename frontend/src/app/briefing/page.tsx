@@ -16,6 +16,7 @@ import {
 import { parseApiError } from '@/lib/parseApiError';
 import AppNav from '@/components/AppNav';
 import EmptyState from '@/components/EmptyState';
+import SuggestionsStrip from '@/components/SuggestionsStrip';
 import styles from './briefing.module.css';
 
 // --- Formatters ---
@@ -441,6 +442,15 @@ export default function BriefingPage() {
             )}
           </div>
         </section>
+
+        <SuggestionsStrip
+          title="İçerik önerileri"
+          suggestions={[
+            { label: 'Kampanya özeti', href: '/ads' },
+            { label: 'İçgörüler ve uyarılar', href: '/insights' },
+            { label: 'Raporlar', href: '/reports' },
+          ]}
+        />
       </main>
 
       {/* Toast notification */}

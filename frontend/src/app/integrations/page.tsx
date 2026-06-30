@@ -518,7 +518,7 @@ function WizardPanel({ catalog, onConnect, onDismiss }: WizardPanelProps) {
           </div>
         </div>
 
-        <div className={styles.wizardStep}>
+        <div className={`${styles.wizardStep} ${connectedCount < 1 ? styles.wizardStepInactive : ''}`}>
           <div className={`${styles.wizardStepNum} ${connectedCount >= 2 ? styles.wizardStepNumDone : ''}`}>
             {connectedCount >= 2 ? '✓' : '2'}
           </div>
@@ -530,7 +530,7 @@ function WizardPanel({ catalog, onConnect, onDismiss }: WizardPanelProps) {
           </div>
         </div>
 
-        <div className={styles.wizardStep}>
+        <div className={`${styles.wizardStep} ${connectedCount < 2 ? styles.wizardStepInactive : ''}`}>
           <div className={`${styles.wizardStepNum} ${connectedCount >= 3 ? styles.wizardStepNumDone : ''}`}>
             {connectedCount >= 3 ? '✓' : '3'}
           </div>

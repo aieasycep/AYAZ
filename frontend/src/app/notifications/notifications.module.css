@@ -331,6 +331,45 @@
   color: var(--color-danger-text);
 }
 
+.badge_limit {
+  background: var(--color-ai-bg);
+  color: var(--color-ai-text);
+}
+
+.stripePlan {
+  background: var(--color-ai);
+}
+
+/* Inline "Git →" ghost button for critical/warning rows */
+.goBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  cursor: pointer;
+  transition: all 0.13s;
+  white-space: nowrap;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.goBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.goRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
 /* ---- Unread dot ---- */
 
 .unreadDot {

@@ -328,6 +328,8 @@
 
 .tableWrap {
   overflow-x: auto;
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .table {
@@ -593,6 +595,7 @@
   text-align: left;
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
+  background: var(--color-surface-2);
 }
 
 .auditTable td {

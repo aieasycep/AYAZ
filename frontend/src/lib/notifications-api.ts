@@ -41,7 +41,7 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 // --- Types ---
 
-export type NotificationSeverity = 'info' | 'warning' | 'critical';
+export type NotificationSeverity = 'info' | 'warning' | 'critical' | 'limit';
 
 export interface NotificationOut {
   id: string;

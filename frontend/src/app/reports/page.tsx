@@ -23,6 +23,7 @@ import ChannelTable from '@/components/ChannelTable';
 import AppNav from '@/components/AppNav';
 import EmptyState from '@/components/EmptyState';
 import SectionCard from '@/components/SectionCard';
+import SuggestionsStrip from '@/components/SuggestionsStrip';
 import { parseApiError } from '@/lib/parseApiError';
 import styles from './reports.module.css';
 
@@ -870,6 +871,15 @@ export default function ReportsPage() {
             </div>
           </section>
         )}
+
+        <SuggestionsStrip
+          title="Başlamak için"
+          suggestions={[
+            { label: 'Rapor Oluşturucu ile sorgu yaz', href: '/report-builder' },
+            { label: 'Kampanya performansını gör', href: '/ads' },
+            { label: 'Panel özeti', href: '/dashboard' },
+          ]}
+        />
       </main>
     </div>
   );

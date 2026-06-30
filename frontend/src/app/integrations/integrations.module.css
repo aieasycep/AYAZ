@@ -263,18 +263,21 @@
 
 .wizardDismiss {
   background: transparent;
-  border: none;
+  border: 1.5px solid var(--color-border);
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  line-height: 1;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius);
+  line-height: 1.4;
   font-size: var(--text-sm);
-  transition: color 0.15s;
+  font-weight: var(--fw-medium);
+  transition: all 0.15s;
+  white-space: nowrap;
 }
 
 .wizardDismiss:hover {
-  color: var(--color-text);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .wizardBody {
@@ -311,6 +314,12 @@
 .wizardStepContent {
   flex: 1;
   min-width: 0;
+}
+
+/* Muted inactive wizard steps */
+.wizardStepInactive {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .wizardStepLabel {
