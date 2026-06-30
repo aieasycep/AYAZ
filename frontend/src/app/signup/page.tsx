@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signup, setToken, getToken } from '@/lib/api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './signup.module.css';
 
 export default function SignupPage() {
@@ -62,15 +63,15 @@ export default function SignupPage() {
         ...(fullName.trim() ? { full_name: fullName.trim() } : {}),
       });
       setToken(res.access_token);
-      router.push('/dashboard');
+      router.push('/onboarding');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Kayıt başarısız';
+      const message = parseApiError(err);
 
       if (
         message.includes('zaten kullanımda') ||
         message.includes('Bu e-posta adresi zaten')
       ) {
-        // 409 duplicate email
+        // 409 duplicate email — surface inline link to login
         setError(
           <>
             Bu e-posta zaten kayıtlı —{' '}
@@ -80,13 +81,6 @@ export default function SignupPage() {
             .
           </>,
         );
-      } else if (
-        message.includes('429') ||
-        message.includes('çok fazla') ||
-        message.toLowerCase().includes('rate limit')
-      ) {
-        // 429 rate-limited
-        setError('Çok fazla deneme, biraz sonra tekrar deneyin.');
       } else {
         setError(message);
       }
