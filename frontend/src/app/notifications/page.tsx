@@ -98,6 +98,9 @@ export default function NotificationsPage() {
   const [readFilter, setReadFilter] = useState<ReadFilter>('all');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
 
+  // --- Expanded body state ---
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
   // --- Fetch ---
 
   const fetchNotifications = useCallback(async () => {
@@ -202,45 +205,32 @@ export default function NotificationsPage() {
 
         {/* Filter bar */}
         <div className={styles.filterBar} role="group" aria-label="Filtreler">
-          {/* Read / Unread toggle */}
-          <div className={styles.segmentGroup} role="group" aria-label="Okunma durumu">
-            <button
-              className={`${styles.segmentBtn} ${readFilter === 'all' ? styles.segmentBtnActive : ''}`}
-              onClick={() => setReadFilter('all')}
-              aria-pressed={readFilter === 'all'}
-            >
-              Tümü
-              <span className={styles.filterCount}>{notifications.length}</span>
-            </button>
-            <button
-              className={`${styles.segmentBtn} ${readFilter === 'unread' ? styles.segmentBtnActive : ''}`}
-              onClick={() => setReadFilter('unread')}
-              aria-pressed={readFilter === 'unread'}
-            >
-              Okunmamış
-              {unreadCount > 0 && (
-                <span className={`${styles.filterCount} ${styles.filterCountUnread}`}>
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          </div>
-
+          <button
+            className={`${styles.segmentBtn} ${readFilter === 'all' ? styles.segmentBtnActive : ''}`}
+            onClick={() => setReadFilter('all')}
+            aria-pressed={readFilter === 'all'}
+          >
+            Tümü <span className={styles.filterCount}>{notifications.length}</span>
+          </button>
+          <button
+            className={`${styles.segmentBtn} ${readFilter === 'unread' ? styles.segmentBtnActive : ''}`}
+            onClick={() => setReadFilter('unread')}
+            aria-pressed={readFilter === 'unread'}
+          >
+            Okunmamış
+            {unreadCount > 0 && <span className={`${styles.filterCount} ${styles.filterCountUnread}`}>{unreadCount}</span>}
+          </button>
           <span className={styles.filterSep} aria-hidden="true" />
-
-          {/* Severity filter */}
-          <div className={styles.severityGroup} role="group" aria-label="Önem seviyesi">
-            {SEVERITY_OPTS.map((opt) => (
-              <button
-                key={opt.value}
-                className={`${styles.filterBtn} ${severityFilter === opt.value ? styles.filterBtnActive : ''}`}
-                onClick={() => setSeverityFilter(opt.value)}
-                aria-pressed={severityFilter === opt.value}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {SEVERITY_OPTS.map((opt) => (
+            <button
+              key={opt.value}
+              className={`${styles.segmentBtn} ${severityFilter === opt.value ? styles.segmentBtnActive : ''}`}
+              onClick={() => setSeverityFilter(opt.value)}
+              aria-pressed={severityFilter === opt.value}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
         {/* List section */}
@@ -287,7 +277,21 @@ export default function NotificationsPage() {
                           </span>
                         </span>
                         {n.body && (
-                          <span className={styles.body}>{n.body}</span>
+                          <span className={`${styles.body} ${expandedIds.has(n.id) ? '' : styles.bodyTruncated}`}>
+                            {n.body}
+                          </span>
+                        )}
+                        {n.body && n.body.length > 120 && !expandedIds.has(n.id) && (
+                          <button
+                            type="button"
+                            className={styles.expandBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedIds((prev) => { const s = new Set(prev); s.add(n.id); return s; });
+                            }}
+                          >
+                            Devamını oku
+                          </button>
                         )}
                         <span className={styles.time}>
                           {formatRelativeTr(n.created_at)}

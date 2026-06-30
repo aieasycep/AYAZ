@@ -12,6 +12,7 @@ import {
   type Subscription,
   type SubscriptionStatus,
 } from '@/lib/billing-api';
+import SectionCard from '@/components/SectionCard';
 import styles from './billing.module.css';
 
 // ---- helpers ----
@@ -54,6 +55,31 @@ const STATUS_CSS: Record<SubscriptionStatus, string> = {
   canceled: styles.statusCanceled,
   unknown: styles.statusCanceled,
 };
+
+const FEATURE_LABELS: Record<string, string> = {
+  insights_basic: 'Temel İçgörüler',
+  insights_advanced: 'Gelişmiş İçgörüler',
+  alerts_email: 'E-posta Uyarıları',
+  alerts_sms: 'SMS Uyarıları',
+  anomaly_detection: 'Anomali Tespiti',
+  ai_assistant: 'AI Asistan',
+  white_label: 'Özel Marka (White-label)',
+  api_access: 'API Erişimi',
+  priority_support: 'Öncelikli Destek',
+  custom_reports: 'Özel Raporlar',
+  multi_workspace: 'Çoklu Çalışma Alanı',
+  export_csv: 'CSV Dışa Aktarma',
+  data_retention_1y: '1 Yıl Veri Saklama',
+  data_retention_2y: '2 Yıl Veri Saklama',
+};
+
+function humanizeFeature(raw: string): string {
+  if (FEATURE_LABELS[raw]) return FEATURE_LABELS[raw];
+  return raw
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
 
 // Plans in intended display order; Growth is "recommended"
 const PLAN_ORDER = ['free', 'starter', 'growth', 'agency'];
@@ -109,7 +135,7 @@ function UsageBar({ used, limit }: UsageBarProps) {
 
   return (
     <div className={styles.usageBox}>
-      <div className={styles.usageLabel}>Veri kaynağı kullanımı</div>
+      <div className={styles.usageLabel}>Kaynak Kullanımı</div>
       <div className={styles.usageBarTrack}>
         <div
           className={`${styles.usageBarFill} ${fillClass}`}
@@ -117,7 +143,9 @@ function UsageBar({ used, limit }: UsageBarProps) {
         />
       </div>
       <div className={styles.usageText}>
-        {limit == null ? `${used} / Sınırsız` : `${used} / ${limit}`}
+        {limit == null
+          ? `${used} kaynak kullanımda · sınırsız`
+          : `${used} kaynak kullanımda · plan limiti ${limit}`}
       </div>
     </div>
   );
@@ -211,7 +239,7 @@ function PlanCard({
                 strokeLinejoin="round"
               />
             </svg>
-            {f}
+            {humanizeFeature(f)}
           </li>
         ))}
       </ul>
@@ -380,73 +408,61 @@ export default function BillingPage() {
         </div>
 
         {/* Current subscription section */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <span className={styles.sectionTitle}>Mevcut Plan</span>
-          </div>
-          <div className={styles.sectionBody}>
-            {subLoading ? (
-              <div className={styles.stateBox}>
-                <div className={styles.muted}>Yükleniyor...</div>
-              </div>
-            ) : subError ? (
-              <div className={styles.stateBox}>
-                <div className={styles.errorText}>{subError}</div>
-                <button className={styles.retryBtn} onClick={loadSubscription}>
-                  Tekrar dene
-                </button>
-              </div>
-            ) : subscription == null ? (
-              <div className={styles.stateBox}>
-                <div className={styles.muted}>Abonelik bilgisi bulunamadı.</div>
-              </div>
-            ) : (
-              <div className={styles.currentPlanCard}>
-                <div className={styles.currentPlanInfo}>
-                  <div className={styles.currentPlanName}>
-                    {currentPlan?.name ?? subscription.plan_code}
-                  </div>
-                  <span
-                    className={`${styles.statusBadge} ${STATUS_CSS[subscription.status] ?? styles.statusCanceled}`}
-                  >
-                    {STATUS_LABELS[subscription.status] ?? subscription.status}
-                  </span>
-                  {periodLabel && (
-                    <div className={styles.periodText}>{periodLabel}</div>
-                  )}
+        <SectionCard title="Mevcut Plan">
+          {subLoading ? (
+            <div className={styles.stateBox}>
+              <div className={styles.muted}>Yükleniyor...</div>
+            </div>
+          ) : subError ? (
+            <div className={styles.stateBox}>
+              <div className={styles.errorText}>{subError}</div>
+              <button className={styles.retryBtn} onClick={loadSubscription}>
+                Tekrar dene
+              </button>
+            </div>
+          ) : subscription == null ? (
+            <div className={styles.stateBox}>
+              <div className={styles.muted}>Abonelik bilgisi bulunamadı.</div>
+            </div>
+          ) : (
+            <div className={styles.currentPlanCard}>
+              <div className={styles.currentPlanInfo}>
+                <div className={styles.currentPlanName}>
+                  {currentPlan?.name ?? subscription.plan_code}
                 </div>
-
-                <UsageBar
-                  used={subscription.usage.data_sources_used}
-                  limit={currentPlan?.limits?.data_sources ?? null}
-                />
-
-                {canCancel && (
-                  <div className={styles.cancelArea}>
-                    <button
-                      className={styles.cancelBtn}
-                      onClick={() => setShowCancelDialog(true)}
-                    >
-                      Aboneliği iptal et
-                    </button>
-                  </div>
+                <span
+                  className={`${styles.statusBadge} ${STATUS_CSS[subscription.status] ?? styles.statusCanceled}`}
+                >
+                  {STATUS_LABELS[subscription.status] ?? subscription.status}
+                </span>
+                {periodLabel && (
+                  <div className={styles.periodText}>{periodLabel}</div>
                 )}
               </div>
-            )}
-          </div>
-        </section>
+
+              <UsageBar
+                used={subscription.usage.data_sources_used}
+                limit={currentPlan?.limits?.data_sources ?? null}
+              />
+
+              {canCancel && (
+                <div className={styles.cancelArea}>
+                  <button
+                    className={styles.cancelBtn}
+                    onClick={() => setShowCancelDialog(true)}
+                  >
+                    Aboneliği iptal et
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </SectionCard>
 
         {/* Plan comparison section */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <span className={styles.sectionTitle}>Plan Karşılaştırma</span>
-          </div>
-
+        <SectionCard title="Plan Karşılaştırma">
           {upgradeError && (
-            <div
-              style={{ padding: '0.75rem 1.5rem' }}
-              className={styles.errorText}
-            >
+            <div className={styles.errorText} style={{ marginBottom: '1rem' }}>
               {upgradeError}
             </div>
           )}
@@ -481,7 +497,7 @@ export default function BillingPage() {
               ))}
             </div>
           )}
-        </section>
+        </SectionCard>
       </main>
 
       {showCancelDialog && (

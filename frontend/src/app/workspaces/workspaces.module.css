@@ -147,7 +147,15 @@
 .colorRow {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
+}
+
+.colorPreview {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .colorSwatch {
@@ -202,10 +210,10 @@
 }
 
 .formSuccess {
-  font-size: 0.8125rem;
-  color: #059669;
-  margin-top: 0.5rem;
-  padding: 0 1.5rem 1rem;
+  font-size: var(--text-xs);
+  color: var(--color-success-text);
+  margin-top: var(--space-2);
+  padding: 0 var(--space-6) var(--space-4);
 }
 
 .formError {
@@ -389,9 +397,52 @@
 }
 
 .inviteSuccess {
-  font-size: 0.8125rem;
-  color: #059669;
-  margin-top: 0.625rem;
+  font-size: var(--text-xs);
+  color: var(--color-success-text);
+  margin-top: var(--space-2);
+}
+
+/* Invite toggle button */
+
+.inviteToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: transparent;
+  border: 1.5px solid var(--color-primary);
+  color: var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.inviteToggleBtn:hover {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.inviteFormHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.inviteCloseBtn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.inviteCloseBtn:hover {
+  color: var(--color-text);
 }
 
 /* ─── Workspaces list section ─── */

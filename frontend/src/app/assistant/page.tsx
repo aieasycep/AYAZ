@@ -20,6 +20,7 @@ import {
   type ToolUsed,
 } from '@/lib/assistant-api';
 import AppNav from '@/components/AppNav';
+import EmptyState from '@/components/EmptyState';
 import styles from './assistant.module.css';
 
 // ---- Suggested prompts ----
@@ -361,7 +362,11 @@ function AssistantPageInner() {
           {!activeConvId ? (
             /* No conversation selected */
             <div className={styles.noConvPlaceholder}>
-              Bir sohbet seçin veya yeni sohbet başlatın.
+              <EmptyState
+                title="Henüz sohbet seçilmedi"
+                subtitle="Soldaki listeden bir sohbet seçin veya yeni bir sohbet başlatın."
+                action={{ label: '+ Yeni Sohbet', onClick: handleNewChat }}
+              />
             </div>
           ) : msgsLoading ? (
             /* Loading messages */

@@ -13,6 +13,7 @@ import {
   type UserPreferences,
 } from '@/lib/settings-api';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import { useTheme, type ThemeValue } from '@/components/ThemeProvider';
 import styles from './settings.module.css';
 
@@ -91,13 +92,8 @@ function ProfileCard() {
   }
 
   return (
-    <div className={styles.section}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <div className={styles.sectionTitle}>Profil</div>
-          <div className={styles.sectionSubtitle}>Ad, soyad ve e-posta adresinizi güncelleyin</div>
-        </div>
-      </div>
+    <SectionCard title="Profil">
+      <p className={styles.sectionSubtitle}>Ad, soyad ve e-posta adresinizi güncelleyin</p>
 
       {loading ? (
         <div className={styles.stateBox}>
@@ -166,7 +162,7 @@ function ProfileCard() {
           </div>
         </form>
       )}
-    </div>
+    </SectionCard>
   );
 }
 
@@ -225,13 +221,8 @@ function PasswordCard() {
   }
 
   return (
-    <div className={styles.section}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <div className={styles.sectionTitle}>Şifre Değiştir</div>
-          <div className={styles.sectionSubtitle}>Hesap şifrenizi güncelleyin</div>
-        </div>
-      </div>
+    <SectionCard title="Şifre Değiştir">
+      <p className={styles.sectionSubtitle}>Hesap şifrenizi güncelleyin</p>
 
       <form onSubmit={handleSave} className={styles.cardForm}>
         <div className={styles.fieldGroup}>
@@ -303,7 +294,7 @@ function PasswordCard() {
           )}
         </div>
       </form>
-    </div>
+    </SectionCard>
   );
 }
 
@@ -379,13 +370,8 @@ function PreferencesCard() {
   }
 
   return (
-    <div className={styles.section}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <div className={styles.sectionTitle}>Tercihler</div>
-          <div className={styles.sectionSubtitle}>Dil, saat dilimi ve bildirim ayarları</div>
-        </div>
-      </div>
+    <SectionCard title="Tercihler">
+      <p className={styles.sectionSubtitle}>Dil, saat dilimi ve bildirim ayarları</p>
 
       {loading ? (
         <div className={styles.stateBox}>
@@ -441,7 +427,7 @@ function PreferencesCard() {
           {/* ── Tema (localStorage only, no backend) ── */}
           <div className={styles.fieldGroup}>
             <span className={styles.fieldLabel}>Tema</span>
-            <div className={styles.themeSelector} role="group" aria-label="Tema seçimi">
+            <div className={styles.themeSegmented} role="group" aria-label="Tema seçimi">
               {(
                 [
                   { value: 'light', label: 'Açık' },
@@ -452,7 +438,7 @@ function PreferencesCard() {
                 <button
                   key={opt.value}
                   type="button"
-                  className={`${styles.themeOption} ${theme === opt.value ? styles.themeOptionActive : ''}`}
+                  className={`${styles.themeSegBtn} ${theme === opt.value ? styles.themeSegBtnActive : ''}`}
                   onClick={() => setTheme(opt.value)}
                   aria-pressed={theme === opt.value}
                 >
@@ -503,7 +489,7 @@ function PreferencesCard() {
           </div>
         </form>
       )}
-    </div>
+    </SectionCard>
   );
 }
 

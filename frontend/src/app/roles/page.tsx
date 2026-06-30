@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import {
   listRoles,
   getRoleView,
@@ -229,8 +230,7 @@ export default function RolesPage() {
         ) : (
           <>
             {/* Role picker */}
-            <div>
-              <div className={styles.rolePickerLabel}>Rol Seçin</div>
+            <SectionCard title="Rol Seçin">
               <div className={styles.rolePicker} role="listbox" aria-label="Rol seçici">
                 {roles.map((role) => (
                   <button
@@ -251,7 +251,7 @@ export default function RolesPage() {
                   </button>
                 ))}
               </div>
-            </div>
+            </SectionCard>
 
             {/* Role view */}
             {viewLoading ? (
@@ -273,8 +273,7 @@ export default function RolesPage() {
 
                 {/* Metric tiles */}
                 {view.metrics.length > 0 && (
-                  <div>
-                    <div className={styles.sectionTitle}>Metrikler</div>
+                  <SectionCard title="Metrikler">
                     <div className={styles.metricsGrid}>
                       {view.metrics.map((metric, i) => (
                         <div key={i} className={styles.metricCard}>
@@ -284,12 +283,11 @@ export default function RolesPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </SectionCard>
                 )}
 
                 {/* Dikkat gerektirenler */}
-                <div>
-                  <div className={styles.sectionTitle}>Dikkat Gerektirenler</div>
+                <SectionCard title="Dikkat Gerektirenler">
                   {view.attention.length === 0 ? (
                     <div className={styles.emptyState}>
                       Şu an dikkat gerektiren bir şey yok.
@@ -310,12 +308,11 @@ export default function RolesPage() {
                       ))}
                     </div>
                   )}
-                </div>
+                </SectionCard>
 
                 {/* Öncelikli ekranlar */}
                 {view.priority_screens.length > 0 && (
-                  <div>
-                    <div className={styles.sectionTitle}>Öncelikli Ekranlar</div>
+                  <SectionCard title="Öncelikli Ekranlar">
                     <div className={styles.priorityGrid}>
                       {view.priority_screens.map((screen, i) => (
                         <Link key={i} href={screen.href} className={styles.priorityCard}>
@@ -324,13 +321,12 @@ export default function RolesPage() {
                         </Link>
                       ))}
                     </div>
-                  </div>
+                  </SectionCard>
                 )}
 
                 {/* Hızlı işlemler */}
                 {view.quick_actions.length > 0 && (
-                  <div>
-                    <div className={styles.sectionTitle}>Hızlı İşlemler</div>
+                  <SectionCard title="Hızlı İşlemler">
                     <div className={styles.quickActionsRow}>
                       {view.quick_actions.map((action, i) => (
                         <Link key={i} href={action.href} className={styles.quickActionBtn}>
@@ -338,7 +334,7 @@ export default function RolesPage() {
                         </Link>
                       ))}
                     </div>
-                  </div>
+                  </SectionCard>
                 )}
 
               </div>

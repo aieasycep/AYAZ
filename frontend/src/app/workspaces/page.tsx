@@ -19,6 +19,7 @@ import {
   type WorkspaceRole,
 } from '@/lib/workspaces-api';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import styles from './workspaces.module.css';
 
 // ─── Role helpers ─────────────────────────────────────────────────────────────
@@ -126,16 +127,7 @@ function BrandSection() {
   }
 
   return (
-    <div className={styles.section}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <div className={styles.sectionTitle}>Marka (White-label) Ayarları</div>
-          <div className={styles.sectionSubtitle}>
-            Çalışma alanınızın görünümünü özelleştirin
-          </div>
-        </div>
-      </div>
-
+    <SectionCard title="Marka (White-label) Ayarları">
       {loading ? (
         <div className={styles.stateBox}>
           <p className={styles.muted}>Yükleniyor...</p>
@@ -192,6 +184,7 @@ function BrandSection() {
                   placeholder="#3b5bdb"
                   maxLength={7}
                 />
+                <div className={styles.colorPreview} style={{ background: primaryColor }} aria-hidden="true" />
               </div>
             </div>
 
@@ -228,7 +221,7 @@ function BrandSection() {
           </div>
         </>
       )}
-    </div>
+    </SectionCard>
   );
 }
 
@@ -245,6 +238,7 @@ function MembersSection() {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
 
   // Per-row busy state
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -332,16 +326,7 @@ function MembersSection() {
   }
 
   return (
-    <div className={styles.section}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <div className={styles.sectionTitle}>Ekip Üyeleri</div>
-          <div className={styles.sectionSubtitle}>
-            Çalışma alanına erişimi yönetin
-          </div>
-        </div>
-      </div>
-
+    <SectionCard title="Ekip Üyeleri">
       {loading ? (
         <div className={styles.stateBox}>
           <p className={styles.muted}>Yükleniyor...</p>
@@ -392,49 +377,66 @@ function MembersSection() {
           )}
 
           <div className={styles.inviteFormWrapper}>
-            <div className={styles.inviteFormTitle}>Üye Davet Et</div>
-            <form onSubmit={handleInvite} className={styles.inviteForm}>
-              <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>E-posta</label>
-                <input
-                  type="email"
-                  className={styles.fieldInput}
-                  placeholder="ornek@sirket.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  required
-                  disabled={inviting}
-                />
-              </div>
-              <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Rol</label>
-                <select
-                  className={styles.fieldSelect}
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as WorkspaceRole)}
-                  disabled={inviting}
-                >
-                  <option value="admin">Yönetici</option>
-                  <option value="member">Üye</option>
-                </select>
-              </div>
-              <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>&nbsp;</label>
-                <button type="submit" className={styles.saveBtn} disabled={inviting}>
-                  {inviting ? 'Gönderiliyor...' : 'Davet Gönder'}
-                </button>
-              </div>
-            </form>
-            {inviteSuccess && (
-              <p className={styles.inviteSuccess}>Davet gönderildi.</p>
-            )}
-            {inviteError && (
-              <p className={styles.formError}>{inviteError}</p>
+            {!showInvite ? (
+              <button
+                type="button"
+                className={styles.inviteToggleBtn}
+                onClick={() => setShowInvite(true)}
+              >
+                + Üye Davet Et
+              </button>
+            ) : (
+              <>
+                <div className={styles.inviteFormHeader}>
+                  <div className={styles.inviteFormTitle}>Üye Davet Et</div>
+                  <button
+                    type="button"
+                    className={styles.inviteCloseBtn}
+                    onClick={() => { setShowInvite(false); setInviteError(''); setInviteSuccess(false); }}
+                  >
+                    İptal
+                  </button>
+                </div>
+                <form onSubmit={handleInvite} className={styles.inviteForm}>
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>E-posta</label>
+                    <input
+                      type="email"
+                      className={styles.fieldInput}
+                      placeholder="ornek@sirket.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      required
+                      disabled={inviting}
+                    />
+                  </div>
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>Rol</label>
+                    <select
+                      className={styles.fieldSelect}
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value as WorkspaceRole)}
+                      disabled={inviting}
+                    >
+                      <option value="admin">Yönetici</option>
+                      <option value="member">Üye</option>
+                    </select>
+                  </div>
+                  <div className={styles.fieldGroup}>
+                    <label className={styles.fieldLabel}>&nbsp;</label>
+                    <button type="submit" className={styles.saveBtn} disabled={inviting}>
+                      {inviting ? 'Gönderiliyor...' : 'Davet Gönder'}
+                    </button>
+                  </div>
+                </form>
+                {inviteSuccess && <p className={styles.inviteSuccess}>Davet gönderildi.</p>}
+                {inviteError && <p className={styles.formError}>{inviteError}</p>}
+              </>
             )}
           </div>
         </>
       )}
-    </div>
+    </SectionCard>
   );
 }
 
@@ -495,16 +497,7 @@ function WorkspacesSection() {
   }
 
   return (
-    <div className={styles.section}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <div className={styles.sectionTitle}>Çalışma Alanlarım</div>
-          <div className={styles.sectionSubtitle}>
-            Tüm çalışma alanlarınız ve rolleriniz
-          </div>
-        </div>
-      </div>
-
+    <SectionCard title="Çalışma Alanlarım">
       {loading ? (
         <div className={styles.stateBox}>
           <p className={styles.muted}>Yükleniyor...</p>
@@ -571,6 +564,6 @@ function WorkspacesSection() {
           </div>
         </>
       )}
-    </div>
+    </SectionCard>
   );
 }

@@ -37,34 +37,10 @@
   margin-top: 0.25rem;
 }
 
-/* Section card */
+/* Plan grid padding override — inside SectionCard body */
 
-.section {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.sectionHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.sectionTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.sectionBody {
-  padding: 1.5rem;
+.plansGridWrapper {
+  padding: 0;
 }
 
 /* Current plan card */
@@ -102,12 +78,12 @@
 
 .statusTrialing {
   background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+  color: var(--color-warning-text);
 }
 
 .statusActive {
   background: rgba(16, 185, 129, 0.12);
-  color: #059669;
+  color: var(--color-success-text);
 }
 
 .statusPastDue {
@@ -157,11 +133,11 @@
 }
 
 .usageBarFillWarning {
-  background: #f59e0b;
+  background: var(--color-warning);
 }
 
 .usageBarFillDanger {
-  background: var(--color-danger);
+  background: var(--color-critical);
 }
 
 .usageText {
@@ -204,8 +180,7 @@
 .plansGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  padding: 1.5rem;
+  gap: var(--space-4);
 }
 
 .planCard {
@@ -221,7 +196,7 @@
 }
 
 .planCard:hover {
-  box-shadow: 0 4px 16px rgba(59, 91, 219, 0.1);
+  box-shadow: var(--shadow-2);
 }
 
 .planCardCurrent {
@@ -313,7 +288,7 @@
   width: 14px;
   height: 14px;
   margin-top: 1px;
-  color: #059669;
+  color: var(--color-success-text);
 }
 
 .upgradeBtn {
@@ -360,13 +335,13 @@
 }
 
 .testModeNote {
-  font-size: 0.75rem;
-  color: #b45309;
+  font-size: var(--text-xs);
+  color: var(--color-warning-text);
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.25);
   border-radius: 5px;
-  padding: 0.375rem 0.625rem;
-  margin-top: 0.375rem;
+  padding: var(--space-2) var(--space-2);
+  margin-top: var(--space-2);
   text-align: center;
 }
 
@@ -507,24 +482,15 @@
 
 @media (max-width: 640px) {
   .main {
-    padding: 1rem;
-    gap: 1rem;
-  }
-
-  .sectionHeader {
-    padding: 1rem;
-  }
-
-  .sectionBody {
-    padding: 1rem;
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 
   .plansGrid {
     grid-template-columns: 1fr;
-    padding: 1rem;
   }
 
   .currentPlanCard {
-    gap: 1rem;
+    gap: var(--space-4);
   }
 }

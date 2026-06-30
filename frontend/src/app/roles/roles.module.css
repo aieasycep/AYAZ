@@ -8,39 +8,30 @@
 .main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-6);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-6);
 }
 
 /* Page header */
 
 .pageTitle {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 .pageSubtitle {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
   max-width: 640px;
   line-height: 1.6;
 }
 
 /* Role picker */
-
-.rolePickerLabel {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-muted);
-  margin-bottom: 0.625rem;
-}
 
 .rolePicker {
   display: flex;
@@ -97,14 +88,14 @@
 }
 
 .roleCardLabel {
-  font-size: 0.825rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
   line-height: 1.3;
 }
 
 .roleCardDesc {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-top: 0.2rem;
   line-height: 1.5;
@@ -119,17 +110,7 @@
 .viewGrid {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-}
-
-.sectionTitle {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-5);
 }
 
 /* Metric tiles */
@@ -397,6 +378,11 @@
 /* Responsive */
 
 @media (max-width: 640px) {
+  .main {
+    padding: var(--space-4);
+    gap: var(--space-4);
+  }
+
   .rolePicker {
     flex-direction: column;
   }

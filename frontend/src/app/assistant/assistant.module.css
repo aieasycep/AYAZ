@@ -444,10 +444,11 @@
 .noConvPlaceholder {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 /* Mobile sidebar toggle bar */
