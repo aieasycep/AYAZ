@@ -34,14 +34,11 @@ from ayaz.integrations.registry import IntegrationRegistry
 # ── Concrete adapters (self-register on import) ────────────────────────────
 # Each import below triggers Integration.__init_subclass__ → registry.register()
 # Add new adapters here as they are implemented.
-#
-# Wave 1 (foundation): no concrete adapters yet — they arrive in Wave 2+.
-# The import block is intentionally left empty so this package is importable
-# and testable without any concrete adapter implementations.
-#
-# Example (uncomment when adapters exist):
-# import ayaz.integrations.slack          # noqa: F401  — registers "slack"
-# import ayaz.integrations.google_ads     # noqa: F401  — registers "google_ads"
+
+import ayaz.integrations.google_bundle  # noqa: F401  — registers google_workspace, google_ads, ga4, search_console
+import ayaz.integrations.slack          # noqa: F401  — registers "slack"
+import ayaz.integrations.google_sheets  # noqa: F401  — registers "google_sheets"
+import ayaz.integrations.gmail          # noqa: F401  — registers "gmail"
 
 __all__ = [
     "ActionContext",

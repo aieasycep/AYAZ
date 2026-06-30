@@ -93,6 +93,8 @@ class Settings(BaseSettings):
     meta_app_secret: str = ""
     tiktok_app_id: str = ""
     tiktok_app_secret: str = ""
+    slack_client_id: str = ""
+    slack_client_secret: str = ""
 
     # ── AI / Insights ─────────────────────────────────────────────────────────
     # Anthropic API key for ClaudeNarrator (M4 AI insights).

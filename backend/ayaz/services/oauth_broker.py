@@ -30,6 +30,9 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
+import secrets
+import time
 import urllib.parse
 import uuid
 from dataclasses import dataclass
@@ -38,6 +41,8 @@ from typing import Any
 import httpx
 
 from ayaz.config import settings
+
+_log = logging.getLogger(__name__)
 
 
 # ── Platform OAuth2 configuration catalog ────────────────────────────────────
@@ -80,6 +85,22 @@ _PLATFORM_CONFIGS: dict[str, _PlatformOAuthConfig] = {
         token_url="https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/",
         scopes=[],  # TikTok scopes are granted at app level, not per-request
     ),
+    "google_workspace": _PlatformOAuthConfig(
+        authorize_url="https://accounts.google.com/o/oauth2/v2/auth",
+        token_url="https://oauth2.googleapis.com/token",
+        scopes=[
+            "https://www.googleapis.com/auth/adwords",
+            "https://www.googleapis.com/auth/analytics.readonly",
+            "https://www.googleapis.com/auth/webmasters.readonly",
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://mail.google.com/",
+        ],
+    ),
+    "slack": _PlatformOAuthConfig(
+        authorize_url="https://slack.com/oauth/v2/authorize",
+        token_url="https://slack.com/api/oauth.v2.access",
+        scopes=["chat:write", "channels:read"],
+    ),
 }
 
 
@@ -103,57 +124,137 @@ def _tiktok_credentials() -> tuple[str, str]:
     return settings.tiktok_app_id, settings.tiktok_app_secret
 
 
+def _slack_credentials() -> tuple[str, str]:
+    return settings.slack_client_id, settings.slack_client_secret
+
+
 def _credentials_for(platform: str) -> tuple[str, str]:
-    """Return (client_id, client_secret) for ``platform``."""
-    if platform in ("google_ads", "ga4", "search_console"):
+    """Return (client_id, client_secret) for ``platform``.
+
+    For platforms with missing/empty credentials, returns ``("", "")``
+    rather than raising so callers can gracefully degrade.
+    """
+    if platform in ("google_ads", "ga4", "search_console", "google_workspace"):
         return _google_credentials()
     if platform == "meta_ads":
         return _meta_credentials()
     if platform == "tiktok_ads":
         return _tiktok_credentials()
-    raise ValueError(f"Unknown platform: {platform!r}")
+    if platform == "slack":
+        return _slack_credentials()
+    # Unknown platform — return empty rather than raising so callers can check
+    return ("", "")
 
 
-# ── State token helpers (CSRF) ────────────────────────────────────────────────
+def _has_credentials(platform: str) -> bool:
+    """Return True only if both client_id and client_secret are non-empty."""
+    client_id, client_secret = _credentials_for(platform)
+    return bool(client_id) and bool(client_secret)
+
+
+# ── PKCE helpers ─────────────────────────────────────────────────────────────
+
+
+def generate_pkce_pair() -> tuple[str, str]:
+    """Return (code_verifier, code_challenge). Challenge = S256.
+
+    The code_verifier is a URL-safe base64 string (no padding).
+    The code_challenge is BASE64URL(SHA256(verifier)) with no padding.
+    """
+    verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip("=")
+    challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
+        .decode()
+        .rstrip("=")
+    )
+    return verifier, challenge
+
+
+# ── State token helpers (CSRF) — HMAC-signed, expiring ───────────────────────
+
+_STATE_TTL_SECONDS = 600  # 10 minutes
 
 
 def _sign_state(account_id: str, tenant_id: str) -> str:
-    """Encode account_id + tenant_id into a URL-safe state token.
+    """Encode account_id + tenant_id into a URL-safe HMAC-signed state token.
 
-    The token is a base64(JSON payload) — it is not a MAC because the
-    ``state`` round-trip via the platform already provides replay protection
-    (state is echoed verbatim).  For higher assurance, a future version should
-    HMAC this with a short-lived per-session secret.
+    The token has a 10-minute expiry and is signed with HMAC-SHA256 using
+    ``settings.jwt_secret`` as the key.
 
     Parameters
     ----------
     account_id:
-        The ConnectedAccount UUID (str).
+        The ConnectedAccount or ProviderGrant UUID (str).
     tenant_id:
         The Tenant UUID (str) — used to scope the callback.
 
     Returns
     -------
     str
-        URL-safe base64 encoded JSON string.
+        ``<base64url(payload)>.<base64url(mac)>`` — dot-separated.
     """
-    payload = json.dumps({"aid": account_id, "tid": tenant_id})
-    return base64.urlsafe_b64encode(payload.encode()).decode()
+    nonce = str(uuid.uuid4())
+    exp = int(time.time()) + _STATE_TTL_SECONDS
+    payload_dict = {"aid": account_id, "tid": tenant_id, "nonce": nonce, "exp": exp}
+    payload_bytes = json.dumps(payload_dict, separators=(",", ":")).encode()
+    payload_b64 = base64.urlsafe_b64encode(payload_bytes).decode().rstrip("=")
+
+    mac = hmac.new(
+        settings.jwt_secret.encode(),
+        payload_b64.encode(),
+        hashlib.sha256,
+    ).digest()
+    mac_b64 = base64.urlsafe_b64encode(mac).decode().rstrip("=")
+
+    return f"{payload_b64}.{mac_b64}"
 
 
 def parse_state(state: str) -> tuple[str, str]:
-    """Decode a state token back to (account_id, tenant_id).
+    """Decode and verify a state token, returning (account_id, tenant_id).
 
     Raises
     ------
     ValueError
-        If the token cannot be decoded or is missing required keys.
+        If the token cannot be decoded, the HMAC is invalid, or the token
+        has expired.
     """
     try:
-        payload = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
-        return payload["aid"], payload["tid"]
+        payload_b64, mac_b64 = state.rsplit(".", 1)
+    except ValueError:
+        raise ValueError("Invalid OAuth state token: missing MAC separator") from None
+
+    # Verify HMAC
+    expected_mac = hmac.new(
+        settings.jwt_secret.encode(),
+        payload_b64.encode(),
+        hashlib.sha256,
+    ).digest()
+
+    try:
+        provided_mac = base64.urlsafe_b64decode(mac_b64 + "==")
+    except Exception as exc:
+        raise ValueError(f"Invalid OAuth state token: bad MAC encoding: {exc}") from exc
+
+    if not hmac.compare_digest(expected_mac, provided_mac):
+        raise ValueError("Invalid OAuth state token: MAC verification failed")
+
+    # Decode payload
+    try:
+        padding = "=" * (-len(payload_b64) % 4)
+        payload_bytes = base64.urlsafe_b64decode(payload_b64 + padding)
+        payload = json.loads(payload_bytes.decode())
     except Exception as exc:
         raise ValueError(f"Invalid OAuth state token: {exc}") from exc
+
+    # Check expiry
+    exp = payload.get("exp", 0)
+    if int(time.time()) > exp:
+        raise ValueError("OAuth state token has expired")
+
+    try:
+        return payload["aid"], payload["tid"]
+    except KeyError as exc:
+        raise ValueError(f"Invalid OAuth state token: missing key {exc}") from exc
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -376,6 +477,59 @@ def refresh(
         )
 
     return data
+
+
+def revoke(
+    platform: str,
+    token: str,
+    *,
+    http_client: httpx.Client | None = None,
+) -> None:
+    """Best-effort revocation of an OAuth token for the given platform.
+
+    Network errors are swallowed and logged — callers should proceed with
+    local cleanup regardless of whether the platform revocation succeeded.
+
+    Parameters
+    ----------
+    platform:
+        The platform key (e.g. ``"google_workspace"``, ``"slack"``).
+    token:
+        The access token to revoke.
+    http_client:
+        Optional ``httpx.Client`` override — inject a mock in tests.
+    """
+    own_client = http_client is None
+    client = http_client or httpx.Client(timeout=10)
+    try:
+        if platform in ("google_ads", "ga4", "search_console", "google_workspace"):
+            client.post(
+                "https://oauth2.googleapis.com/revoke",
+                params={"token": token},
+            )
+        elif platform == "slack":
+            client.post(
+                "https://slack.com/api/auth.revoke",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        elif platform == "meta_ads":
+            # Meta does not have a simple programmatic revoke endpoint;
+            # log intent and rely on token TTL / user revocation via UI.
+            _log.info("revoke: Meta token revocation not supported programmatically")
+        elif platform == "tiktok_ads":
+            # TikTok has no standard revoke endpoint.
+            _log.info("revoke: TikTok token revocation not supported")
+        else:
+            _log.warning("revoke: unknown platform %r — skipping", platform)
+    except Exception:
+        _log.warning(
+            "revoke: best-effort revocation failed for platform=%r (continuing)",
+            platform,
+            exc_info=True,
+        )
+    finally:
+        if own_client:
+            client.close()
 
 
 def store_tokens_for_account(

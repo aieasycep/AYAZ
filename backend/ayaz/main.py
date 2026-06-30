@@ -53,6 +53,7 @@ from ayaz.api.v1 import role_views as role_views_router
 from ayaz.api.v1 import funnel as funnel_router
 from ayaz.api.v1 import marketing_calendar as marketing_calendar_router
 from ayaz.api.v1 import health_index as health_index_router
+from ayaz.api.v1 import integrations as integrations_router
 from ayaz.config import settings
 from ayaz.observability import (
     RequestIDMiddleware,
@@ -136,6 +137,7 @@ app.include_router(role_views_router.router, prefix=_PREFIX)
 app.include_router(funnel_router.router, prefix=_PREFIX)
 app.include_router(marketing_calendar_router.router, prefix=_PREFIX)
 app.include_router(health_index_router.router, prefix=_PREFIX)
+app.include_router(integrations_router.router, prefix=_PREFIX)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
