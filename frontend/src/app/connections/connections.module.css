@@ -8,23 +8,23 @@
 .main {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-5);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 .pageTitle {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 .pageSubtitle {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
 }
 
 /* Section */
@@ -149,39 +149,39 @@
 }
 
 .badgeConnected {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .badgeConnected .badgeDot {
-  background: #10b981;
+  background: var(--color-success);
 }
 
 .badgeSyncing {
-  background: rgba(59, 91, 219, 0.1);
-  color: var(--color-primary);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .badgeSyncing .badgeDot {
-  background: var(--color-primary);
+  background: var(--color-info);
 }
 
 .badgeError {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--color-danger);
+  background: var(--color-critical-bg);
+  color: var(--color-critical-text);
 }
 
 .badgeError .badgeDot {
-  background: var(--color-danger);
+  background: var(--color-critical);
 }
 
 .badgePending {
-  background: rgba(107, 114, 128, 0.1);
-  color: var(--color-text-muted);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .badgePending .badgeDot {
-  background: var(--color-text-muted);
+  background: var(--color-warning);
 }
 
 /* Watermark row */
@@ -284,18 +284,47 @@
   background: var(--color-surface-2);
 }
 
-.accountName {
+.accountInfo {
   flex: 1;
-  font-weight: 600;
-  font-size: 0.9375rem;
   min-width: 0;
 }
 
+.accountName {
+  font-weight: var(--fw-semibold);
+  font-size: var(--text-base);
+  color: var(--color-text);
+}
+
 .accountPlatform {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  font-weight: 400;
-  margin-top: 0.125rem;
+  font-weight: var(--fw-normal);
+  margin-top: var(--space-1);
+}
+
+/* Connected account row inside card */
+.connectedAccRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/* Card action buttons row */
+.cardActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Platform top row layout */
+.platformTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: nowrap;
 }
 
 @media (max-width: 640px) {

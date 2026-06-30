@@ -150,7 +150,10 @@ function RecCard({ rec, onStatusChange }: RecCardProps) {
   }
 
   return (
-    <div className={`${styles.recCard} ${isDimmed ? styles.recCardDimmed : ''}`}>
+    <div
+      className={`${styles.recCard} ${isDimmed ? styles.recCardDimmed : ''}`}
+      data-impact={rec.impact}
+    >
       {/* Header row: chips */}
       <div className={styles.recCardHeader}>
         <div className={styles.recCardChips}>
@@ -197,7 +200,7 @@ function RecCard({ rec, onStatusChange }: RecCardProps) {
       {/* Actions */}
       <div className={styles.recCardActions}>
         <Link href={rec.action_href} className={styles.actionLinkBtn}>
-          {rec.action_label}
+          {rec.action_label}{/* arrow is added by CSS ::after */}
         </Link>
 
         {isOpen ? (

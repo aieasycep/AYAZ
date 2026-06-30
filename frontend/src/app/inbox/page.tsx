@@ -29,6 +29,7 @@ import {
   type GetInboxMessagesOptions,
 } from '@/lib/inbox-api';
 import AppNav from '@/components/AppNav';
+import EmptyState from '@/components/EmptyState';
 import styles from './inbox.module.css';
 
 // --- Helpers ---
@@ -119,12 +120,25 @@ function StatsStrip({
 
       <div className={styles.sentimentRow}>
         {(['positive', 'neutral', 'negative'] as Sentiment[]).map((s) => (
-          <div key={s} className={styles.sentimentChip}>
-            <span className={`${styles.sentimentDot} ${s === 'positive' ? styles.sentimentPositive : s === 'negative' ? styles.sentimentNegative : styles.sentimentNeutral}`} />
-            <span className={styles.sentimentChipValue}>
+          <div
+            key={s}
+            className={`${styles.sentimentCounter} ${
+              s === 'positive' ? styles.sentimentCounterPositive
+              : s === 'negative' ? styles.sentimentCounterNegative
+              : styles.sentimentCounterNeutral
+            }`}
+          >
+            <span
+              className={`${styles.sentimentDot} ${
+                s === 'positive' ? styles.sentimentPositive
+                : s === 'negative' ? styles.sentimentNegative
+                : styles.sentimentNeutral
+              }`}
+            />
+            <span className={styles.sentimentCounterValue}>
               {((stats.by_sentiment?.[s]) ?? 0).toLocaleString('tr-TR')}
             </span>
-            <span>{SENTIMENT_LABELS[s]}</span>
+            <span className={styles.sentimentCounterLabel}>{SENTIMENT_LABELS[s]}</span>
           </div>
         ))}
       </div>
@@ -821,12 +835,11 @@ export default function InboxPage() {
             />
           ) : (
             <div className={styles.card}>
-              <div className={styles.emptyConversation}>
-                <div className={styles.emptyConvIcon}>&#9993;</div>
-                <div className={styles.emptyConvTitle}>Bir mesaj seçin</div>
-                <div className={styles.emptyConvSub}>
-                  Sol taraftan bir mesaj seçerek konuşmayı ve yanıt seçeneklerini görün.
-                </div>
+              <div className={styles.emptyConversationWrap}>
+                <EmptyState
+                  title="Bir mesaj seçin"
+                  subtitle="Sol taraftan bir mesaj seçerek konuşmayı ve yanıt seçeneklerini görün."
+                />
               </div>
             </div>
           )}

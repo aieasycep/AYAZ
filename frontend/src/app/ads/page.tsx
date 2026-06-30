@@ -90,6 +90,34 @@ function statusBadgeClass(s: CampaignStatus): string {
   }
 }
 
+// --- ROAS coloring — green above 2x target, red below ---
+
+function roasClass(roas: number): string {
+  if (roas >= 2) return styles.roasGood;
+  if (roas < 1) return styles.roasBad;
+  return '';
+}
+
+// --- Recommendation grouping ---
+
+interface RecoGroup {
+  campaign_id: string;
+  campaign_name: string;
+  items: Recommendation[];
+}
+
+function groupRecos(recos: Recommendation[]): RecoGroup[] {
+  const map = new Map<string, RecoGroup>();
+  for (const r of recos) {
+    const key = r.campaign_id;
+    if (!map.has(key)) {
+      map.set(key, { campaign_id: key, campaign_name: r.campaign_name, items: [] });
+    }
+    map.get(key)!.items.push(r);
+  }
+  return Array.from(map.values());
+}
+
 // --- Recommendation severity ---
 
 function recoSeverityLabel(s: RecommendationSeverity): string {
@@ -351,7 +379,7 @@ export default function AdsPage() {
                 onClick={handleCsvExport}
                 disabled={csvLoading}
               >
-                {csvLoading ? 'Indiriliyor...' : 'CSV Indir'}
+                {csvLoading ? 'İndiriliyor...' : 'CSV İndir'}
               </button>
               {csvError && (
                 <span className={styles.csvError}>{csvError}</span>
@@ -515,7 +543,7 @@ export default function AdsPage() {
                           <td className={`${styles.td} ${styles.tdRight}`}>
                             {fmtCurrency(c.spend)}
                           </td>
-                          <td className={`${styles.td} ${styles.tdRight}`}>
+                          <td className={`${styles.td} ${styles.tdRight} ${roasClass(c.roas)}`}>
                             {fmtRoas(c.roas)}
                           </td>
                           <td className={`${styles.td} ${styles.tdRight}`}>
@@ -556,7 +584,7 @@ export default function AdsPage() {
           )}
         </section>
 
-        {/* Recommendations section */}
+        {/* Recommendations section — grouped by campaign */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>
@@ -564,7 +592,6 @@ export default function AdsPage() {
               {recos.length > 0 ? ` (${recos.length})` : ''}
             </h2>
           </div>
-
           {recosLoading ? (
             <LoadingState message="Öneriler yükleniyor..." />
           ) : recosError ? (
@@ -579,27 +606,34 @@ export default function AdsPage() {
             />
           ) : (
             <ErrorBoundary label="Öneriler">
-            <div className={styles.recoList}>
-              {recos.map((r, idx) => (
-                <div key={`${r.campaign_id}-${idx}`} className={styles.recoRow}>
-                  <div className={styles.recoBadgeCol}>
-                    <span
-                      className={`${styles.badge} ${recoSeverityClass(r.severity)}`}
-                    >
-                      {recoSeverityLabel(r.severity)}
-                    </span>
+            <div className={styles.recoGrouped}>
+              {groupRecos(recos).map((group) => (
+                <div key={group.campaign_id} className={styles.recoGroup}>
+                  <div className={styles.recoGroupHeader}>
+                    {group.campaign_name}
+                    <span className={styles.recoGroupCount}>{group.items.length}</span>
                   </div>
-                  <div className={styles.recoBody}>
-                    <div className={styles.recoCampaign}>{r.campaign_name}</div>
-                    <div className={styles.recoMessage}>{r.message}</div>
-                    <div className={styles.recoAction}>{r.suggested_action}</div>
-                  </div>
-                  <button
-                    className={styles.recoBtn}
-                    onClick={() => handleRecoAction(r.suggested_action)}
-                  >
-                    {r.suggested_action}
-                  </button>
+                  {group.items.map((r, idx) => (
+                    <div key={`${r.campaign_id}-${idx}`} className={styles.recoRow}>
+                      <div className={styles.recoBadgeCol}>
+                        <span
+                          className={`${styles.badge} ${recoSeverityClass(r.severity)}`}
+                        >
+                          {recoSeverityLabel(r.severity)}
+                        </span>
+                      </div>
+                      <div className={styles.recoBody}>
+                        <div className={styles.recoMessage}>{r.message}</div>
+                        <div className={styles.recoAction}>{r.suggested_action}</div>
+                      </div>
+                      <button
+                        className={styles.recoBtn}
+                        onClick={() => handleRecoAction(r.suggested_action)}
+                      >
+                        {r.suggested_action} &rarr;
+                      </button>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

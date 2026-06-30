@@ -8,25 +8,25 @@
 .main {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-5);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--space-4);
 }
 
 /* Page header */
 
 .pageTitle {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 .pageSubtitle {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
 }
 
 /* Gate banner (amber) */
@@ -717,31 +717,46 @@
   color: var(--color-danger);
 }
 
-/* Empty conversation placeholder */
+/* Empty conversation — wrapper for EmptyState component */
 
-.emptyConversation {
+.emptyConversationWrap {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem 2rem;
-  text-align: center;
-  gap: 0.5rem;
+  padding: var(--space-8) var(--space-5);
+  min-height: 300px;
 }
 
-.emptyConvIcon {
-  font-size: 2.5rem;
-  opacity: 0.3;
-  margin-bottom: 0.25rem;
+/* Sentiment counters — colored dot + count + label */
+
+.sentimentCounter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
 }
 
-.emptyConvTitle {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-text);
+.sentimentCounterValue {
+  font-size: var(--text-base);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
 }
 
-.emptyConvSub {
-  font-size: 0.8125rem;
+.sentimentCounterLabel {
   color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.sentimentCounterPositive .sentimentCounterValue { color: var(--color-success-text); }
+.sentimentCounterNegative .sentimentCounterValue { color: var(--color-critical-text); }
+.sentimentCounterNeutral  .sentimentCounterValue { color: var(--color-text-muted); }
+
+/* Consistent-width filter selects */
+.selectSm {
+  min-width: 130px;
+  max-width: 100%;
 }

@@ -8,11 +8,11 @@
 .main {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-5);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 /* Page header */
@@ -26,15 +26,15 @@
 }
 
 .pageTitle {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 .pageSubtitle {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
 }
 
 .refreshBtn {
@@ -59,30 +59,25 @@
   cursor: not-allowed;
 }
 
-/* Section card */
-
-.section {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.sectionHeader {
-  display: flex;
+/* "+ Yeni Kural" toggle button in section header */
+.newRuleBtn {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--space-1);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
 }
 
-.sectionTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-text);
+.newRuleBtn:hover {
+  background: var(--color-primary-hover);
 }
 
 /* Filter bar */
@@ -191,19 +186,31 @@
 }
 
 .badgeCritical {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  background: var(--color-critical-bg);
+  color: var(--color-critical-text);
 }
 
 .badgeWarning {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .badgeInfo {
-  background: rgba(59, 91, 219, 0.1);
-  color: var(--color-primary);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
+
+/* Left severity accent bar */
+.insightSeverityBar {
+  flex-shrink: 0;
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  margin-right: var(--space-1);
+}
+.insightSeverityBarCritical { background: var(--color-critical); }
+.insightSeverityBarWarning  { background: var(--color-warning); }
+.insightSeverityBarInfo     { background: var(--color-info); }
 
 /* Insight body */
 
@@ -213,16 +220,29 @@
 }
 
 .insightTitle {
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
   color: var(--color-text);
   line-height: 1.35;
 }
 
-.insightText {
-  font-size: 0.875rem;
+/* Collapsed 1-line summary — full body is in the expander */
+.insightSummary {
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Legacy alias kept for potential external references */
+.insightText {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
   line-height: 1.5;
 }
 

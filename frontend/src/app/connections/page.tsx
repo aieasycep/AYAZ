@@ -11,6 +11,7 @@ import {
   type SyncStatus,
 } from '@/lib/connectors-api';
 import AppNav from '@/components/AppNav';
+import EmptyState from '@/components/EmptyState';
 import styles from './connections.module.css';
 
 // --- Platform metadata ---
@@ -145,47 +146,12 @@ export default function ConnectionsPage() {
           </p>
         </div>
 
-        {/* Connected accounts section */}
-        {!loading && !error && accounts.length > 0 && (
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>
-                Bağlı Hesaplar ({accounts.length})
-              </h2>
-            </div>
-            <div className={styles.accountsList}>
-              {accounts.map((acc) => {
-                const meta = PLATFORMS.find((p) => p.id === acc.platform);
-                return (
-                  <div key={acc.id} className={styles.accountRow}>
-                    <div
-                      className={styles.platformIcon}
-                      style={{ background: meta?.iconBg ?? '#6b7280', color: '#fff' }}
-                    >
-                      {meta?.icon ?? '?'}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className={styles.accountName}>{acc.display_name}</div>
-                      <div className={styles.accountPlatform}>{meta?.name ?? acc.platform}</div>
-                    </div>
-                    <span className={`${styles.badge} ${statusClass(acc.sync_status)}`}>
-                      <span className={styles.badgeDot} />
-                      {statusLabel(acc.sync_status)}
-                    </span>
-                    <span className={styles.watermarkText}>
-                      {fmtDate(acc.watermark)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Platform connection grid */}
+        {/* Connected accounts — clean list with status badges */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Desteklenen Platformlar</h2>
+            <h2 className={styles.sectionTitle}>
+              Bağlı Hesaplar{accounts.length > 0 ? ` (${accounts.length})` : ''}
+            </h2>
           </div>
 
           {loading ? (
@@ -204,17 +170,59 @@ export default function ConnectionsPage() {
                 Tekrar Dene
               </button>
             </div>
+          ) : accounts.length === 0 ? (
+            <EmptyState
+              title="Henüz bağlı hesap yok"
+              subtitle="Aşağıdan bir platform seçerek bağlantı kurabilirsiniz."
+            />
           ) : (
+            <div className={styles.accountsList}>
+              {accounts.map((acc) => {
+                const meta = PLATFORMS.find((p) => p.id === acc.platform);
+                return (
+                  <div key={acc.id} className={styles.accountRow}>
+                    <div
+                      className={styles.platformIcon}
+                      style={{ background: meta?.iconBg ?? '#6b7280', color: '#fff' }}
+                    >
+                      {meta?.icon ?? '?'}
+                    </div>
+                    <div className={styles.accountInfo}>
+                      <div className={styles.accountName}>{acc.display_name}</div>
+                      <div className={styles.accountPlatform}>{meta?.name ?? acc.platform}</div>
+                    </div>
+                    <span className={`${styles.badge} ${statusClass(acc.sync_status)}`}>
+                      <span className={styles.badgeDot} />
+                      {statusLabel(acc.sync_status)}
+                    </span>
+                    <span className={styles.watermarkText}>
+                      {fmtDate(acc.watermark)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Platform grid — reflects connected status */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Desteklenen Platformlar</h2>
+          </div>
+
+          {loading ? null : error ? null : (
             <div className={styles.platformGrid}>
               {PLATFORMS.map((meta) => {
                 const connectedList = accountsByPlatform[meta.id] ?? [];
                 const isConnected = connectedList.length > 0;
                 const isConnecting = connecting[meta.id] ?? false;
+                const primaryAcc = connectedList[0];
 
                 return (
                   <div
                     key={meta.id}
-                    className={`${styles.platformCard} ${isConnected ? cardClass(connectedList[0].sync_status) : ''}`}
+                    className={`${styles.platformCard} ${isConnected ? cardClass(primaryAcc.sync_status) : ''}`}
                   >
                     <div className={styles.platformTop}>
                       <div
@@ -227,30 +235,24 @@ export default function ConnectionsPage() {
                         <div className={styles.platformName}>{meta.name}</div>
                         <div className={styles.platformLabel}>{meta.label}</div>
                       </div>
+                      {/* Connected status badge in top-right */}
+                      {isConnected && (
+                        <span className={`${styles.badge} ${statusClass(primaryAcc.sync_status)}`}>
+                          <span className={styles.badgeDot} />
+                          {statusLabel(primaryAcc.sync_status)}
+                        </span>
+                      )}
                     </div>
 
                     {isConnected ? (
                       <>
                         {connectedList.map((acc) => (
-                          <div key={acc.id}>
-                            <div className={styles.watermarkRow}>
-                              <span className={`${styles.badge} ${statusClass(acc.sync_status)}`}>
-                                <span className={styles.badgeDot} />
-                                {statusLabel(acc.sync_status)}
-                              </span>
-                              <span className={styles.watermarkText}>
-                                {fmtDate(acc.watermark)}
-                              </span>
-                            </div>
-                            <div
-                              className={styles.watermarkText}
-                              style={{ marginTop: '0.25rem' }}
-                            >
-                              {acc.display_name}
-                            </div>
+                          <div key={acc.id} className={styles.connectedAccRow}>
+                            <span className={styles.watermarkText}>{acc.display_name}</span>
+                            <span className={styles.watermarkText}>{fmtDate(acc.watermark)}</span>
                           </div>
                         ))}
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div className={styles.cardActions}>
                           <button
                             className={styles.resyncBtn}
                             onClick={() => handleConnect(meta.id)}

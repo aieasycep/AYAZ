@@ -8,11 +8,11 @@
 .main {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-5);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 /* Page header */
@@ -358,18 +358,18 @@
 }
 
 .badgeCritical {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  background: var(--color-critical-bg);
+  color: var(--color-critical-text);
 }
 
 .badgeWarning {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .badgeInfo {
-  background: rgba(59, 91, 219, 0.1);
-  color: var(--color-primary);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .recoBody {
@@ -546,4 +546,56 @@
   .recoRow {
     padding: 1rem;
   }
+}
+
+/* ROAS semantic coloring */
+.roasGood {
+  color: var(--color-success-text);
+  font-weight: var(--fw-semibold);
+}
+.roasBad {
+  color: var(--color-critical-text);
+  font-weight: var(--fw-semibold);
+}
+
+/* Grouped recommendations */
+.recoGrouped {
+  display: flex;
+  flex-direction: column;
+}
+
+.recoGroup {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.recoGroup:last-child {
+  border-bottom: none;
+}
+
+.recoGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.recoGroupCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  line-height: 18px;
 }

@@ -29,6 +29,7 @@ import {
 import AppNav from '@/components/AppNav';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
+import SectionCard from '@/components/SectionCard';
 import styles from './insights.module.css';
 
 // --- Label helpers ---
@@ -290,6 +291,7 @@ export default function InsightsPage() {
   const [ruleSubmitting, setRuleSubmitting] = useState(false);
   const [ruleFormError, setRuleFormError] = useState<string | null>(null);
   const [ruleActionBusy, setRuleActionBusy] = useState<Record<string, boolean>>({});
+  const [ruleFormOpen, setRuleFormOpen] = useState(false);
 
   // --- Fetch insights ---
 
@@ -540,10 +542,9 @@ export default function InsightsPage() {
         </div>
 
         {/* Insights section */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>İçgörü Akışı</h2>
-
+        <SectionCard
+          title="İçgörü Akışı"
+          right={
             <div className={styles.filterBar}>
               <span className={styles.filterLabel}>Önem:</span>
               {SEVERITY_OPTS.map((opt) => (
@@ -578,8 +579,8 @@ export default function InsightsPage() {
                 </button>
               ))}
             </div>
-          </div>
-
+          }
+        >
           {insightsLoading ? (
             <LoadingState message="İçgörüler yükleniyor..." />
           ) : insightsError ? (
@@ -600,6 +601,13 @@ export default function InsightsPage() {
                   key={ins.id}
                   className={`${styles.insightCard} ${ins.status === 'dismissed' ? styles.insightCardDismissed : ''}`}
                 >
+                  {/* Left accent bar by severity */}
+                  <span className={`${styles.insightSeverityBar} ${
+                    ins.severity === 'critical' ? styles.insightSeverityBarCritical
+                    : ins.severity === 'warning' ? styles.insightSeverityBarWarning
+                    : styles.insightSeverityBarInfo
+                  }`} aria-hidden="true" />
+
                   {/* Severity badge */}
                   <div className={styles.severityCol}>
                     <span
@@ -612,7 +620,8 @@ export default function InsightsPage() {
                   {/* Content */}
                   <div className={styles.insightBody}>
                     <div className={styles.insightTitle}>{ins.title}</div>
-                    <div className={styles.insightText}>{ins.body}</div>
+                    {/* Body is collapsed; full text lives inside the expander */}
+                    <div className={styles.insightSummary}>{ins.body}</div>
                     <div className={styles.insightMeta}>
                       {ins.metric && (
                         <span className={styles.metaChip}>{ins.metric}</span>
@@ -705,216 +714,227 @@ export default function InsightsPage() {
             </div>
             </ErrorBoundary>
           )}
-        </section>
+        </SectionCard>
 
         {/* Alert rules section */}
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>
-              Uyarı Kuralları{rules.length > 0 ? ` (${rules.length})` : ''}
-            </h2>
-          </div>
-
+        <SectionCard
+          title={`Uyarı Kuralları${rules.length > 0 ? ` (${rules.length})` : ''}`}
+          right={
+            <button
+              className={styles.newRuleBtn}
+              onClick={() => setRuleFormOpen((o) => !o)}
+              aria-expanded={ruleFormOpen}
+            >
+              {ruleFormOpen ? '✕ Kapat' : '+ Yeni Kural'}
+            </button>
+          }
+        >
           {rulesLoading ? (
             <LoadingState message="Kurallar yükleniyor..." />
           ) : rulesError ? (
             <ErrorState message={rulesError} onRetry={fetchRules} />
-          ) : rules.length === 0 ? (
+          ) : rules.length === 0 && !ruleFormOpen ? (
             <EmptyState
               title="Kural yok"
               description="Henüz uyarı kuralı tanımlanmamış."
             />
           ) : (
             <ErrorBoundary label="Uyarı Kuralları">
-            <div className={styles.rulesList}>
-              {rules.map((rule) => (
-                <div key={rule.id} className={styles.ruleRow}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className={styles.ruleName}>{rule.name}</div>
-                    <div className={styles.ruleMeta}>
-                      {rule.metric} &bull; {comparatorLabel(rule.comparator)}
-                      {rule.threshold !== null
-                        ? ` ${rule.threshold}`
-                        : ''}{' '}
-                      &bull; {deliveryLabel(rule.delivery)}
-                      {rule.destination ? ` → ${rule.destination}` : ''}
+            <>
+              {rules.length > 0 && (
+                <div className={styles.rulesList}>
+                  {rules.map((rule) => (
+                    <div key={rule.id} className={styles.ruleRow}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className={styles.ruleName}>{rule.name}</div>
+                        <div className={styles.ruleMeta}>
+                          {rule.metric} &bull; {comparatorLabel(rule.comparator)}
+                          {rule.threshold !== null
+                            ? ` ${rule.threshold}`
+                            : ''}{' '}
+                          &bull; {deliveryLabel(rule.delivery)}
+                          {rule.destination ? ` → ${rule.destination}` : ''}
+                        </div>
+                      </div>
+                      <button
+                        className={`${styles.ruleToggle} ${rule.active ? styles.ruleToggleActive : styles.ruleToggleInactive}`}
+                        onClick={() => handleRuleToggle(rule)}
+                        disabled={ruleActionBusy[rule.id]}
+                      >
+                        {rule.active ? 'Aktif' : 'Pasif'}
+                      </button>
+                      <button
+                        className={styles.ruleDeleteBtn}
+                        onClick={() => handleRuleDelete(rule.id)}
+                        disabled={ruleActionBusy[rule.id]}
+                      >
+                        Sil
+                      </button>
                     </div>
-                  </div>
-                  <button
-                    className={`${styles.ruleToggle} ${rule.active ? styles.ruleToggleActive : styles.ruleToggleInactive}`}
-                    onClick={() => handleRuleToggle(rule)}
-                    disabled={ruleActionBusy[rule.id]}
-                  >
-                    {rule.active ? 'Aktif' : 'Pasif'}
-                  </button>
-                  <button
-                    className={styles.ruleDeleteBtn}
-                    onClick={() => handleRuleDelete(rule.id)}
-                    disabled={ruleActionBusy[rule.id]}
-                  >
-                    Sil
-                  </button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+
+              {/* Add rule form — behind "+ Yeni Kural" toggle */}
+              {ruleFormOpen && (
+                <div className={styles.ruleFormWrapper}>
+                  <div className={styles.ruleFormTitle}>Yeni Uyarı Kuralı Ekle</div>
+                  <form onSubmit={handleRuleSubmit}>
+                    <div className={styles.ruleForm}>
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.fieldLabel}>Kural Adı</label>
+                        <input
+                          className={styles.fieldInput}
+                          type="text"
+                          placeholder="ör. CPC %20 Düşüş"
+                          value={ruleForm.name}
+                          onChange={(e) =>
+                            setRuleForm((f) => ({ ...f, name: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.fieldLabel}>Metrik</label>
+                        <input
+                          className={styles.fieldInput}
+                          type="text"
+                          placeholder="ör. cpc, spend, roas"
+                          value={ruleForm.metric}
+                          onChange={(e) =>
+                            setRuleForm((f) => ({ ...f, metric: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.fieldLabel}>Karşılaştırıcı</label>
+                        <select
+                          className={styles.fieldSelect}
+                          value={ruleForm.comparator}
+                          onChange={(e) =>
+                            setRuleForm((f) => ({
+                              ...f,
+                              comparator: e.target.value as AlertComparator,
+                            }))
+                          }
+                        >
+                          <option value="pct_drop">% Düşüş</option>
+                          <option value="pct_rise">% Yükseliş</option>
+                          <option value="below">Altında</option>
+                          <option value="above">Üzerinde</option>
+                          <option value="anomaly">Anomali</option>
+                        </select>
+                      </div>
+
+                      {ruleForm.comparator !== 'anomaly' && (
+                        <div className={styles.fieldGroup}>
+                          <label className={styles.fieldLabel}>Eşik Değeri</label>
+                          <input
+                            className={styles.fieldInput}
+                            type="number"
+                            step="any"
+                            placeholder="ör. 20"
+                            value={ruleForm.threshold}
+                            onChange={(e) =>
+                              setRuleForm((f) => ({
+                                ...f,
+                                threshold: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      )}
+
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.fieldLabel}>Bildirim</label>
+                        <select
+                          className={styles.fieldSelect}
+                          value={ruleForm.delivery}
+                          onChange={(e) =>
+                            setRuleForm((f) => ({
+                              ...f,
+                              delivery: e.target.value as AlertDelivery,
+                            }))
+                          }
+                        >
+                          <option value="email">E-posta</option>
+                          <option value="slack">Slack</option>
+                          <option value="none">Bildirim Yok</option>
+                        </select>
+                      </div>
+
+                      {ruleForm.delivery !== 'none' && (
+                        <div className={styles.fieldGroup}>
+                          <label className={styles.fieldLabel}>
+                            {ruleForm.delivery === 'email'
+                              ? 'E-posta Adresi'
+                              : 'Slack Webhook URL'}
+                          </label>
+                          <input
+                            className={styles.fieldInput}
+                            type="text"
+                            placeholder={
+                              ruleForm.delivery === 'email'
+                                ? 'ornek@sirket.com'
+                                : 'https://hooks.slack.com/...'
+                            }
+                            value={ruleForm.destination}
+                            onChange={(e) =>
+                              setRuleForm((f) => ({
+                                ...f,
+                                destination: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      )}
+
+                      <div className={styles.fieldGroup}>
+                        <label className={styles.fieldLabel}>Durum</label>
+                        <div className={styles.fieldToggleRow}>
+                          <input
+                            type="checkbox"
+                            id="rule-active"
+                            checked={ruleForm.active}
+                            onChange={(e) =>
+                              setRuleForm((f) => ({ ...f, active: e.target.checked }))
+                            }
+                          />
+                          <label
+                            htmlFor="rule-active"
+                            className={styles.fieldToggleLabel}
+                          >
+                            Aktif
+                          </label>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className={styles.submitBtn}
+                        disabled={ruleSubmitting}
+                      >
+                        {ruleSubmitting ? 'Kaydediliyor...' : 'Kural Ekle'}
+                      </button>
+                    </div>
+
+                    {ruleFormError && (
+                      <div className={styles.formError}>{ruleFormError}</div>
+                    )}
+                  </form>
+                </div>
+              )}
+            </>
             </ErrorBoundary>
           )}
-
-          {/* Add rule form */}
-          <div className={styles.ruleFormWrapper}>
-            <div className={styles.ruleFormTitle}>Yeni Uyarı Kuralı Ekle</div>
-            <form onSubmit={handleRuleSubmit}>
-              <div className={styles.ruleForm}>
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Kural Adı</label>
-                  <input
-                    className={styles.fieldInput}
-                    type="text"
-                    placeholder="ör. CPC %20 Düşüş"
-                    value={ruleForm.name}
-                    onChange={(e) =>
-                      setRuleForm((f) => ({ ...f, name: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Metrik</label>
-                  <input
-                    className={styles.fieldInput}
-                    type="text"
-                    placeholder="ör. cpc, spend, roas"
-                    value={ruleForm.metric}
-                    onChange={(e) =>
-                      setRuleForm((f) => ({ ...f, metric: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Karşılaştırıcı</label>
-                  <select
-                    className={styles.fieldSelect}
-                    value={ruleForm.comparator}
-                    onChange={(e) =>
-                      setRuleForm((f) => ({
-                        ...f,
-                        comparator: e.target.value as AlertComparator,
-                      }))
-                    }
-                  >
-                    <option value="pct_drop">% Düşüş</option>
-                    <option value="pct_rise">% Yükseliş</option>
-                    <option value="below">Altında</option>
-                    <option value="above">Üzerinde</option>
-                    <option value="anomaly">Anomali</option>
-                  </select>
-                </div>
-
-                {ruleForm.comparator !== 'anomaly' && (
-                  <div className={styles.fieldGroup}>
-                    <label className={styles.fieldLabel}>Eşik Değeri</label>
-                    <input
-                      className={styles.fieldInput}
-                      type="number"
-                      step="any"
-                      placeholder="ör. 20"
-                      value={ruleForm.threshold}
-                      onChange={(e) =>
-                        setRuleForm((f) => ({
-                          ...f,
-                          threshold: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                )}
-
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Bildirim</label>
-                  <select
-                    className={styles.fieldSelect}
-                    value={ruleForm.delivery}
-                    onChange={(e) =>
-                      setRuleForm((f) => ({
-                        ...f,
-                        delivery: e.target.value as AlertDelivery,
-                      }))
-                    }
-                  >
-                    <option value="email">E-posta</option>
-                    <option value="slack">Slack</option>
-                    <option value="none">Bildirim Yok</option>
-                  </select>
-                </div>
-
-                {ruleForm.delivery !== 'none' && (
-                  <div className={styles.fieldGroup}>
-                    <label className={styles.fieldLabel}>
-                      {ruleForm.delivery === 'email'
-                        ? 'E-posta Adresi'
-                        : 'Slack Webhook URL'}
-                    </label>
-                    <input
-                      className={styles.fieldInput}
-                      type="text"
-                      placeholder={
-                        ruleForm.delivery === 'email'
-                          ? 'ornek@sirket.com'
-                          : 'https://hooks.slack.com/...'
-                      }
-                      value={ruleForm.destination}
-                      onChange={(e) =>
-                        setRuleForm((f) => ({
-                          ...f,
-                          destination: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                )}
-
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Durum</label>
-                  <div className={styles.fieldToggleRow}>
-                    <input
-                      type="checkbox"
-                      id="rule-active"
-                      checked={ruleForm.active}
-                      onChange={(e) =>
-                        setRuleForm((f) => ({ ...f, active: e.target.checked }))
-                      }
-                    />
-                    <label
-                      htmlFor="rule-active"
-                      className={styles.fieldToggleLabel}
-                    >
-                      Aktif
-                    </label>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className={styles.submitBtn}
-                  disabled={ruleSubmitting}
-                >
-                  {ruleSubmitting ? 'Kaydediliyor...' : 'Kural Ekle'}
-                </button>
-              </div>
-
-              {ruleFormError && (
-                <div className={styles.formError}>{ruleFormError}</div>
-              )}
-            </form>
-          </div>
-        </section>
+        </SectionCard>
       </main>
 
       {/* Toast notification */}
       {toast && (
         <div className={styles.toast}>
-          ✅ {toast}
+          {toast}
         </div>
       )}
     </div>

@@ -8,43 +8,39 @@
 .main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-5);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 /* Page header */
 
 .pageTitle {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 .pageSubtitle {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
   max-width: 640px;
   line-height: 1.6;
 }
 
-/* Weekly Strategy hero */
+/* Weekly Strategy hero — uses AI card background token */
 
 .strategyHero {
-  background: linear-gradient(
-    135deg,
-    rgba(59, 91, 219, 0.06) 0%,
-    rgba(59, 91, 219, 0.02) 100%
-  );
-  border: 1.5px solid rgba(59, 91, 219, 0.18);
-  border-radius: var(--radius);
-  padding: 1.75rem;
+  background: var(--color-ai-card-bg);
+  border: 1.5px solid var(--color-ai-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 1.125rem;
+  gap: var(--space-4);
 }
 
 .strategyMeta {
@@ -191,22 +187,47 @@
   gap: 0.875rem;
 }
 
-/* Recommendation card */
+/* Recommendation card — with left priority border */
 
 .recCard {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.25rem 1.375rem;
+  box-shadow: var(--shadow-0);
+  padding: var(--space-4) var(--space-5);
+  padding-left: calc(var(--space-5) + 4px); /* offset for priority bar */
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  transition: border-color 0.15s;
+  gap: var(--space-3);
+  position: relative;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.recCard::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--color-border);
+}
+
+/* Priority: high impact = critical color, medium = warning, low = info */
+.recCard[data-impact="high"]::before {
+  background: var(--color-critical);
+}
+.recCard[data-impact="medium"]::before {
+  background: var(--color-warning);
+}
+.recCard[data-impact="low"]::before {
+  background: var(--color-info);
 }
 
 .recCard:hover {
   border-color: rgba(59, 91, 219, 0.3);
+  box-shadow: var(--shadow-1);
 }
 
 .recCardDimmed {
@@ -402,20 +423,28 @@
 .actionLinkBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.875rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #fff;
-  background: var(--color-primary);
-  border-radius: var(--radius);
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text);
+  background: transparent;
+  border-radius: 0;
   text-decoration: none;
-  transition: opacity 0.15s;
+  transition: color 0.15s;
   white-space: nowrap;
+  border-bottom: 1.5px solid var(--color-border);
+}
+
+.actionLinkBtn::after {
+  content: '\2192'; /* → */
+  display: inline;
+  font-size: 0.9em;
 }
 
 .actionLinkBtn:hover {
-  opacity: 0.88;
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 .actionBtn {
