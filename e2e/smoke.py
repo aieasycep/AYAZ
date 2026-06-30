@@ -99,7 +99,7 @@ ROUTES = [
     ("/assistant",         True,  "Yeni sohbet"),
     ("/briefing",          True,  "Günlük Brifing"),
     ("/insights",          True,  "İçgörüler"),
-    ("/connections",       True,  "Bağlantılar"),
+    ("/integrations",      True,  "Entegrasyon Merkezi"),
     ("/feeds",             True,  "Feed Yönetimi"),
     ("/ads",               True,  "Reklam Yönetimi"),
     ("/optimizer",         True,  "Bütçe Optimizasyonu"),
