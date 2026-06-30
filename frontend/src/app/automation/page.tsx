@@ -21,6 +21,7 @@ import {
 import AppNav from '@/components/AppNav';
 import EmptyState from '@/components/EmptyState';
 import SuggestionsStrip from '@/components/SuggestionsStrip';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './automation.module.css';
 
 // ---------------------------------------------------------------------------
@@ -256,7 +257,7 @@ export default function AutomationPage() {
         return next;
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Kurallar yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -290,7 +291,7 @@ export default function AutomationPage() {
       });
       setRules((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Güncelleme başarısız');
+      alert(parseApiError(err));
     } finally {
       setBusy((prev) => ({ ...prev, [rule.id]: false }));
     }
@@ -312,7 +313,7 @@ export default function AutomationPage() {
         return next;
       });
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Silme başarısız');
+      alert(parseApiError(err));
     } finally {
       setBusy((prev) => ({ ...prev, [id]: false }));
     }
@@ -332,7 +333,7 @@ export default function AutomationPage() {
         runLoading: false,
         runResult: {
           triggered: false,
-          detail: err instanceof Error ? err.message : 'Çalıştırma başarısız',
+          detail: parseApiError(err),
         },
       });
     }
@@ -356,7 +357,7 @@ export default function AutomationPage() {
     } catch (err: unknown) {
       setUI(id, {
         runsLoading: false,
-        runsError: err instanceof Error ? err.message : 'Geçmiş yüklenemedi',
+        runsError: parseApiError(err),
       });
     }
   }
@@ -413,7 +414,7 @@ export default function AutomationPage() {
       setShowForm(false);
     } catch (err: unknown) {
       setFormError(
-        err instanceof Error ? err.message : 'Kural oluşturulamadı',
+        parseApiError(err),
       );
     } finally {
       setSubmitting(false);

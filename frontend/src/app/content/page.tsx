@@ -31,6 +31,7 @@ import {
   type AdPerformance,
 } from '@/lib/creatives-api';
 import AppNav from '@/components/AppNav';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './content.module.css';
 
 // -----------------------------------------------------------------------
@@ -109,7 +110,7 @@ function ComposerModal({ post, onClose, onSaved }: ComposerProps) {
       setAiHashtags(result.hashtags);
     } catch (err: unknown) {
       setAiError(
-        err instanceof Error ? err.message : 'AI açıklama önerisi alınamadı.',
+        parseApiError(err),
       );
     } finally {
       setAiLoading(false);
@@ -158,7 +159,7 @@ function ComposerModal({ post, onClose, onSaved }: ComposerProps) {
       onClose();
     } catch (err: unknown) {
       setFormError(
-        err instanceof Error ? err.message : 'Kaydedilemedi.',
+        parseApiError(err),
       );
     } finally {
       setSubmitting(false);
@@ -357,7 +358,7 @@ function ScheduleModal({ post, onClose, onScheduled }: ScheduleModalProps) {
       onClose();
     } catch (err: unknown) {
       setFormError(
-        err instanceof Error ? err.message : 'Zamanlanamadı.',
+        parseApiError(err),
       );
     } finally {
       setSubmitting(false);
@@ -440,7 +441,7 @@ function RejectModal({ post, onClose, onRejected }: RejectModalProps) {
       onClose();
     } catch (err: unknown) {
       setFormError(
-        err instanceof Error ? err.message : 'Reddedilemedi.',
+        parseApiError(err),
       );
     } finally {
       setSubmitting(false);
@@ -521,7 +522,7 @@ function PostCard({ post, onEdit, onRefresh }: PostCardProps) {
       await fn();
       onRefresh();
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'İşlem başarısız.');
+      setActionError(parseApiError(err));
     } finally {
       setBusy(false);
     }
@@ -540,7 +541,7 @@ function PostCard({ post, onEdit, onRefresh }: PostCardProps) {
         onRefresh();
       }
     } catch (err: unknown) {
-      setActionError(err instanceof Error ? err.message : 'Yayınlanamadı.');
+      setActionError(parseApiError(err));
     } finally {
       setBusy(false);
     }
@@ -794,7 +795,7 @@ function CreativePickerModal({ onClose, onCreated }: CreativePickerProps) {
       } catch (err: unknown) {
         if (!cancelled) {
           setError(
-            err instanceof Error ? err.message : 'Kreatifler yüklenemedi.',
+            parseApiError(err),
           );
         }
       } finally {
@@ -819,7 +820,7 @@ function CreativePickerModal({ onClose, onCreated }: CreativePickerProps) {
       onCreated();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Taslak oluşturulamadı.');
+      setError(parseApiError(err));
       setCreatingId(null);
     }
   }
@@ -1064,7 +1065,7 @@ export default function ContentPage() {
       const data = await getContentPosts();
       setPosts(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'İçerikler yüklenemedi.');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getScores, type ScoresResponse, type ScoreComponent, type ScoreRating } from '@/lib/api';
+import { parseApiError } from '@/lib/parseApiError';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
 import styles from './PerformanceScore.module.css';
 
@@ -197,7 +198,7 @@ export default function PerformanceScore({ dateFrom, dateTo }: PerformanceScoreP
       const res = await getScores(from, to);
       setData(res);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Skor verisi alınamadı');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }

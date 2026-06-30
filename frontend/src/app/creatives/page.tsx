@@ -15,6 +15,7 @@ import DateRangePresets, {
   detectPreset,
   type PresetKey,
 } from '@/components/DateRangePresets';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './creatives.module.css';
 
 // --- Date helpers ---
@@ -203,7 +204,7 @@ export default function CreativesPage() {
         `kreatifler-${appliedFrom}-${appliedTo}.csv`,
       );
     } catch (err: unknown) {
-      setCsvError(err instanceof Error ? err.message : 'Dışa aktarma başarısız');
+      setCsvError(parseApiError(err));
     } finally {
       setCsvLoading(false);
     }
@@ -216,7 +217,7 @@ export default function CreativesPage() {
       const result = await getCreativesPerformance({ date_from: from, date_to: to, sort: s });
       setData(result);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Veri alınamadı');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }

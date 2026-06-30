@@ -13,6 +13,7 @@ import {
   type OppCategory,
   type CommerceWeight,
 } from '@/lib/marketing-calendar-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './marketing-calendar.module.css';
 
 // --- Helpers ---
@@ -245,7 +246,7 @@ export default function MarketingCalendarPage() {
       setData(result);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Takvim yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setLoading(false);

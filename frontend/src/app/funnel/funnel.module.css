@@ -98,6 +98,23 @@
   font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
 }
 
+/* Small-sample warning — shown when total funnel events are low enough
+   that percentages can be misleading. */
+
+.sampleWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  width: fit-content;
+}
+
 /* Funnel visualization wrapper */
 
 .funnelWrap {
@@ -201,7 +218,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Conversion chip — green, shows prev→this pct */
+/* Conversion chip — single source of truth for a stage transition.
+   Default = healthy/neutral (green). When the conversion rate is weak,
+   .conversionChipWeak swaps it to the warning color instead of stacking a
+   second, contradictory red badge next to it. */
 
 .conversionChip {
   display: inline-flex;
@@ -216,19 +236,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Dropoff badge — red/amber */
-
-.dropoffBadge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.18rem 0.5rem;
-  border-radius: 999px;
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--color-danger);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+.conversionChipWeak {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 /* Connector between stages */
@@ -250,14 +260,6 @@
   margin-left: 0.5rem;
   margin-top: 2px;
   margin-bottom: 2px;
-}
-
-.connectorLabel {
-  font-size: 0.65rem;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  padding-left: 0.5rem;
-  margin-top: 2px;
 }
 
 /* States */

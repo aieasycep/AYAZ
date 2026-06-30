@@ -22,6 +22,7 @@ import DateRangePresets, {
   detectPreset,
   type PresetKey,
 } from '@/components/DateRangePresets';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './ads.module.css';
 
 // --- Date helpers ---
@@ -205,7 +206,7 @@ export default function AdsPage() {
         });
         setCampaigns(data);
       } catch (err: unknown) {
-        setCampaignsError(err instanceof Error ? err.message : 'Kampanyalar yüklenemedi');
+        setCampaignsError(parseApiError(err));
       } finally {
         setCampaignsLoading(false);
       }
@@ -225,7 +226,7 @@ export default function AdsPage() {
       const data = await getRecommendations({ date_from: from, date_to: to });
       setRecos(data);
     } catch (err: unknown) {
-      setRecosError(err instanceof Error ? err.message : 'Öneriler yüklenemedi');
+      setRecosError(parseApiError(err));
     } finally {
       setRecosLoading(false);
     }
@@ -284,7 +285,7 @@ export default function AdsPage() {
     } catch (err: unknown) {
       setDetailErrorMap((m) => ({
         ...m,
-        [id]: err instanceof Error ? err.message : 'Detay alınamadı',
+        [id]: parseApiError(err),
       }));
     } finally {
       setDetailLoadingMap((m) => ({ ...m, [id]: false }));
@@ -333,7 +334,7 @@ export default function AdsPage() {
         `kampanyalar-${appliedFrom}-${appliedTo}.csv`,
       );
     } catch (err: unknown) {
-      setCsvError(err instanceof Error ? err.message : 'Dışa aktarma başarısız');
+      setCsvError(parseApiError(err));
     } finally {
       setCsvLoading(false);
     }

@@ -15,9 +15,16 @@ import {
   type RecommendationStatus,
   type RecommendationCategory,
 } from '@/lib/recommendations-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './recommendations.module.css';
 
 // --- Helpers ---
+
+// The audit "Sağlık Puanı" (health score) is the SAME account-wide number
+// attached to every audit-derived recommendation card — showing it on each
+// card is redundant and not distinguishing. We surface it once, in the page
+// summary band, and hide the per-card metric only for this specific label.
+const HEALTH_SCORE_METRIC_LABEL = 'Sağlık Puanı';
 
 function categoryClass(category: RecommendationCategory): string {
   switch (category) {
@@ -142,7 +149,7 @@ function RecCard({ rec, onStatusChange }: RecCardProps) {
       onStatusChange(rec.key, result.status, result.snoozed_until);
     } catch (err: unknown) {
       setActionError(
-        err instanceof Error ? err.message : 'İşlem başarısız oldu',
+        parseApiError(err),
       );
     } finally {
       setPending(null);
@@ -182,8 +189,9 @@ function RecCard({ rec, onStatusChange }: RecCardProps) {
       {/* Rationale */}
       <p className={styles.recCardRationale}>{rec.rationale}</p>
 
-      {/* Supporting metric */}
-      {rec.metric && (
+      {/* Supporting metric — the account-wide health score is shown once in
+          the page summary band instead of repeating on every card. */}
+      {rec.metric && rec.metric.label !== HEALTH_SCORE_METRIC_LABEL && (
         <div className={styles.recCardMetric}>
           <span className={styles.recCardMetricLabel}>{rec.metric.label}:</span>
           <span className={styles.recCardMetricValue}>{rec.metric.value}</span>
@@ -290,7 +298,7 @@ export default function RecommendationsPage() {
       setStrategy(strategyResult);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Öneriler yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setLoading(false);
@@ -334,6 +342,13 @@ export default function RecommendationsPage() {
     });
   }
 
+  // The account health score is identical across every audit-derived
+  // recommendation — pull it from the first one that has it so it can be
+  // shown exactly once, instead of repeating on every matching card.
+  const healthScore = feed?.recommendations.find(
+    (r) => r.metric?.label === HEALTH_SCORE_METRIC_LABEL,
+  )?.metric?.value;
+
   // Build filter tabs
   const summary = feed?.summary;
   const tabs: FilterTabItem[] = [
@@ -355,12 +370,19 @@ export default function RecommendationsPage() {
 
       <main className={styles.main}>
         {/* Page header */}
-        <div>
-          <h1 className={styles.pageTitle}>Öneri Merkezi</h1>
-          <p className={styles.pageSubtitle}>
-            Tüm ekipler için yapay zeka destekli aksiyon akışı — bütçe, performans,
-            ölçümleme, içerik ve daha fazlası tek yerden.
-          </p>
+        <div className={styles.pageHeader}>
+          <div>
+            <h1 className={styles.pageTitle}>Öneri Merkezi</h1>
+            <p className={styles.pageSubtitle}>
+              Tüm ekipler için yapay zeka destekli aksiyon akışı — bütçe, performans,
+              ölçümleme, içerik ve daha fazlası tek yerden.
+            </p>
+          </div>
+          {healthScore && (
+            <span className={styles.healthScoreBadge} title="Hesap genelinde denetim sağlık puanı">
+              {HEALTH_SCORE_METRIC_LABEL}: <strong>{healthScore}</strong>
+            </span>
+          )}
         </div>
 
         {loading ? (

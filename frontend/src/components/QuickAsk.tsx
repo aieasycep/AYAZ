@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { createConversationWithMessage } from '@/lib/assistant-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './QuickAsk.module.css';
 
 // ---------------------------------------------------------------------------
@@ -112,11 +113,7 @@ export default function QuickAsk({ onClose }: QuickAskProps) {
       router.push(`/assistant?c=${conv.id}`);
       onClose();
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Sohbet başlatılamadı. Lütfen tekrar deneyin.',
-      );
+      setError(parseApiError(err));
       setLoading(false);
     }
   }

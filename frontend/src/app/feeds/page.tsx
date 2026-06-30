@@ -40,6 +40,7 @@ import {
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import EmptyState from '@/components/EmptyState';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './feeds.module.css';
 
 // --- Label maps ---
@@ -405,7 +406,7 @@ function EnrichmentPanel({ source, onClose }: { source: FeedSource; onClose: () 
       }
       setApprovals(initial);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Öneriler alınamadı');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -424,7 +425,7 @@ function EnrichmentPanel({ source, onClose }: { source: FeedSource; onClose: () 
       setSuggestions(null);
       setApprovals({});
     } catch (err: unknown) {
-      setApplyError(err instanceof Error ? err.message : 'Uygulama başarısız');
+      setApplyError(parseApiError(err));
     } finally {
       setApplying(false);
     }
@@ -609,7 +610,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       const data = await getChannelRules(channel.id);
       setRules(data);
     } catch (err: unknown) {
-      setRulesError(err instanceof Error ? err.message : 'Kurallar yüklenemedi');
+      setRulesError(parseApiError(err));
     } finally {
       setRulesLoading(false);
     }
@@ -652,7 +653,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       setSimError(null);
       setNlResult(res);
     } catch (err: unknown) {
-      setNlError(err instanceof Error ? err.message : 'Kural üretilemedi');
+      setNlError(parseApiError(err));
     } finally {
       setNlLoading(false);
     }
@@ -684,7 +685,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       const res = await getRulesImpact(channel.id);
       setImpact(res);
     } catch (err: unknown) {
-      setImpactError(err instanceof Error ? err.message : 'Etki hesaplanamadı');
+      setImpactError(parseApiError(err));
     } finally {
       setImpactLoading(false);
     }
@@ -698,7 +699,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       const res = await getChannelQuality(channel.id);
       setQuality(res);
     } catch (err: unknown) {
-      setQualityError(err instanceof Error ? err.message : 'Kalite verisi alınamadı');
+      setQualityError(parseApiError(err));
     } finally {
       setQualityLoading(false);
     }
@@ -715,7 +716,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       const res = await simulateRule(channel.id, { rule_type: ruleType, config, position });
       setSimResult(res);
     } catch (err: unknown) {
-      setSimError(err instanceof Error ? err.message : 'Önizleme başarısız');
+      setSimError(parseApiError(err));
     } finally {
       setSimLoading(false);
     }
@@ -741,7 +742,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       await runLint();
       setImpact(null); // stale — user should re-run
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Kural eklenemedi');
+      setFormError(parseApiError(err));
     } finally {
       setSubmitting(false);
     }
@@ -1217,7 +1218,7 @@ function ChannelPanel({ source }: { source: FeedSource }) {
       const data = await getFeedChannels(source.id);
       setChannels(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Kanallar yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -1242,7 +1243,7 @@ function ChannelPanel({ source }: { source: FeedSource }) {
       setShowForm(false);
       await fetchChannels();
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Kanal eklenemedi');
+      setFormError(parseApiError(err));
     } finally {
       setSubmitting(false);
     }
@@ -1419,7 +1420,7 @@ export default function FeedsPage() {
         setSelectedSourceId(data[0].id);
       }
     } catch (err: unknown) {
-      setSourcesError(err instanceof Error ? err.message : 'Kaynaklar yüklenemedi');
+      setSourcesError(parseApiError(err));
     } finally {
       setSourcesLoading(false);
     }
@@ -1443,7 +1444,7 @@ export default function FeedsPage() {
       setNsUrl('');
       setShowNewSource(false);
     } catch (err: unknown) {
-      setNsError(err instanceof Error ? err.message : 'Kaynak oluşturulamadı');
+      setNsError(parseApiError(err));
     } finally {
       setNsSubmitting(false);
     }

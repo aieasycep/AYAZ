@@ -21,6 +21,7 @@ import {
   type SimBaseline,
   type SimResult,
 } from '@/lib/budget-simulator-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './budget-simulator.module.css';
 
 // ---------------------------------------------------------------------------
@@ -141,7 +142,7 @@ export default function BudgetSimulatorPage() {
       setAllocations(init);
     } catch (err: unknown) {
       setBaselineError(
-        err instanceof Error ? err.message : 'Baz veri yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setLoadingBaseline(false);
@@ -162,7 +163,7 @@ export default function BudgetSimulatorPage() {
         setSimResult(result);
       } catch (err: unknown) {
         setSimError(
-          err instanceof Error ? err.message : 'Simülasyon başarısız',
+          parseApiError(err),
         );
       } finally {
         setSimPending(false);

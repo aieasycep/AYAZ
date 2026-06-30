@@ -9,6 +9,7 @@ import {
   type CreativeLens,
   type CreativeRow,
 } from '@/lib/marcom-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './creative-lens.module.css';
 
 // --- Formatters ---
@@ -170,7 +171,7 @@ export default function CreativeLensPage() {
       const result = await getCreativeInsights();
       setData(result);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Kreatif verileri yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }

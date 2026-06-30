@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { login, setToken, getToken } from '@/lib/api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './login.module.css';
 
 export default function LoginPage() {
@@ -29,7 +30,7 @@ export default function LoginPage() {
       setToken(data.access_token);
       router.push('/dashboard');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Giriş başarısız';
+      const message = parseApiError(err);
       setError(message);
     } finally {
       setLoading(false);

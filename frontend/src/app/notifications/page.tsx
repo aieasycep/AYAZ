@@ -13,6 +13,7 @@ import {
 import AppNav from '@/components/AppNav';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './notifications.module.css';
 
 // ---------------------------------------------------------------------------
@@ -116,7 +117,7 @@ export default function NotificationsPage() {
       setNotifications(data);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Bildirimler yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setLoading(false);

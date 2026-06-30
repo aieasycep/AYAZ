@@ -30,6 +30,7 @@ import AppNav from '@/components/AppNav';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
 import SectionCard from '@/components/SectionCard';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './insights.module.css';
 
 // --- Label helpers ---
@@ -119,7 +120,7 @@ function InsightFixesPanel({ insightId, onToast, onNavigate }: InsightFixesPanel
       const data = await getInsightFixes(insightId);
       setFixes(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Çözümler yüklenemedi');
+      setError(parseApiError(err));
       fetchedRef.current = false; // allow retry
     } finally {
       setLoading(false);
@@ -138,7 +139,7 @@ function InsightFixesPanel({ insightId, onToast, onNavigate }: InsightFixesPanel
       setApplied((prev) => ({ ...prev, [key]: true }));
       onToast('Oluşturuldu');
     } catch (err: unknown) {
-      onToast(err instanceof Error ? err.message : 'İşlem başarısız');
+      onToast(parseApiError(err));
     } finally {
       setApplying((prev) => ({ ...prev, [key]: false }));
     }
@@ -310,7 +311,7 @@ export default function InsightsPage() {
         setInsights(data);
       } catch (err: unknown) {
         setInsightsError(
-          err instanceof Error ? err.message : 'İçgörüler yüklenemedi',
+          parseApiError(err),
         );
       } finally {
         setInsightsLoading(false);
@@ -329,7 +330,7 @@ export default function InsightsPage() {
       setRules(data);
     } catch (err: unknown) {
       setRulesError(
-        err instanceof Error ? err.message : 'Kurallar yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setRulesLoading(false);
@@ -360,7 +361,7 @@ export default function InsightsPage() {
       await generateInsights();
       await fetchInsights(severityFilter, statusFilter, appliedFilter);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Yenileme başarısız');
+      alert(parseApiError(err));
     } finally {
       setGenerating(false);
     }
@@ -376,7 +377,7 @@ export default function InsightsPage() {
         prev.map((ins) => (ins.id === updated.id ? updated : ins)),
       );
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'İşlem başarısız');
+      alert(parseApiError(err));
     } finally {
       setActionBusy((prev) => ({ ...prev, [id]: false }));
     }
@@ -408,7 +409,7 @@ export default function InsightsPage() {
           i.id === ins.id ? { ...i, applied_at: ins.applied_at } : i,
         ),
       );
-      showToast(err instanceof Error ? err.message : 'İşlem başarısız');
+      showToast(parseApiError(err));
     } finally {
       setFeedbackBusy((prev) => ({ ...prev, [`apply-${ins.id}`]: false }));
     }
@@ -438,7 +439,7 @@ export default function InsightsPage() {
           i.id === ins.id ? { ...i, reaction: ins.reaction } : i,
         ),
       );
-      showToast(err instanceof Error ? err.message : 'İşlem başarısız');
+      showToast(parseApiError(err));
     } finally {
       setFeedbackBusy((prev) => ({ ...prev, [`react-${ins.id}`]: false }));
     }
@@ -481,7 +482,7 @@ export default function InsightsPage() {
       setRuleForm(EMPTY_RULE_FORM);
     } catch (err: unknown) {
       setRuleFormError(
-        err instanceof Error ? err.message : 'Kural oluşturulamadı',
+        parseApiError(err),
       );
     } finally {
       setRuleSubmitting(false);
@@ -498,7 +499,7 @@ export default function InsightsPage() {
         prev.map((r) => (r.id === updated.id ? updated : r)),
       );
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Güncelleme başarısız');
+      alert(parseApiError(err));
     } finally {
       setRuleActionBusy((prev) => ({ ...prev, [rule.id]: false }));
     }
@@ -513,7 +514,7 @@ export default function InsightsPage() {
       await deleteAlertRule(id);
       setRules((prev) => prev.filter((r) => r.id !== id));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Silme başarısız');
+      alert(parseApiError(err));
     } finally {
       setRuleActionBusy((prev) => ({ ...prev, [id]: false }));
     }

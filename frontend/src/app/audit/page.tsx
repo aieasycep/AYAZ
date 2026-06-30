@@ -11,6 +11,7 @@ import {
   type AuditCheck,
   type AuditGrade,
 } from '@/lib/audit-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './audit.module.css';
 
 // --- Helpers ---
@@ -198,7 +199,7 @@ export default function AuditPage() {
       setData(result);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Hesap taraması yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setLoading(false);

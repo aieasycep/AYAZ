@@ -11,6 +11,7 @@ import {
   type BenchmarkChannel,
   type BenchPosition,
 } from '@/lib/benchmark-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './benchmark.module.css';
 
 // --- Formatters ---
@@ -289,11 +290,7 @@ export default function BenchmarkPage() {
       const result = await getBenchmark();
       setData(result);
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Kıyaslama verisi yüklenemedi',
-      );
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }

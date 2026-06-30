@@ -8,6 +8,7 @@ import {
   type OnboardingStatus,
   type OnboardingStep,
 } from '@/lib/onboarding-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './onboarding.module.css';
 
 // --- Helpers ---
@@ -183,7 +184,7 @@ export default function OnboardingPage() {
       setData(result);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Kurulum durumu yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setLoading(false);

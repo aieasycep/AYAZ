@@ -8,6 +8,7 @@ import {
   type TopMoversMetric,
 } from '@/lib/api';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './TopMovers.module.css';
 
 // ---------------------------------------------------------------------------
@@ -167,7 +168,7 @@ export default function TopMovers({ dateFrom, dateTo }: TopMoversProps) {
         const data = await getTopMovers(from, to, dim, met);
         setMovers(data.movers);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Veri alınamadı');
+        setError(parseApiError(err));
       } finally {
         setLoading(false);
       }

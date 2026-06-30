@@ -15,6 +15,7 @@ import {
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import { useTheme, type ThemeValue } from '@/components/ThemeProvider';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './settings.module.css';
 
 // --- Helpers ---
@@ -61,7 +62,7 @@ function ProfileCard() {
       setFullName(data.full_name ?? '');
       setEmail(data.email ?? '');
     } catch (err: unknown) {
-      setLoadError(err instanceof Error ? err.message : 'Profil yüklenemedi');
+      setLoadError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -85,7 +86,7 @@ function ProfileCard() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Profil kaydedilemedi');
+      setSaveError(parseApiError(err));
     } finally {
       setSaving(false);
     }
@@ -329,7 +330,7 @@ function PreferencesCard() {
       setEmailAlerts(data.email_alerts);
       setEmailBriefing(data.email_briefing);
     } catch (err: unknown) {
-      setLoadError(err instanceof Error ? err.message : 'Tercihler yüklenemedi');
+      setLoadError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -363,7 +364,7 @@ function PreferencesCard() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Tercihler kaydedilemedi');
+      setSaveError(parseApiError(err));
     } finally {
       setSaving(false);
     }

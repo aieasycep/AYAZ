@@ -20,6 +20,7 @@ import {
 } from '@/lib/workspaces-api';
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './workspaces.module.css';
 
 // ─── Role helpers ─────────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ function BrandSection() {
       setLogoUrl(ws.logo_url ?? '');
       setPrimaryColor(ws.primary_color ?? '#3b5bdb');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -120,7 +121,7 @@ function BrandSection() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Kayıt başarısız');
+      setSaveError(parseApiError(err));
     } finally {
       setSaving(false);
     }
@@ -250,7 +251,7 @@ function MembersSection() {
       const list = await getMembers();
       setMembers(list);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -280,7 +281,7 @@ function MembersSection() {
         )
       );
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Rol değiştirilemedi');
+      alert(parseApiError(err));
     } finally {
       setBusyId(null);
     }
@@ -301,7 +302,7 @@ function MembersSection() {
       await removeMember(member.membership_id);
       setMembers((prev) => prev.filter((m) => m.membership_id !== member.membership_id));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Üye kaldırılamadı');
+      alert(parseApiError(err));
     } finally {
       setBusyId(null);
     }
@@ -319,7 +320,7 @@ function MembersSection() {
       setInviteRole('member');
       setTimeout(() => setInviteSuccess(false), 4000);
     } catch (err: unknown) {
-      setInviteError(err instanceof Error ? err.message : 'Davet gönderilemedi');
+      setInviteError(parseApiError(err));
     } finally {
       setInviting(false);
     }
@@ -460,7 +461,7 @@ function WorkspacesSection() {
       const list = await getWorkspaces();
       setWorkspaces(list);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -475,7 +476,7 @@ function WorkspacesSection() {
       setToken(res.access_token);
       window.location.href = '/dashboard';
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Geçiş başarısız');
+      alert(parseApiError(err));
       setSwitchingId(null);
     }
   }
@@ -490,7 +491,7 @@ function WorkspacesSection() {
       setWorkspaces((prev) => [...prev, ws]);
       setNewName('');
     } catch (err: unknown) {
-      setCreateError(err instanceof Error ? err.message : 'Oluşturulamadı');
+      setCreateError(parseApiError(err));
     } finally {
       setCreating(false);
     }

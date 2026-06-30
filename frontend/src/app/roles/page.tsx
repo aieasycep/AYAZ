@@ -11,6 +11,7 @@ import {
   type RoleView,
   type AttentionSeverity,
 } from '@/lib/role-views-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './roles.module.css';
 
 // ---------------------------------------------------------------------------
@@ -153,7 +154,7 @@ export default function RolesPage() {
       setView(result);
     } catch (err: unknown) {
       setViewError(
-        err instanceof Error ? err.message : 'Rol görünümü yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setViewLoading(false);
@@ -193,7 +194,7 @@ export default function RolesPage() {
       }
     } catch (err: unknown) {
       setRolesError(
-        err instanceof Error ? err.message : 'Roller yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setRolesLoading(false);

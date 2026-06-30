@@ -13,6 +13,7 @@ import {
   type SubscriptionStatus,
 } from '@/lib/billing-api';
 import SectionCard from '@/components/SectionCard';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './billing.module.css';
 
 // ---- helpers ----
@@ -350,7 +351,7 @@ export default function BillingPage() {
       });
       setPlans(sorted);
     } catch (e) {
-      setPlansError(e instanceof Error ? e.message : 'Planlar yüklenemedi');
+      setPlansError(parseApiError(e));
     } finally {
       setPlansLoading(false);
     }
@@ -364,7 +365,7 @@ export default function BillingPage() {
       setSubscription(data);
     } catch (e) {
       setSubError(
-        e instanceof Error ? e.message : 'Abonelik bilgisi yüklenemedi',
+        parseApiError(e),
       );
     } finally {
       setSubLoading(false);
@@ -392,7 +393,7 @@ export default function BillingPage() {
       window.open(checkout_url, '_blank', 'noopener,noreferrer');
     } catch (e) {
       setUpgradeError(
-        e instanceof Error ? e.message : 'Ödeme sayfası açılamadı',
+        parseApiError(e),
       );
     } finally {
       setUpgrading(null);
@@ -408,7 +409,7 @@ export default function BillingPage() {
       await loadSubscription();
     } catch (e) {
       setCancelError(
-        e instanceof Error ? e.message : 'İptal işlemi gerçekleştirilemedi',
+        parseApiError(e),
       );
     } finally {
       setCanceling(false);

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getToken } from '@/lib/api';
+import { parseApiError } from '@/lib/parseApiError';
 import {
   getConnectedAccounts,
   getOAuthAuthorizeUrl,
@@ -99,7 +100,7 @@ export default function DataSourcesPanel() {
       const data = await getConnectedAccounts();
       setAccounts(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Hesaplar yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -116,8 +117,7 @@ export default function DataSourcesPanel() {
       const { authorize_url } = await getOAuthAuthorizeUrl(platform);
       window.location.href = authorize_url;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Yetkilendirme başlatılamadı';
-      alert(msg);
+      alert(parseApiError(err));
       setConnecting((prev) => ({ ...prev, [platform]: false }));
     }
   }

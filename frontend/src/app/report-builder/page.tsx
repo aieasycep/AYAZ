@@ -15,6 +15,7 @@ import ChannelTable from '@/components/ChannelTable';
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import type { ChannelRow } from '@/lib/api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './report-builder.module.css';
 
 // --- Date helpers ---
@@ -156,7 +157,7 @@ export default function ReportBuilderPage() {
       });
       setReport(result);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Rapor oluşturulamadı');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -175,7 +176,7 @@ export default function ReportBuilderPage() {
       });
       showToast('Rapor kaydedildi');
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : 'Kayıt başarısız');
+      showToast(parseApiError(err));
     } finally {
       setSaving(false);
     }

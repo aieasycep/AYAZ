@@ -22,6 +22,7 @@ import {
   type ChannelRoi,
 } from '@/lib/executive-api';
 import { channelColor } from '@/lib/chartColors';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './executive.module.css';
 
 // --- Formatters ---
@@ -357,7 +358,7 @@ export default function ExecutivePage() {
       const result = await getExecutiveOverview();
       setData(result);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Yönetici özeti yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }

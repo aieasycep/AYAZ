@@ -17,7 +17,9 @@ export async function login(email: string, password: string): Promise<LoginRespo
 
   if (!res.ok) {
     const detail = await res.text().catch(() => 'Giriş başarısız');
-    throw new Error(detail || 'Giriş başarısız');
+    const err = new Error(detail || 'Giriş başarısız') as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   return res.json() as Promise<LoginResponse>;
@@ -60,7 +62,9 @@ export async function signup(payload: SignupPayload): Promise<LoginResponse> {
     } catch {
       // body was not JSON; fall through to generic message
     }
-    throw new Error(message);
+    const err = new Error(message) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   return res.json() as Promise<LoginResponse>;
@@ -127,7 +131,9 @@ async function authFetch<T>(path: string, params?: Record<string, string>): Prom
 
   if (!res.ok) {
     const detail = await res.text().catch(() => 'İstek başarısız');
-    throw new Error(detail || 'İstek başarısız');
+    const err = new Error(detail || 'İstek başarısız') as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   return res.json() as Promise<T>;
@@ -239,7 +245,9 @@ export async function downloadCsv(
 
   if (!res.ok) {
     const detail = await res.text().catch(() => 'Dışa aktarma başarısız');
-    throw new Error(detail || 'Dışa aktarma başarısız');
+    const err = new Error(detail || 'Dışa aktarma başarısız') as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   const blob = await res.blob();

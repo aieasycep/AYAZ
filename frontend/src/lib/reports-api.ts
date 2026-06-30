@@ -33,7 +33,11 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => 'İstek başarısız');
-    throw new Error(detail || 'İstek başarısız');
+    // Attach the HTTP status so callers (parseApiError) can distinguish
+    // server errors (5xx) from client errors (4xx) without string-matching.
+    const err = new Error(detail || 'İstek başarısız') as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   // DELETE returns 204 — no body

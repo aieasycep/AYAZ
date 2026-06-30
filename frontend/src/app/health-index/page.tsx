@@ -10,6 +10,7 @@ import {
   type HealthDimension,
   type HealthGrade,
 } from '@/lib/health-index-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './health-index.module.css';
 
 // --- Helpers ---
@@ -213,11 +214,7 @@ export default function HealthIndexPage() {
       const result = await getHealthIndex();
       setData(result);
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Sağlık endeksi yüklenemedi',
-      );
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }

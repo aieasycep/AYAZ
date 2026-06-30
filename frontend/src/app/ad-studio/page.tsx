@@ -20,6 +20,7 @@ import {
   type DraftStatus,
 } from '@/lib/ad-studio-api';
 import { channelColor } from '@/lib/chartColors';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './ad-studio.module.css';
 
 // ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ function VariantCard({ variant, product, result, onSaved, onToast }: VariantCard
       onSaved();
       onToast('Taslak kaydedildi');
     } catch (err: unknown) {
-      onToast(err instanceof Error ? err.message : 'Kaydetme hatası');
+      onToast(parseApiError(err));
     } finally {
       setSaving(false);
     }
@@ -164,7 +165,7 @@ function DraftRow({ draft, onRefresh, onToast }: DraftRowProps) {
       await updateDraftStatus(draft.id, nextStatus);
       onRefresh();
     } catch (err: unknown) {
-      onToast(err instanceof Error ? err.message : 'Durum güncellenemedi');
+      onToast(parseApiError(err));
     } finally {
       setPending(false);
     }
@@ -178,7 +179,7 @@ function DraftRow({ draft, onRefresh, onToast }: DraftRowProps) {
       onRefresh();
       onToast('Taslak silindi');
     } catch (err: unknown) {
-      onToast(err instanceof Error ? err.message : 'Silme hatası');
+      onToast(parseApiError(err));
     } finally {
       setPending(false);
     }
@@ -375,7 +376,7 @@ export default function AdStudioPage() {
       const data = await listDrafts();
       setDrafts(data);
     } catch (err: unknown) {
-      setDraftsError(err instanceof Error ? err.message : 'Taslaklar yüklenemedi');
+      setDraftsError(parseApiError(err));
     } finally {
       setDraftsLoading(false);
     }
@@ -406,7 +407,7 @@ export default function AdStudioPage() {
       });
       setResult(res);
     } catch (err: unknown) {
-      setGenerateError(err instanceof Error ? err.message : 'Üretim başarisiz oldu');
+      setGenerateError(parseApiError(err));
     } finally {
       setGenerating(false);
     }

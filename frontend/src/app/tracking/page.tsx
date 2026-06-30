@@ -51,6 +51,7 @@ import DateRangePresets, {
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import EmptyState from '@/components/EmptyState';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './tracking.module.css';
 
 // --- Label maps ---
@@ -201,7 +202,7 @@ function CookieConsentCard({ source, onSaved }: { source: TrackingSource; onSave
       const updated = await patchTrackingSource(source.id, { consent_cookie_var: value.trim() || null });
       onSaved(updated); setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Kaydedilemedi');
+      setSaveError(parseApiError(err));
     } finally { setSaving(false); }
   }
 
@@ -273,7 +274,7 @@ function DestConsentSignals({ dest, onSaved }: { dest: TrackingDestination; onSa
       const updated = await patchDestination(dest.id, { required_consent: payload });
       onSaved(updated); setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : 'Kaydedilemedi');
+      setSaveError(parseApiError(err));
     } finally { setSaving(false); }
   }
 
@@ -641,7 +642,7 @@ function DestinationForm({ sourceId, onCreated, onCancel }: { sourceId: string; 
     try {
       await createDestination(sourceId, { platform, config: buildDestConfig(platform, cfg), consent_required: consentRequired });
       onCreated();
-    } catch (err: unknown) { setFormError(err instanceof Error ? err.message : 'Hedef eklenemedi'); }
+    } catch (err: unknown) { setFormError(parseApiError(err)); }
     finally { setSubmitting(false); }
   }
   return (
@@ -708,7 +709,7 @@ function DebugConsole({ sourceId, eventNames }: { sourceId: string; eventNames: 
     try {
       const data = await getSourceEvents(sourceId, { status: filterStatus || undefined, event_name: filterEvent || undefined, limit: 200 });
       setEvents(data); setPage(1);
-    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Olaylar yüklenemedi'); }
+    } catch (err: unknown) { setError(parseApiError(err)); }
     finally { setLoading(false); }
   }, [sourceId, filterStatus, filterEvent]);
 
@@ -719,7 +720,7 @@ function DebugConsole({ sourceId, eventNames }: { sourceId: string; eventNames: 
     if (!ev.id) return;
     setRetryingId(ev.id);
     try { await retryEvent(ev.id); await fetchEvents(); }
-    catch (err: unknown) { setError(err instanceof Error ? err.message : 'Yeniden gönderilemedi'); }
+    catch (err: unknown) { setError(parseApiError(err)); }
     finally { setRetryingId(null); }
   }
 
@@ -847,7 +848,7 @@ function SourceDetailPanel({ source: initialSource, onSourceUpdated }: { source:
   const fetchSnippet = useCallback(async () => {
     setSnippetLoading(true); setSnippetError(null);
     try { const data = await getSourceSnippet(source.id); setSnippetInfo(data); }
-    catch (err: unknown) { setSnippetError(err instanceof Error ? err.message : 'Snippet yüklenemedi'); }
+    catch (err: unknown) { setSnippetError(parseApiError(err)); }
     finally { setSnippetLoading(false); }
   }, [source.id]);
 
@@ -858,14 +859,14 @@ function SourceDetailPanel({ source: initialSource, onSourceUpdated }: { source:
   const fetchDestinations = useCallback(async () => {
     setDestLoading(true); setDestError(null);
     try { const data = await getSourceDestinations(source.id); setDestinations(data); }
-    catch (err: unknown) { setDestError(err instanceof Error ? err.message : 'Hedefler yüklenemedi'); }
+    catch (err: unknown) { setDestError(parseApiError(err)); }
     finally { setDestLoading(false); }
   }, [source.id]);
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true); setStatsError(null);
     try { const data = await getSourceStats(source.id, { date_from: statsDateFrom, date_to: statsDateTo }); setStats(data); }
-    catch (err: unknown) { setStatsError(err instanceof Error ? err.message : 'İstatistikler yüklenemedi'); }
+    catch (err: unknown) { setStatsError(parseApiError(err)); }
     finally { setStatsLoading(false); }
   }, [source.id, statsDateFrom, statsDateTo]);
 
@@ -1036,7 +1037,7 @@ export default function TrackingPage() {
       const data = await getTrackingSources();
       setSources(data);
       if (data.length > 0 && !selectedSourceId) setSelectedSourceId(data[0].id);
-    } catch (err: unknown) { setSourcesError(err instanceof Error ? err.message : 'Kaynaklar yüklenemedi'); }
+    } catch (err: unknown) { setSourcesError(parseApiError(err)); }
     finally { setSourcesLoading(false); }
   }, [selectedSourceId]);
 
@@ -1052,7 +1053,7 @@ export default function TrackingPage() {
       const created = await createTrackingSource({ name: nsName, domain: nsDomain });
       setSources((prev) => [...prev, created]); setSelectedSourceId(created.id);
       setNsName(''); setNsDomain(''); setShowNewSource(false);
-    } catch (err: unknown) { setNsError(err instanceof Error ? err.message : 'Kaynak olusturulamadi'); }
+    } catch (err: unknown) { setNsError(parseApiError(err)); }
     finally { setNsSubmitting(false); }
   }
 

@@ -28,6 +28,7 @@ import DateRangePresets, {
   detectPreset,
   type PresetKey,
 } from '@/components/DateRangePresets';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './dashboard.module.css';
 
 // --- Date helpers ---
@@ -187,7 +188,7 @@ export default function DashboardPage() {
         setCompareData(null);
       }
     } catch (err: unknown) {
-      setSummaryError(err instanceof Error ? err.message : 'Veri alınamadı');
+      setSummaryError(parseApiError(err));
     } finally {
       setSummaryLoading(false);
     }
@@ -201,7 +202,7 @@ export default function DashboardPage() {
         const data = await getTimeseries(from, to, m);
         setTimeseries(data);
       } catch (err: unknown) {
-        setTsError(err instanceof Error ? err.message : 'Veri alınamadı');
+        setTsError(parseApiError(err));
       } finally {
         setTsLoading(false);
       }
@@ -270,7 +271,7 @@ export default function DashboardPage() {
         `dashboard-${appliedFrom}-${appliedTo}.csv`,
       );
     } catch (err: unknown) {
-      setCsvError(err instanceof Error ? err.message : 'Dışa aktarma başarısız');
+      setCsvError(parseApiError(err));
     } finally {
       setCsvLoading(false);
     }

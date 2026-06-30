@@ -30,6 +30,7 @@ import {
 } from '@/lib/inbox-api';
 import AppNav from '@/components/AppNav';
 import EmptyState from '@/components/EmptyState';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './inbox.module.css';
 
 // --- Helpers ---
@@ -205,7 +206,7 @@ function MessageListPane({
       const data = await getInboxMessages(filters);
       setMessages(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Mesajlar yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -461,7 +462,7 @@ function ConversationPane({
       setNewStatus(data.status);
       setTags(data.tags ?? []);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Konuşma yüklenemedi');
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -492,7 +493,7 @@ function ConversationPane({
       });
       setReplyBody(result.reply);
     } catch (err: unknown) {
-      setReplyError(err instanceof Error ? err.message : 'Öneri alınamadı');
+      setReplyError(parseApiError(err));
     } finally {
       setSuggestLoading(false);
     }
@@ -510,7 +511,7 @@ function ConversationPane({
       setReplyBody('');
       onUpdated?.();
     } catch (err: unknown) {
-      setReplyError(err instanceof Error ? err.message : 'Yanıt gönderilemedi');
+      setReplyError(parseApiError(err));
     } finally {
       setReplying(false);
     }
@@ -528,7 +529,7 @@ function ConversationPane({
       setTimeout(() => setAssignSuccess(false), 2500);
       onUpdated?.();
     } catch (err: unknown) {
-      setAssignError(err instanceof Error ? err.message : 'Atama yapılamadı');
+      setAssignError(parseApiError(err));
     } finally {
       setAssigning(false);
     }
@@ -543,7 +544,7 @@ function ConversationPane({
       setThread((prev) => (prev ? { ...prev, ...updated } : prev));
       onUpdated?.();
     } catch (err: unknown) {
-      setStatusError(err instanceof Error ? err.message : 'Durum güncellenemedi');
+      setStatusError(parseApiError(err));
     } finally {
       setSettingStatus(false);
     }
@@ -560,7 +561,7 @@ function ConversationPane({
       setTimeout(() => setTagsSuccess(false), 2500);
       onUpdated?.();
     } catch (err: unknown) {
-      setTagsError(err instanceof Error ? err.message : 'Etiketler kaydedilemedi');
+      setTagsError(parseApiError(err));
     } finally {
       setSavingTags(false);
     }

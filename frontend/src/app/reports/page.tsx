@@ -188,7 +188,7 @@ export default function ReportsPage() {
       const data = await previewReport(id, from, to);
       setPreview(data);
     } catch (err: unknown) {
-      setPreviewError(err instanceof Error ? err.message : 'Önizleme alınamadı');
+      setPreviewError(parseApiError(err));
     } finally {
       setPreviewLoading(false);
     }
@@ -222,7 +222,7 @@ export default function ReportsPage() {
       setShareResult(result);
       setCopySuccess(false);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Paylaşma başarısız');
+      alert(parseApiError(err));
     } finally {
       setSharing(false);
     }
@@ -254,7 +254,7 @@ export default function ReportsPage() {
       const data = await getSchedules(id);
       setSchedules(data);
     } catch (err: unknown) {
-      setSchedulesError(err instanceof Error ? err.message : 'Zamanlamalar yüklenemedi');
+      setSchedulesError(parseApiError(err));
     } finally {
       setSchedulesLoading(false);
     }
@@ -308,7 +308,7 @@ export default function ReportsPage() {
       setSchedules((prev) => [...prev, created]);
       setScheduleForm(EMPTY_SCHEDULE_FORM);
     } catch (err: unknown) {
-      setScheduleFormError(err instanceof Error ? err.message : 'Zamanlama oluşturulamadı');
+      setScheduleFormError(parseApiError(err));
     } finally {
       setScheduleSubmitting(false);
     }
@@ -360,7 +360,7 @@ export default function ReportsPage() {
       setShowNewForm(false);
       setSelectedId(created.id);
     } catch (err: unknown) {
-      setReportFormError(err instanceof Error ? err.message : 'Rapor oluşturulamadı');
+      setReportFormError(parseApiError(err));
     } finally {
       setReportSubmitting(false);
     }
@@ -377,7 +377,7 @@ export default function ReportsPage() {
       setReports((prev) => prev.filter((r) => r.id !== id));
       if (selectedId === id) setSelectedId(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Silme başarısız');
+      alert(parseApiError(err));
     } finally {
       setDeleteBusy((prev) => ({ ...prev, [id]: false }));
     }

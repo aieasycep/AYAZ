@@ -21,6 +21,7 @@ import {
 } from '@/lib/assistant-api';
 import AppNav from '@/components/AppNav';
 import EmptyState from '@/components/EmptyState';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './assistant.module.css';
 
 // ---- Suggested prompts ----
@@ -200,7 +201,7 @@ function AssistantPageInner() {
       setMessages(ui);
     } catch (err: unknown) {
       setMsgsError(
-        err instanceof Error ? err.message : 'Mesajlar yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setMsgsLoading(false);
@@ -228,7 +229,7 @@ function AssistantPageInner() {
       setSendError(null);
       setLastFailedContent(null);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Sohbet başlatılamadı');
+      alert(parseApiError(err));
     } finally {
       setCreatingConv(false);
     }
@@ -270,7 +271,7 @@ function AssistantPageInner() {
       fetchConversations();
     } catch (err: unknown) {
       setSendError(
-        err instanceof Error ? err.message : 'Mesaj gönderilemedi',
+        parseApiError(err),
       );
       setLastFailedContent(trimmed);
       // Remove optimistic message on failure

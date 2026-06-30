@@ -15,6 +15,7 @@ import {
   type ConsentGrade,
   type ConsentCheckStatus,
 } from '@/lib/consent-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './consent.module.css';
 
 // ============================================================
@@ -451,7 +452,7 @@ export default function ConsentPage() {
       setData(result);
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Rıza merkezi yüklenemedi',
+        parseApiError(err),
       );
     } finally {
       setLoading(false);

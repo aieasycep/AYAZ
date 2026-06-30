@@ -4,7 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import { getFunnel, type FunnelOverview, type FunnelStage } from '@/lib/funnel-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './funnel.module.css';
+
+// Below this many total events, percentages are statistically noisy enough
+// that a single event can swing a stage's conversion rate by several points.
+const SMALL_SAMPLE_THRESHOLD = 100;
 
 // --- Formatters ---
 
@@ -20,6 +25,11 @@ function fmtPct(value: number): string {
 function fmtCount(value: number): string {
   return value.toLocaleString('tr-TR');
 }
+
+// Below 33% step-to-step conversion, call it out as a weak transition;
+// otherwise treat it as a normal/healthy part of the funnel. This keeps the
+// chip's color meaningful instead of always-green/always-red noise.
+const WEAK_CONVERSION_THRESHOLD = 33;
 
 // --- Loading skeleton ---
 
@@ -62,7 +72,7 @@ function HeroRow({ data }: HeroRowProps) {
             className={styles.heroStatLabel}
             style={{ color: 'var(--color-warning-text)', fontWeight: 800 }}
           >
-            EN BÜYÜK DÜÜŞ
+            EN BÜYÜK DÜŞÜŞ
           </div>
           <div className={`${styles.heroStatValue} ${styles.heroStatValueWarning}`}>
             {fmtPct(biggest_dropoff.dropoff_pct)}
@@ -107,31 +117,26 @@ function StageRow({ stage, isFirst, isLast }: StageRowProps) {
           <span className={styles.stageCount}>{fmtCount(stage.count)}</span>
           <span className={styles.stageShare}>{fmtPct(stage.share_of_entry_pct)}</span>
 
+          {/* Single, unambiguous metric for this transition: the conversion
+              rate from the previous step. Color signals whether it's a weak
+              transition — no separate/contradictory dropoff badge. */}
           {!isFirst && stage.conversion_from_prev_pct !== null && (
-            <span className={styles.conversionChip} title="Önceki adımdan dönüşüm">
-              +{fmtPct(stage.conversion_from_prev_pct)}
-            </span>
-          )}
-
-          {!isFirst && stage.dropoff_pct !== null && (
-            <span className={styles.dropoffBadge} title="Düşüş oranı">
-              &#9660; {fmtPct(stage.dropoff_pct)} düşüş
+            <span
+              className={`${styles.conversionChip} ${
+                stage.conversion_from_prev_pct < WEAK_CONVERSION_THRESHOLD
+                  ? styles.conversionChipWeak
+                  : ''
+              }`}
+              title="Önceki adımdan dönüşüm oranı"
+            >
+              {fmtPct(stage.conversion_from_prev_pct)} geçiş
             </span>
           )}
         </div>
       </div>
 
       {/* Connector between stages */}
-      {!isLast && (
-        <div className={styles.stageConnector}>
-          {!isFirst && stage.conversion_from_prev_pct !== null ? (
-            <span className={styles.connectorLabel}>
-              {fmtPct(stage.conversion_from_prev_pct)} geçiş
-            </span>
-          ) : null}
-          <div className={styles.connectorLine} />
-        </div>
-      )}
+      {!isLast && <div className={styles.stageConnector}><div className={styles.connectorLine} /></div>}
     </div>
   );
 }
@@ -179,11 +184,7 @@ export default function FunnelPage() {
       const result = await getFunnel();
       setData(result);
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Huni verisi yüklenemedi',
-      );
+      setError(parseApiError(err));
     } finally {
       setLoading(false);
     }
@@ -220,6 +221,14 @@ export default function FunnelPage() {
           </SectionCard>
         ) : data ? (
           <>
+            {/* Small-sample warning — percentages get noisy on low volume */}
+            {data.total_events < SMALL_SAMPLE_THRESHOLD && (
+              <div className={styles.sampleWarning} role="status">
+                <span aria-hidden="true">&#9888;</span>
+                Örneklem küçük ({fmtCount(data.total_events)} olay) — yüzdeler yanıltıcı olabilir
+              </div>
+            )}
+
             {/* Hero stats */}
             <HeroRow data={data} />
 
