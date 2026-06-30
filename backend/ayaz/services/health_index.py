@@ -12,7 +12,7 @@ Boyutlar ve kaynak eşlemeleri
     hesap_sagligi   — audit.run_account_audit     → audit.score (0-100)
     sektor_konumu   — benchmark.build_benchmark   → summary_counts ağırlıklı
     kvkk_uyum       — consent_center.build_consent_center → compliance.score
-    donusum         — funnel.build_funnel         → overall_conversion_pct
+    donusum         — FactDailyMetrics conversions/clicks → reklam dönüşüm oranı
     hedef_ilerleme  — copilot_tools._get_goal_progress → on_track oranı
     butce_disiplini — budget_planner.plan_actuals → pace_pct ile time_pace_pct farkı
 
@@ -157,37 +157,57 @@ def _dim_kvkk_uyum(db: Session, tenant_id: uuid.UUID) -> dict[str, Any]:
 
 
 def _dim_donusum(db: Session, tenant_id: uuid.UUID) -> dict[str, Any]:
-    """Dönüşüm — funnel.overall_conversion_pct → 0-100 skalası.
+    """Dönüşüm — reklam-atıflı dönüşüm oranı (conversions/clicks) → 0-100 skalası.
 
-    Skalama: min(100, round(overall_conversion_pct / 10.0 * 100))
-    Yorum: %10 ve üzeri dönüşüm oranı → 100 puan (heuristic eşik).
-    entry_count == 0 → None (huni verisi yok).
+    Önceki sürüm huninin oturum→satın oranını baz alıyordu; bu oran küçük
+    örneklemde şişebildiği için %10 → 100 ile gerçekçi olmayan "mükemmel"
+    skorlar üretiyordu (denetimde "Dönüşüm 100/100 yanıltıcı" bulgusu). Artık
+    gerçek reklam-atıflı dönüşüm oranını (son 30 gün, tüm kanallar) e-ticaret
+    referansına göre puanlıyoruz: ~%6 dönüşüm oranı = 100 (üstün), doğrusal
+    altı. Böylece ~%2-3 sektör ortalaması "orta" bandında kalır.
+    Tıklama yoksa None.
     """
     try:
-        from ayaz.services.funnel import build_funnel
+        from sqlalchemy import func, select
+        from ayaz.models.analytics import FactDailyMetrics
 
         today = date.today()
-        date_to = today.isoformat()
-        date_from = (today - timedelta(days=29)).isoformat()
-        result = build_funnel(db, tenant_id, date_from=date_from, date_to=date_to)
+        start = today - timedelta(days=29)
+        clicks, conversions = db.execute(
+            select(
+                func.coalesce(func.sum(FactDailyMetrics.clicks), 0),
+                func.coalesce(func.sum(FactDailyMetrics.conversions), 0),
+            ).where(
+                FactDailyMetrics.tenant_id == tenant_id,
+                FactDailyMetrics.date_key >= start,
+                FactDailyMetrics.date_key <= today,
+            )
+        ).one()
 
-        if result.get("entry_count", 0) == 0:
+        clicks = int(clicks or 0)
+        conversions = float(conversions or 0.0)
+        if clicks == 0:
             return {
                 "score": None,
                 "status": "veri_yok",
-                "detail": "Dönüşüm hunisi verisi yok (giriş olayı yok)",
+                "detail": "Reklam tıklama verisi yok",
             }
 
-        pct = result.get("overall_conversion_pct", 0.0) or 0.0
-        score = min(100, round(pct / 10.0 * 100))
+        conv_rate = conversions / clicks * 100.0
+        # E-ticaret reklam-atıflı dönüşüm oranı referansı: ~%6 = üstün (100 puan).
+        excellent_pct = 6.0
+        score = max(0, min(100, round(conv_rate / excellent_pct * 100)))
         return {
             "score": score,
             "status": "ok",
-            "detail": f"Genel dönüşüm oranı: %{pct:.2f} → {score}/100",
+            "detail": (
+                f"Reklam dönüşüm oranı: %{conv_rate:.2f} "
+                f"(referans %{excellent_pct:.0f}=100) → {score}/100"
+            ),
         }
     except Exception:
         log.warning("health_index: donusum failed", exc_info=True)
-        return {"score": None, "status": "veri_yok", "detail": "Dönüşüm hunisi verisi alınamadı"}
+        return {"score": None, "status": "veri_yok", "detail": "Dönüşüm verisi alınamadı"}
 
 
 def _dim_hedef_ilerleme(db: Session, tenant_id: uuid.UUID) -> dict[str, Any]:
