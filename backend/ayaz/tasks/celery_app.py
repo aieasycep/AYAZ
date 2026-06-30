@@ -38,6 +38,7 @@ celery_app = Celery(
         "ayaz.tasks.sync_tasks",
         "ayaz.tasks.automation_tasks",
         "ayaz.tasks.briefing_tasks",
+        "ayaz.tasks.token_refresh",
     ],
 )
 
@@ -76,6 +77,14 @@ celery_app.conf.beat_schedule = {
     "generate-daily-briefings": {
         "task": "ayaz.tasks.briefing_tasks.generate_daily_briefings",
         "schedule": crontab(minute=0, hour=7),
+        "options": {"queue": "beat"},
+    },
+    # Refresh OAuth tokens whose access_expires_at is within 10 minutes.
+    # Runs every 15 minutes at minutes 0, 15, 30, 45.
+    # One failing grant does not abort the batch (idempotent, resilient).
+    "refresh-due-grants": {
+        "task": "ayaz.tasks.token_refresh.refresh_due_grants",
+        "schedule": crontab(minute="*/15"),
         "options": {"queue": "beat"},
     },
 }

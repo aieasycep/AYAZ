@@ -993,34 +993,282 @@ def dispatch(
     db: Session,
     tenant_id: uuid.UUID,
     args: dict,
+    *,
+    user_id: uuid.UUID | None = None,
+    vault=None,
+    confirmed: bool = False,
 ) -> dict:
     """Call the named tool and return its result dict.
+
+    Static tools (``_TOOLS``) are dispatched directly.  Integration action
+    tools (registered via ``IntegrationRegistry``) are routed to
+    ``_dispatch_integration_action`` which enforces the confirm-before-write
+    flow (ADR-8).
 
     Parameters
     ----------
     name       : tool function name.
-    db         : SQLAlchemy Session (read-only for most tools; draft_automation_rule
-                 doesn't write either, so effectively all tools are read-only).
+    db         : SQLAlchemy Session.
     tenant_id  : always forwarded; tools must not use any other tenant's data.
     args       : keyword arguments from the model's tool_use block (already parsed).
+    user_id    : optional caller user UUID — forwarded to integration ActionContext.
+    vault      : optional SecretsVault override — forwarded to ActionContext.
+    confirmed  : when ``True`` the confirm-before-write phase is skipped and the
+                 write action executes immediately.  The caller is responsible for
+                 having shown the preview to the user and received explicit approval.
 
     Returns
     -------
     dict  — always a dict (never raises; wraps errors in {"error": ...}).
     """
+    # ── Static (legacy) tools ─────────────────────────────────────────────
     fn = _TOOLS.get(name)
-    if fn is None:
-        return {"error": f"Bilinmeyen araç: {name!r}"}
+    if fn is not None:
+        try:
+            return fn(db=db, tenant_id=tenant_id, **args)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "[copilot_tools] dispatch(%r) raised: %s", name, exc, exc_info=True
+            )
+            return {"error": "Araç çalıştırılamadı."}
+
+    # ── Integration action tools (dynamic, per-tenant) ────────────────────
     try:
-        return fn(db=db, tenant_id=tenant_id, **args)
+        return _dispatch_integration_action(
+            name=name,
+            db=db,
+            tenant_id=tenant_id,
+            args=args,
+            user_id=user_id,
+            vault=vault,
+            confirmed=confirmed,
+        )
     except Exception as exc:
         import logging
         logging.getLogger(__name__).warning(
-            "[copilot_tools] dispatch(%r) raised: %s", name, exc, exc_info=True
+            "[copilot_tools] integration dispatch(%r) raised: %s", name, exc, exc_info=True
         )
-        # Return a generic Turkish message — never expose internal exception
-        # details (e.g. Python TypeError/signature strings) to the caller.
         return {"error": "Araç çalıştırılamadı."}
+
+
+def _resolve_connection(db: Session, tenant_id: uuid.UUID, integration_key: str):
+    """Return the connected IntegrationConnection for the tenant, or None."""
+    from sqlalchemy import select
+    from ayaz.models.integrations import IntegrationConnection
+
+    return db.scalars(
+        select(IntegrationConnection).where(
+            IntegrationConnection.tenant_id == tenant_id,
+            IntegrationConnection.integration_key == integration_key,
+            IntegrationConnection.status == "connected",
+        )
+    ).first()
+
+
+def _build_action_context(
+    db: Session,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID | None,
+    conn,
+    vault,
+):
+    """Build an ActionContext for executing an integration action."""
+    from ayaz.integrations.base import ActionContext
+    from ayaz.models.integrations import ProviderGrant
+    from ayaz.services.grant_vault import GrantVault
+
+    # Resolve vault_secret_ref from the associated ProviderGrant
+    vault_secret_ref = ""
+    if conn.provider_grant_id is not None:
+        grant = db.get(ProviderGrant, conn.provider_grant_id)
+        if grant is not None:
+            vault_secret_ref = str(grant.id)
+
+    effective_vault = vault if vault is not None else GrantVault(db)
+
+    return ActionContext(
+        tenant_id=tenant_id,
+        connection_id=conn.id,
+        user_id=user_id or uuid.UUID(int=0),
+        db=db,
+        vault=effective_vault,
+        _vault_secret_ref=vault_secret_ref,
+    )
+
+
+def _dispatch_integration_action(
+    name: str,
+    db: Session,
+    tenant_id: uuid.UUID,
+    args: dict,
+    *,
+    user_id: uuid.UUID | None = None,
+    vault=None,
+    confirmed: bool = False,
+) -> dict:
+    """Route an integration tool call through the confirm-before-write flow.
+
+    Two-phase flow for write actions (ADR-8):
+
+    Phase 1 (confirmed=False):
+        Returns ``{"requires_confirmation": True, "preview": {...}}`` describing
+        what will happen.  The caller MUST show this to the user and await approval.
+
+    Phase 2 (confirmed=True):
+        Executes the action and returns the real result.
+
+    Read-only actions (``ActionSpec.is_write=False``) execute immediately.
+
+    Tenant isolation
+    ----------------
+    Only ``status="connected"`` connections for ``tenant_id`` are usable.
+    Cross-tenant access is impossible — the connection lookup is always
+    filtered by ``tenant_id``.
+    """
+    import logging
+    _dlog = logging.getLogger(__name__)
+
+    from ayaz.integrations.registry import IntegrationRegistry
+
+    # ── Find the integration that owns this action ────────────────────────
+    klass = IntegrationRegistry.find_by_action(name)
+    if klass is None:
+        return {"error": f"Bilinmeyen araç: {name!r}"}
+
+    integration_key = klass.metadata.key
+
+    # ── Tenant isolation: only connected connections for THIS tenant ───────
+    conn = _resolve_connection(db, tenant_id, integration_key)
+    if conn is None:
+        return {
+            "error": (
+                f"{klass.metadata.display_name} bağlı değil. "
+                "Entegrasyon Merkezi'nden bağlayın."
+            )
+        }
+
+    # ── Scope check ───────────────────────────────────────────────────────
+    instance = klass()
+    action_spec = next((a for a in instance.actions() if a.name == name), None)
+    if action_spec is None:
+        return {"error": f"Bilinmeyen aksiyon: {name!r}"}
+
+    if action_spec.required_scopes:
+        conn_scopes = set(conn.scopes or [])
+        missing = set(action_spec.required_scopes) - conn_scopes
+        if missing:
+            return {
+                "error": (
+                    f"Bu işlem için yetki yetersiz — eksik izinler: {sorted(missing)}. "
+                    "Bağlantıyı yeniden yapılandırın."
+                )
+            }
+
+    # ── Confirm-before-write for write actions ────────────────────────────
+    if action_spec.is_write and not confirmed:
+        # Phase 1: return a preview; do NOT execute
+        preview = _build_write_preview(name, args, klass.metadata.display_name)
+        return {
+            "requires_confirmation": True,
+            "action": name,
+            "integration": integration_key,
+            "display_name": klass.metadata.display_name,
+            "preview": preview,
+            "note": (
+                "Bu bir YAZMA aksiyonudur. Onaylamak için aynı isteği "
+                "'confirmed: true' parametresiyle tekrarlayın."
+            ),
+        }
+
+    # ── Execute ───────────────────────────────────────────────────────────
+    ctx = _build_action_context(db, tenant_id, user_id, conn, vault)
+
+    try:
+        result = instance.execute_action(name, args, ctx=ctx)
+    except Exception as exc:
+        _dlog.error(
+            "[copilot_tools] execute_action(%r) failed: %s", name, exc, exc_info=True
+        )
+        ctx.audit(name, args, {"error": str(exc)}, "error")
+        return {"error": f"Aksiyon çalıştırılamadı: {klass.metadata.display_name}"}
+
+    return result
+
+
+def _build_write_preview(
+    action_name: str, args: dict, display_name: str
+) -> dict:
+    """Build a human-readable Turkish preview of what a write action will do."""
+    # Generic preview — adapters can override via a custom preview method later
+    arg_lines = []
+    for k, v in args.items():
+        # Redact very long values
+        s = str(v)
+        arg_lines.append(f"{k}: {s[:80]}{'…' if len(s) > 80 else ''}")
+
+    return {
+        "action_description": (
+            f"{display_name} üzerinde '{action_name}' aksiyonu çalıştırılacak."
+        ),
+        "parameters": arg_lines,
+        "warning": "Bu işlem geri alınamayabilir. Onaylamadan önce kontrol edin.",
+    }
+
+
+def build_tenant_tool_specs(
+    db: Session,
+    tenant_id: uuid.UUID,
+) -> list[dict]:
+    """Build the complete per-tenant tool spec list for Claude.
+
+    Combines the static ``TOOL_SPECS`` (read tools + existing action tools)
+    with the dynamic integration action specs for the tenant's connected
+    integrations.
+
+    Parameters
+    ----------
+    db        : Active DB session.
+    tenant_id : The tenant whose connected integrations define the tool pool.
+
+    Returns
+    -------
+    list[dict]
+        Ready-to-use Claude tool spec dicts.  Only connected integrations'
+        actions are included — unconnected integrations are invisible to Claude,
+        preventing hallucinated action calls.
+    """
+    from sqlalchemy import select
+    from ayaz.models.integrations import IntegrationConnection
+    from ayaz.integrations.registry import IntegrationRegistry
+
+    # Collect integration keys with status="connected" for this tenant
+    connected_keys: set[str] = set(
+        db.scalars(
+            select(IntegrationConnection.integration_key).where(
+                IntegrationConnection.tenant_id == tenant_id,
+                IntegrationConnection.status == "connected",
+            )
+        ).all()
+    )
+
+    # Static tools always present
+    specs = list(TOOL_SPECS)
+
+    # Dynamic integration action tools (only for connected integrations)
+    if connected_keys:
+        integration_specs = IntegrationRegistry.action_specs_for(connected_keys)
+        for spec in integration_specs:
+            # Convert from IntegrationRegistry format to Claude tool format
+            specs.append(
+                {
+                    "name": spec["name"],
+                    "description": spec["description"],
+                    "input_schema": spec["input_schema"],
+                }
+            )
+
+    return specs
 
 
 # ── Claude tool schemas (TOOL_SPECS) ───────────────────────────────────────────

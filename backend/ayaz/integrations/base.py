@@ -237,26 +237,101 @@ class ActionContext:
     ) -> None:
         """Write an audit log entry for this action (ADR-8).
 
+        Records a row in ``action_audit_log`` with PII/secrets redacted from
+        ``args``.  The ``db`` session is flushed (not committed) so the caller
+        controls the transaction boundary.
+
         Parameters
         ----------
         action_name:
             The tool name, e.g. ``"slack_send_message"``.
         args:
-            Action arguments (PII will be redacted by the audit service).
+            Action arguments — PII fields (``text``, ``message``, ``body``,
+            ``email``, ``subject``, ``content``) and secret fields
+            (``token``, ``password``, ``secret``, ``key``) are redacted to
+            ``"[REDACTED]"`` before persistence.
         result:
-            Action result dict.
+            Action result dict (used to extract error message).
         status:
             ``"ok"`` | ``"error"`` | ``"denied"``.
         was_auto:
             ``True`` if the action was triggered by an automation rule rather
             than direct user request.
         """
-        # Full implementation wired in Sprint 3 when action_audit_log table is
-        # created.  Stub logs to standard output for now so callers have a real
-        # interface to call without ImportError.
         import logging
 
         _log = logging.getLogger(__name__)
+
+        # ── PII / secret redaction ────────────────────────────────────────
+        _PII_FIELDS = frozenset(
+            {
+                "text", "message", "body", "email", "subject", "content",
+                "description", "note", "comment",
+            }
+        )
+        _SECRET_FIELDS = frozenset(
+            {
+                "token", "access_token", "refresh_token", "password",
+                "secret", "api_key", "api_secret", "client_secret", "key",
+            }
+        )
+        redacted: dict[str, Any] = {}
+        for k, v in (args or {}).items():
+            k_lower = k.lower()
+            if k_lower in _SECRET_FIELDS:
+                redacted[k] = "[REDACTED:SECRET]"
+            elif k_lower in _PII_FIELDS:
+                # Keep short values (e.g. channel names) but redact long ones
+                s = str(v) if v is not None else ""
+                redacted[k] = s[:40] + "…" if len(s) > 40 else s
+            else:
+                redacted[k] = v
+
+        # ── Resolve integration_key from action_name ──────────────────────
+        # Attempt a lookup in the registry; fall back to the action name prefix.
+        integration_key = action_name.split("_")[0] if "_" in action_name else action_name
+        try:
+            from ayaz.integrations.registry import IntegrationRegistry
+
+            klass = IntegrationRegistry.find_by_action(action_name)
+            if klass is not None:
+                integration_key = klass.metadata.key
+        except Exception:
+            pass  # registry may not be fully loaded in edge cases
+
+        # ── Error message ────────────────────────────────────────────────
+        error_msg: str | None = None
+        if status == "error":
+            error_msg = str(result.get("error", "")) or None
+
+        # ── Persist ──────────────────────────────────────────────────────
+        try:
+            from ayaz.models.integrations import ActionAuditLog
+
+            log_row = ActionAuditLog(
+                id=__import__("uuid").uuid4(),
+                tenant_id=self.tenant_id,
+                integration_key=integration_key,
+                action_name=action_name,
+                params_summary=redacted,
+                status=status,
+                error=error_msg,
+                actor_user_id=self.user_id if not was_auto else None,
+                was_auto=was_auto,
+            )
+            self.db.add(log_row)
+            self.db.flush()
+        except Exception as exc:
+            # Audit failure must NEVER crash the action itself — log and continue
+            _log.error(
+                "audit write failed for action=%s tenant=%s: %s",
+                action_name,
+                self.tenant_id,
+                exc,
+                exc_info=True,
+            )
+            return
+
         _log.info(
             "audit action=%s tenant=%s connection=%s user=%s status=%s auto=%s",
             action_name,

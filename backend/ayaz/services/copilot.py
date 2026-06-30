@@ -45,7 +45,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ayaz.models.copilot import Conversation, Message
-from ayaz.services.copilot_tools import TOOL_SPECS, dispatch
+from ayaz.services.copilot_tools import TOOL_SPECS, build_tenant_tool_specs, dispatch
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,16 @@ _SYSTEM_PROMPT = (
     "- Gerekli parametreler eksikse ÖNCE kullanıcıya sor; eksik parametrelerle araç çağırma.\n"
     "- Bir eylem aracı çağırdıktan sonra yanıtında ne oluşturulduğunu özetle: "
     "'Oluşturuldu: [kural/hedef adı] (ID: ...)'\n"
-    "- Sadece okuma araçları (get_*, list_*, draft_*) için onay gerekmez."
+    "- Sadece okuma araçları (get_*, list_*, draft_*) için onay gerekmez.\n\n"
+    "## Entegrasyon aksiyon araçları ([EYLEM] önekli)\n"
+    "- [EYLEM] önekli araçlar Slack, Google Sheets, Gmail gibi harici servislere "
+    "gerçek yazma işlemleri yapar.\n"
+    "- Bu araçları YALNIZCA kullanıcı açıkça istediğinde çağır.\n"
+    "- Çağırmadan önce ne yapacağını Türkçe olarak özetle ve kullanıcıdan onay iste: "
+    "'[Bağlantı adı] üzerinde şunu yapacağım: [özet]. Onaylıyor musunuz?'\n"
+    "- Araç 'requires_confirmation: true' döndürürse kullanıcıya özeti göster, "
+    "onay aldıktan sonra tekrar çağır.\n"
+    "- Kullanıcı onaylamadıysa aksiyonu gerçekleştirme."
 )
 
 # Default date range used by stub when user doesn't specify dates
@@ -926,6 +935,7 @@ def _call_claude(
     model: str,
     messages: list[dict],
     http_client: Any,
+    tools: list[dict] | None = None,
 ) -> dict:
     """POST to the Anthropic Messages API and return the parsed response body."""
     import httpx
@@ -934,7 +944,7 @@ def _call_claude(
         "model": model,
         "max_tokens": 1024,
         "system": _SYSTEM_PROMPT,
-        "tools": TOOL_SPECS,
+        "tools": tools if tools is not None else TOOL_SPECS,
         "messages": messages,
     }
     headers = {
@@ -975,9 +985,21 @@ def _claude_chat(
     api_key: str,
     model: str,
     http_client: Any,
+    user_id: uuid.UUID | None = None,
 ) -> AssistantReply:
-    """Run the Claude tool-use loop.  Falls back to stub on any error."""
+    """Run the Claude tool-use loop.  Falls back to stub on any error.
+
+    Builds a per-tenant dynamic tool pool (static tools + connected integration
+    action tools) so Claude only sees tools for the tenant's actual connections.
+    Integration write actions use the confirm-before-write flow (ADR-8).
+    """
     tools_used: list[ToolUsed] = []
+
+    # ── Per-tenant dynamic tool pool (design §6.1) ─────────────────────────
+    try:
+        tenant_tools = build_tenant_tool_specs(db, tenant_id)
+    except Exception:
+        tenant_tools = list(TOOL_SPECS)  # fall back to static tools on error
 
     # Build the messages list: existing history + new user message
     history = _build_history_for_claude(conversation, db)
@@ -992,6 +1014,7 @@ def _claude_chat(
                 model=model,
                 messages=messages,
                 http_client=http_client,
+                tools=tenant_tools,
             )
 
             stop_reason = response.get("stop_reason")
@@ -1019,7 +1042,16 @@ def _claude_chat(
                     tool_name = tb.get("name", "")
                     tool_input = tb.get("input", {})
 
-                    result = dispatch(tool_name, db, tenant_id, tool_input)
+                    # Dispatch — integration actions use extended dispatch with
+                    # confirm-before-write (ADR-8); static tools dispatch directly.
+                    result = dispatch(
+                        tool_name,
+                        db,
+                        tenant_id,
+                        tool_input,
+                        user_id=user_id,
+                        confirmed=False,  # Claude path always starts in preview phase
+                    )
                     result_text = json.dumps(result, ensure_ascii=False, default=str)
 
                     # Build a summary for persistence and response
@@ -1145,6 +1177,7 @@ def chat(
             api_key=api_key,
             model=model,
             http_client=http_client,
+            user_id=user_id,
         )
     else:
         reply = _stub_chat(db, tenant_id, user_text)

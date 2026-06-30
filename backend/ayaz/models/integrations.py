@@ -1,11 +1,14 @@
-"""ORM models for the Integration layer (Wave 1 — foundation).
+"""ORM models for the Integration layer.
 
-New tables (Alembic 0027):
+Tables (Alembic 0027):
 - ``provider_grants``        — one OAuth grant = one Vault entry; shared by
                                multiple IntegrationConnection rows (bundle model)
-- ``integration_connections`` — per-tenant, per-integration instance; tracks
+- ``integration_connections`` — per-tenant integration instance; tracks
                                 lifecycle, scopes, sync watermark
 - ``integration_requests``   — "Yakında" demand signal from catalog cards
+
+Table (Alembic 0028):
+- ``action_audit_log``       — every WRITE action recorded (ADR-8)
 
 These tables are intentionally separate from ``connected_accounts`` (which
 powers the ad/analytics sync engine via ``Platform`` enum and ``SyncStatus``).
@@ -299,5 +302,92 @@ class IntegrationRequest(Base, TimestampMixin):
         return (
             f"<IntegrationRequest id={self.id}"
             f" key={self.integration_key!r}"
+            f" tenant={self.tenant_id}>"
+        )
+
+
+class ActionAuditLog(Base):
+    """Immutable audit log for every WRITE action executed through the Integration layer.
+
+    ADR-8: Every write action is recorded here regardless of outcome (ok/error/denied).
+    This table is append-only — no ``updated_at`` column; rows are never mutated.
+
+    Columns
+    -------
+    id               : UUID primary key.
+    tenant_id        : Tenant that owns the action (RLS).
+    integration_key  : Integration key (e.g. "slack", "google_sheets").
+    action_name      : Tool name (e.g. "slack_send_message").
+    params_summary   : JSON dict of action arguments with PII/secrets redacted.
+    status           : "ok" | "error" | "denied".
+    error            : Error message when status="error"; NULL otherwise.
+    actor_user_id    : User who triggered the action (NULL for automation).
+    was_auto         : True when triggered by an automation rule (not direct user).
+    created_at       : Immutable insertion timestamp (server-side).
+    """
+
+    __tablename__ = "action_audit_log"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID_TYPE(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="RLS: filter by current_setting('app.tenant_id')",
+    )
+    integration_key: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="Integration key, e.g. slack | google_sheets | gmail",
+    )
+    action_name: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+        comment="Tool name, e.g. slack_send_message",
+    )
+    params_summary: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+        comment="Action arguments with PII/secrets redacted — never store raw tokens",
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        comment="ok | error | denied",
+    )
+    error: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Error message when status=error; NULL for ok/denied",
+    )
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID_TYPE(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="User who triggered the action; NULL for automation-triggered actions",
+    )
+    was_auto: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="True when triggered by an automation rule, False for direct user action",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=sa.func.now(),
+        nullable=False,
+        index=True,
+        comment="Immutable insertion timestamp — never updated",
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ActionAuditLog id={self.id}"
+            f" action={self.action_name!r}"
+            f" status={self.status!r}"
             f" tenant={self.tenant_id}>"
         )
