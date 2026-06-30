@@ -677,7 +677,7 @@
   right: 1.5rem;
   z-index: 9999;
   background: var(--color-success-text);
-  color: #fff;
+  color: var(--color-on-primary);
   padding: 0.625rem 1.125rem;
   border-radius: var(--radius);
   font-size: 0.875rem;

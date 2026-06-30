@@ -110,13 +110,13 @@
 .horizonBtnActive {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .horizonBtnActive:hover:not(:disabled) {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 /* Timeline — each month is now a SectionCard */
@@ -210,23 +210,23 @@
 }
 
 .categoryTicari {
-  background: rgba(59, 91, 219, 0.1);
-  color: var(--color-primary);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .categoryResmi {
-  background: rgba(16, 185, 129, 0.12);
-  color: var(--color-success-text, #059669);
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .categorySezonsal {
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--color-warning-text, #b45309);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .categoryDini {
-  background: rgba(124, 58, 237, 0.1);
-  color: var(--color-purple, #7c3aed);
+  background: var(--color-ai-bg);
+  color: var(--color-ai);
 }
 
 /* Weight chip */
@@ -242,13 +242,13 @@
 }
 
 .weightYuksek {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--color-danger);
+  background: var(--color-critical-bg);
+  color: var(--color-critical);
 }
 
 .weightOrta {
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--color-warning-text, #b45309);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .weightDusuk {
@@ -275,12 +275,12 @@
 }
 
 .urgentBadge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--color-danger);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-critical-bg);
+  color: var(--color-critical);
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -295,13 +295,13 @@
 /* Marketing tip */
 
 .marketingTip {
-  font-size: 0.8375rem;
+  font-size: var(--text-sm);
   color: var(--color-text);
   line-height: 1.6;
-  padding: 0.5rem 0.75rem;
-  background: rgba(59, 91, 219, 0.04);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-info-bg);
   border-left: 2.5px solid var(--color-primary);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 /* Readiness — compact status pills */
