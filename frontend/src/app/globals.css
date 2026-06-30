@@ -350,3 +350,17 @@ textarea:focus-visible,
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   Sidebar layout offset — desktop ≥ 1024px
+   The fixed left sidebar is 248px wide. Shift all page content
+   to the right so it never overlaps the sidebar.
+   The sticky top strip (52px) is rendered as the first child
+   inside each page's own flow — no extra top padding needed here.
+   ============================================================ */
+
+@media (min-width: 1024px) {
+  body {
+    padding-left: 248px;
+  }
+}

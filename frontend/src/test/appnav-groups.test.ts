@@ -1,13 +1,13 @@
 /**
  * AppNav groups integrity test.
  *
- * Asserts that NAV_GROUPS (5 visible groups) + ACCOUNT_LINKS (account menu)
- * together cover every route in NAV_LINKS:
+ * Asserts that NAV_GROUPS (9 sidebar sections) + ACCOUNT_LINKS (account/utility
+ * area) together cover every route in NAV_LINKS:
  *  (a) every NAV_LINKS href appears in exactly one group or in ACCOUNT_LINKS
  *  (b) every grouped href and every ACCOUNT_LINKS href exists in NAV_LINKS
  *  (c) no duplicate hrefs across groups or ACCOUNT_LINKS
- *  (d) NAV_GROUPS count === 5 and ACCOUNT_LINKS length === 4
- *      combined grouped links === NAV_LINKS.length (34)
+ *  (d) NAV_GROUPS count === 9 and ACCOUNT_LINKS length === 6
+ *      combined grouped links === NAV_LINKS.length (35)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -18,20 +18,20 @@ describe('NAV_GROUPS integrity', () => {
   const groupedLinks = NAV_GROUPS.flatMap((g) => g.links);
   const groupedHrefs = groupedLinks.map((l) => l.href);
   const accountHrefs = ACCOUNT_LINKS.map((l) => l.href);
-  // All reachable hrefs = nav groups + account menu combined
+  // All reachable hrefs = nav groups + account area combined
   const allGroupedHrefs = [...groupedHrefs, ...accountHrefs];
 
-  it('(d) NAV_GROUPS count is 5', () => {
-    expect(NAV_GROUPS).toHaveLength(5);
+  it('(d) NAV_GROUPS count is 9', () => {
+    expect(NAV_GROUPS).toHaveLength(9);
   });
 
-  it('(d) ACCOUNT_LINKS count is 4', () => {
-    expect(ACCOUNT_LINKS).toHaveLength(4);
+  it('(d) ACCOUNT_LINKS count is 6', () => {
+    expect(ACCOUNT_LINKS).toHaveLength(6);
   });
 
-  it('(d) combined grouped links + account links equals NAV_LINKS.length (34)', () => {
+  it('(d) combined grouped links + account links equals NAV_LINKS.length (35)', () => {
     expect(allGroupedHrefs).toHaveLength(NAV_LINKS.length);
-    expect(NAV_LINKS).toHaveLength(34);
+    expect(NAV_LINKS).toHaveLength(35);
   });
 
   it('(c) no duplicate hrefs across NAV_GROUPS and ACCOUNT_LINKS', () => {
@@ -64,5 +64,18 @@ describe('NAV_GROUPS integrity', () => {
 
   it('combined hrefs set equals NAV_LINKS hrefs set (bidirectional)', () => {
     expect(new Set(allGroupedHrefs)).toEqual(new Set(flatNavHrefs));
+  });
+
+  it('NAV_GROUPS uses the new function-based section labels', () => {
+    const labels = NAV_GROUPS.map((g) => g.label);
+    expect(labels).toContain('Genel Bakış');
+    expect(labels).toContain('Sosyal Medya');
+    expect(labels).toContain('Reklam');
+    expect(labels).toContain('Kreatif');
+    expect(labels).toContain('Analiz');
+    expect(labels).toContain('Raporlar');
+    expect(labels).toContain('Planlama');
+    expect(labels).toContain('Veri & Entegrasyon');
+    expect(labels).toContain('AI Asistanı');
   });
 });
