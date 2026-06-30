@@ -231,6 +231,27 @@ def build_overview(
     }
 
 
+def _strongest_channel_label(channels: list[dict]) -> str:
+    """Return the label of the best-performing channel by ROAS.
+
+    "En güçlü kanal" (strongest channel) is a performance claim, so it must
+    be ranked by ROAS — not by spend.  ``channels`` is sorted by spend
+    descending for the table view; that ordering is independent of which
+    channel is actually the most efficient one, so we re-rank here rather
+    than reusing ``channels[0]``.
+
+    Only channels with spend > 0 are eligible (a zero-spend channel has a
+    ROAS of 0 by definition in this codebase and would otherwise never win
+    ties against a real spender, but is excluded explicitly for clarity).
+    Ties on ROAS are broken by spend descending for determinism.
+    """
+    eligible = [c for c in channels if c.get("spend", 0.0) > 0.0]
+    if not eligible:
+        return channels[0]["label"] if channels else "—"
+    best = max(eligible, key=lambda c: (c.get("roas", 0.0), c.get("spend", 0.0)))
+    return str(best["label"])
+
+
 def _build_headline(
     *,
     date_from: date,
@@ -253,7 +274,9 @@ def _build_headline(
     revenue_str = f"₺{curr['revenue']:,.0f}"
     roas_str = f"{curr['roas']:.2f}x"
 
-    top_label = channels[0]["label"] if channels else "—"
+    # "En güçlü kanal" is a performance claim -> rank by ROAS, not spend, so
+    # it never contradicts a ROAS-sorted ROI table elsewhere in the UI.
+    top_label = _strongest_channel_label(channels)
 
     # MoM direction for ROAS
     roas_pct = deltas.get("roas_pct")

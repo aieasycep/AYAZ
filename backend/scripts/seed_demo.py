@@ -175,9 +175,9 @@ _CHANNEL_SPECS = [
             },
             {
                 "camp_ext": "G-CAMP-PRSP",
-                "camp_name": "Prospecting — Genis Kitle",
+                "camp_name": "Prospecting — Geniş Kitle",
                 "adset_ext": "G-AS-PRSP-INT",
-                "adset_name": "Ilgi Alanlari",
+                "adset_name": "İlgi Alanları",
                 "ad_ext": "G-AD-PRSP-DSA",
                 "ad_name": "DSA Koleksiyon",
                 "impressions": 45000,
@@ -189,9 +189,9 @@ _CHANNEL_SPECS = [
             },
             {
                 "camp_ext": "G-CAMP-SHOP",
-                "camp_name": "Shopping — Urun Listesi",
+                "camp_name": "Shopping — Ürün Listesi",
                 "adset_ext": "G-AS-SHOP-ALL",
-                "adset_name": "Tum Urunler",
+                "adset_name": "Tüm Ürünler",
                 "ad_ext": "G-AD-SHOP-DYNA",
                 "ad_name": "Dinamik Shopping",
                 "impressions": 30000,
@@ -214,9 +214,9 @@ _CHANNEL_SPECS = [
                 "camp_ext": "M-CAMP-RETG",
                 "camp_name": "Retargeting — Sepet Terk",
                 "adset_ext": "M-AS-RETG-7D",
-                "adset_name": "7 Gunluk Ziyaretci",
+                "adset_name": "7 Günlük Ziyaretçi",
                 "ad_ext": "M-AD-RETG-CARO",
-                "ad_name": "Carousel — Sepet Urunu",
+                "ad_name": "Carousel — Sepet Ürünü",
                 "impressions": 25000,
                 "clicks": 750,
                 "cost": Decimal("1875.00"),
@@ -227,7 +227,7 @@ _CHANNEL_SPECS = [
             },
             {
                 "camp_ext": "M-CAMP-ACQST",
-                "camp_name": "Musteri Kazanimi — LAL",
+                "camp_name": "Müşteri Kazanımı — LAL",
                 "adset_ext": "M-AS-LAL-2PCT",
                 "adset_name": "2pct Lookalike",
                 "ad_ext": "M-AD-LAL-VID",
@@ -252,7 +252,7 @@ _CHANNEL_SPECS = [
                 "camp_ext": "TT-CAMP-VIRAL",
                 "camp_name": "Viral Creative — Gen Z",
                 "adset_ext": "TT-AS-VIRAL-18-24",
-                "adset_name": "18-24 Yas",
+                "adset_name": "18-24 Yaş",
                 "ad_ext": "TT-AD-VIRAL-UGC",
                 "ad_name": "UGC Video — Dans Challenge",
                 "impressions": 80000,
@@ -582,7 +582,7 @@ _AD_LEVEL_SPECS = [
         "extra_ads": [
             {
                 "ad_ext": "G-AD-BRAND-VID",
-                "ad_name": "Video — Indirim Kampanyasi",
+                "ad_name": "Video — İndirim Kampanyası",
                 # High ROAS winner: good conversions relative to spend
                 "imp_frac": Decimal("0.35"),
                 "clk_frac": Decimal("0.40"),
@@ -592,7 +592,7 @@ _AD_LEVEL_SPECS = [
             },
             {
                 "ad_ext": "G-AD-BRAND-STAT",
-                "ad_name": "Statik — Marka Gorseli",
+                "ad_name": "Statik — Marka Görseli",
                 # Moderate performer
                 "imp_frac": Decimal("0.30"),
                 "clk_frac": Decimal("0.28"),
@@ -620,7 +620,7 @@ _AD_LEVEL_SPECS = [
         "extra_ads": [
             {
                 "ad_ext": "M-AD-RETG-VID",
-                "ad_name": "Video — Sepet Hatirlatma",
+                "ad_name": "Video — Sepet Hatırlatma",
                 # High ROAS winner for meta
                 "imp_frac": Decimal("0.40"),
                 "clk_frac": Decimal("0.45"),
@@ -630,7 +630,7 @@ _AD_LEVEL_SPECS = [
             },
             {
                 "ad_ext": "M-AD-RETG-STAT",
-                "ad_name": "Statik — Indirim Afisi",
+                "ad_name": "Statik — İndirim Afişi",
                 # Moderate
                 "imp_frac": Decimal("0.30"),
                 "clk_frac": Decimal("0.28"),
@@ -640,7 +640,7 @@ _AD_LEVEL_SPECS = [
             },
             {
                 "ad_ext": "M-AD-RETG-COLL",
-                "ad_name": "Koleksiyon — Tum Koleksiyon",
+                "ad_name": "Koleksiyon — Tüm Koleksiyon",
                 # Loser: spend but zero conversions
                 "imp_frac": Decimal("0.20"),
                 "clk_frac": Decimal("0.18"),
@@ -658,7 +658,7 @@ _AD_LEVEL_SPECS = [
         "extra_ads": [
             {
                 "ad_ext": "TT-AD-VIRAL-DUO",
-                "ad_name": "Duet — Urun Tanitim",
+                "ad_name": "Duet — Ürün Tanıtım",
                 # Strong performer
                 "imp_frac": Decimal("0.38"),
                 "clk_frac": Decimal("0.40"),
@@ -668,7 +668,7 @@ _AD_LEVEL_SPECS = [
             },
             {
                 "ad_ext": "TT-AD-VIRAL-STC",
-                "ad_name": "Statik — Flash Indirim",
+                "ad_name": "Statik — Flash İndirim",
                 # Moderate
                 "imp_frac": Decimal("0.28"),
                 "clk_frac": Decimal("0.25"),
@@ -678,7 +678,7 @@ _AD_LEVEL_SPECS = [
             },
             {
                 "ad_ext": "TT-AD-VIRAL-WAS",
-                "ad_name": "Spark — Dusuk Performans",
+                "ad_name": "Spark — Düşük Performans",
                 # Worst: spend, near-zero conversions
                 "imp_frac": Decimal("0.24"),
                 "clk_frac": Decimal("0.20"),
@@ -867,10 +867,22 @@ _GOOGLE_FEED_TOKEN = "ayaz-demo-gshop-token-0000000001"
 _META_FEED_TOKEN   = "ayaz-demo-meta-token-00000000001"
 
 
+_DEMO_FEED_SOURCE_NAME = "Demo Ürün Feed'i"
+
+
 def _seed_feeds(db, tenant: Tenant) -> dict:
     """Create FeedSource, ingest products, and set up two FeedChannels with rules.
 
     Returns dict with counts.
+
+    Idempotency note
+    -----------------
+    ``FeedSource`` has no stable external token (unlike ``FeedChannel``,
+    matched below by ``public_token``), so this seed flow only ever creates
+    one demo FeedSource per tenant — looked up by ``tenant_id`` alone rather
+    than by ``name``.  Matching by name would silently break idempotency
+    (and create a duplicate row) any time the demo brand copy changes the
+    name string.  The name is self-healed (updated in place) on every run.
     """
     counts = {"feed_sources": 0, "products": 0, "channels": 0, "rules": 0}
 
@@ -878,13 +890,12 @@ def _seed_feeds(db, tenant: Tenant) -> dict:
     feed_source = db.scalar(
         select(FeedSource).where(
             FeedSource.tenant_id == tenant.id,
-            FeedSource.name == "Demo Urun Feed'i",
-        )
+        ).order_by(FeedSource.created_at.asc())
     )
     if feed_source is None:
         feed_source = FeedSource(
             tenant_id=tenant.id,
-            name="Demo Urun Feed'i",
+            name=_DEMO_FEED_SOURCE_NAME,
             source_type="upload",
             source_url=None,
             status="pending",
@@ -892,10 +903,13 @@ def _seed_feeds(db, tenant: Tenant) -> dict:
         )
         db.add(feed_source)
         db.flush()
-        print(f"  Created FeedSource: Demo Urun Feed'i ({feed_source.id})")
+        print(f"  Created FeedSource: {_DEMO_FEED_SOURCE_NAME} ({feed_source.id})")
         counts["feed_sources"] = 1
     else:
-        print(f"  FeedSource already exists: Demo Urun Feed'i ({feed_source.id})")
+        if feed_source.name != _DEMO_FEED_SOURCE_NAME:
+            feed_source.name = _DEMO_FEED_SOURCE_NAME
+            db.flush()
+        print(f"  FeedSource already exists: {_DEMO_FEED_SOURCE_NAME} ({feed_source.id})")
 
     # ── Ingest products from fixture XML ───────────────────────────────────
     if _FEED_FIXTURE.exists():
@@ -916,7 +930,7 @@ def _seed_feeds(db, tenant: Tenant) -> dict:
         gshop_channel = FeedChannel(
             tenant_id=tenant.id,
             feed_source_id=feed_source.id,
-            name="Google Shopping — Tum Urunler",
+            name="Google Shopping — Tüm Ürünler",
             channel_type="google_shopping",
             output_format="xml",
             public_token=_GOOGLE_FEED_TOKEN,
@@ -954,6 +968,9 @@ def _seed_feeds(db, tenant: Tenant) -> dict:
         db.flush()
         counts["rules"] += 2
     else:
+        if gshop_channel.name != "Google Shopping — Tüm Ürünler":
+            gshop_channel.name = "Google Shopping — Tüm Ürünler"
+            db.flush()
         print(f"  FeedChannel google_shopping already exists ({gshop_channel.id})")
 
     # ── FeedChannel: Meta Catalog CSV ──────────────────────────────────────
@@ -966,7 +983,7 @@ def _seed_feeds(db, tenant: Tenant) -> dict:
         meta_channel = FeedChannel(
             tenant_id=tenant.id,
             feed_source_id=feed_source.id,
-            name="Meta Katalog — Aktif Urunler",
+            name="Meta Katalog — Aktif Ürünler",
             channel_type="meta_catalog",
             output_format="csv",
             public_token=_META_FEED_TOKEN,
@@ -1002,6 +1019,9 @@ def _seed_feeds(db, tenant: Tenant) -> dict:
         db.flush()
         counts["rules"] += 2
     else:
+        if meta_channel.name != "Meta Katalog — Aktif Ürünler":
+            meta_channel.name = "Meta Katalog — Aktif Ürünler"
+            db.flush()
         print(f"  FeedChannel meta_catalog already exists ({meta_channel.id})")
 
     db.commit()
@@ -1012,7 +1032,7 @@ def _seed_feeds(db, tenant: Tenant) -> dict:
 
 # Stable token — deterministic so re-runs stay idempotent and the snippet
 # embed URL never changes across seed invocations.
-_TRACKING_SOURCE_NAME = "EasyCep Web"
+_TRACKING_SOURCE_NAME = "AYAZ Demo Mağaza Web"
 _TRACKING_PUBLIC_TOKEN = "ayaz-demo-tracking-token-0000000001"
 
 # Event distribution across the last 14 days.
@@ -1138,7 +1158,7 @@ def _identity_profile(event_name: str, idx: int) -> dict:
     ph = f"+9053300{user_num:05d}"
     fbc = f"fb.1.{1700000000 + idx}.IwAR{idx:06d}"
     fbp = f"fb.1.{1700000000 + idx}.{(idx * 7) % 999999}"
-    ext = f"easycep-cust-{user_num:04d}"
+    ext = f"ayazdemo-cust-{user_num:04d}"
     ip = f"85.10.{idx % 255}.{(idx * 7) % 255}"
     ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
@@ -1176,8 +1196,14 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
 
     Idempotency
     -----------
-    - TrackingSource:  skip if a source with name _TRACKING_SOURCE_NAME already
-      exists for this tenant (matched by name + tenant_id).
+    - TrackingSource:  matched by ``public_token`` (the truly stable identity —
+      it is embedded in the snippet embed URL printed at the end of the seed
+      run) rather than by ``name``.  Matching by name would silently break
+      idempotency — and collide on the unique ``public_token`` constraint —
+      any time the demo brand copy changes, since a rename would no longer
+      find the previously-seeded row.  ``name``/``domain`` are self-healed
+      (updated in place) on every run so a brand-copy change still propagates
+      to existing demo databases instead of leaving stale data behind.
     - EventDestinations:  skip if the source already has destinations (avoids
       re-adding on second run after the source was created).
     - ConversionEvents:  skip entire block if the source already has any events
@@ -1194,14 +1220,14 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
     source = db.scalar(
         select(TrackingSource).where(
             TrackingSource.tenant_id == tenant.id,
-            TrackingSource.name == _TRACKING_SOURCE_NAME,
+            TrackingSource.public_token == _TRACKING_PUBLIC_TOKEN,
         )
     )
     if source is None:
         source = TrackingSource(
             tenant_id=tenant.id,
             name=_TRACKING_SOURCE_NAME,
-            domain="easycep.com",
+            domain="demo.ayaz.app",
             public_token=_TRACKING_PUBLIC_TOKEN,
             is_active=True,
             # KVKK açık rıza: snippet reads the CMP's consent cookie/dataLayer key,
@@ -1213,6 +1239,10 @@ def _seed_tracking(db, tenant: Tenant) -> dict:
         print(f"  Created TrackingSource: {_TRACKING_SOURCE_NAME} ({source.id})")
         counts["tracking_sources"] = 1
     else:
+        if source.name != _TRACKING_SOURCE_NAME or source.domain != "demo.ayaz.app":
+            source.name = _TRACKING_SOURCE_NAME
+            source.domain = "demo.ayaz.app"
+            db.flush()
         print(f"  TrackingSource already exists: {_TRACKING_SOURCE_NAME} ({source.id})")
 
     # ── EventDestinations ─────────────────────────────────────────────────
@@ -1369,7 +1399,7 @@ _CONTENT_POSTS = [
         "title": "Yaz indirimi duyurusu",
         "body": (
             "☀️ Yaz geldi, fırsatlar kapıda! Seçili ürünlerde %40'a varan "
-            "indirim hafta sonuna kadar EasyCep'te. Kaçırmayın!"
+            "indirim hafta sonuna kadar AYAZ Demo Mağaza'da. Kaçırmayın!"
         ),
         "channels": ["instagram", "facebook"],
         "status": "scheduled",
@@ -1424,7 +1454,7 @@ _CONTENT_POSTS = [
         "title": "Anneler Günü teşekkürü",
         "body": (
             "Tüm annelerin Anneler Günü kutlu olsun! 💐 Bu özel günde "
-            "sevdiklerinize EasyCep ile ulaşın."
+            "sevdiklerinize AYAZ Demo Mağaza ile ulaşın."
         ),
         "channels": ["instagram", "facebook"],
         "status": "published",
@@ -1587,7 +1617,7 @@ _INBOX_MESSAGES = [
      "pending", "Destek Ekibi", ["kargo", "şikayet"], 0,
      "Yaşadığınız aksaklık için çok üzgünüz Zeynep Hanım, hemen kontrol edip dönüyoruz."),
     ("x", "mention", "@burak_tech", "Burak",
-     "@easycep uygulamanız harika olmuş, tebrikler 👏", "positive",
+     "@ayazdemo uygulamanız harika olmuş, tebrikler 👏", "positive",
      "open", None, ["övgü"], 0, None),
     ("facebook", "dm", "@elif.yıldız", "Elif Yıldız",
      "İade sürecini başlatmak istiyorum, nasıl yapabilirim?", "neutral",
@@ -1598,7 +1628,7 @@ _INBOX_MESSAGES = [
     ("tiktok", "comment", "@moda_sever", "Moda Sever",
      "Bu ürün hangi renklerde var? 😍", "positive", "open", None, [], 0, None),
     ("linkedin", "mention", "@ahmet.sahin", "Ahmet Şahin",
-     "EasyCep ile çalışmak isteyen markalar için harika bir platform.", "positive",
+     "AYAZ Demo Mağaza ile çalışmak isteyen markalar için harika bir platform.", "positive",
      "resolved", "Pazarlama", ["işbirliği"], -3,
      "İlginiz için teşekkürler, işbirliği için size özelden yazıyoruz."),
     ("instagram", "dm", "@selin.ak", "Selin Ak",
@@ -1816,9 +1846,282 @@ def _seed_ad_copy_drafts(db, tenant: Tenant) -> dict:
     return counts
 
 
+# ── Subscription / billing seeding ───────────────────────────────────────────
+
+
+def _seed_subscription(db, tenant: Tenant) -> dict:
+    """Ensure the demo tenant has an active 'growth' plan subscription.
+
+    The demo tenant connects 5 ConnectedAccounts (3 rich channels + the 2
+    legacy fixture accounts created in steps 2-4).  Without an explicit
+    Subscription row, ``ayaz.services.billing.get_subscription`` falls back
+    to a synthetic FREE subscription (max_data_sources=1), so the billing
+    screen shows a false "Plan Limitini Aştınız" (plan limit exceeded) alarm
+    for a demo that is supposed to look healthy out of the box.
+
+    'growth' allows up to 8 data sources (PLANS["growth"]["limits"]
+    ["max_data_sources"] == 8) — comfortably above the 5 connected demo
+    accounts, with headroom for future seed additions.
+
+    Idempotency: updates the existing row in place if one already exists
+    (so re-running the seed against a tenant that was previously downgraded
+    manually still converges back to the intended demo state) rather than
+    skipping — there is exactly one Subscription per tenant by DB constraint.
+    """
+    from ayaz.models.billing import Subscription
+    from ayaz.services.billing import PLANS
+
+    plan_code = "growth"
+    assert plan_code in PLANS, f"Unknown plan code: {plan_code!r}"
+
+    sub = db.scalar(select(Subscription).where(Subscription.tenant_id == tenant.id))
+    if sub is None:
+        sub = Subscription(
+            tenant_id=tenant.id,
+            plan_code=plan_code,
+            status="active",
+            provider="none",
+        )
+        db.add(sub)
+        db.flush()
+        print(f"  Created Subscription: plan={plan_code} status=active ({sub.id})")
+        created = True
+    else:
+        sub.plan_code = plan_code
+        sub.status = "active"
+        db.flush()
+        print(f"  Subscription already exists — set to plan={plan_code} status=active ({sub.id})")
+        created = False
+
+    db.commit()
+    max_ds = PLANS[plan_code]["limits"]["max_data_sources"]
+    return {"plan_code": plan_code, "max_data_sources": max_ds, "created": created}
+
+
+# ── Goals seeding (M5 — Hedef Takibi) ────────────────────────────────────────
+
+
+def _seed_goals(db, tenant: Tenant) -> dict:
+    """Seed 3 realistic monthly Goals with varied pacing for the demo tenant.
+
+    All three target the current month window (anchored to ``_RICH_END_DATE``
+    so progress is computed against the seeded 45-day fact history):
+      1. ROAS hedefi          — realistic target slightly above the seeded
+                                 average ROAS so it reads as "on_track"/"at_risk".
+      2. Dönüşüm hedefi        — account-wide conversions target.
+      3. Harcama hedefi        — google_ads-only spend target (channel_filter)
+                                 so the goals list also demonstrates per-channel
+                                 scoping, not just account-wide goals.
+
+    Idempotency: skip entirely if the tenant already has any Goal row.
+    """
+    from sqlalchemy import func as _func
+    from ayaz.models.goals import Goal
+
+    counts = {"goals": 0}
+
+    existing = db.scalar(
+        select(_func.count()).select_from(Goal).where(Goal.tenant_id == tenant.id)
+    ) or 0
+    if existing > 0:
+        print(f"  Goals already exist ({existing} rows) — skipping")
+        return counts
+
+    period_start = _RICH_START_DATE.replace(day=1).isoformat()
+    # Last day of the month containing _RICH_END_DATE
+    if _RICH_END_DATE.month == 12:
+        _next_month_first = date(_RICH_END_DATE.year + 1, 1, 1)
+    else:
+        _next_month_first = date(_RICH_END_DATE.year, _RICH_END_DATE.month + 1, 1)
+    period_end = (_next_month_first - timedelta(days=1)).isoformat()
+
+    goal_specs = [
+        {
+            "name": "Haziran 2026 ROAS Hedefi",
+            "metric": "roas",
+            "target_value": 4.0,
+            "channel_filter": None,
+        },
+        {
+            "name": "Haziran 2026 Dönüşüm Hedefi",
+            "metric": "conversions",
+            "target_value": 6000.0,
+            "channel_filter": None,
+        },
+        {
+            "name": "Google Ads Harcama Hedefi",
+            "metric": "spend",
+            "target_value": 180000.0,
+            "channel_filter": "google_ads",
+        },
+    ]
+
+    for spec in goal_specs:
+        goal = Goal(
+            tenant_id=tenant.id,
+            name=spec["name"],
+            metric=spec["metric"],
+            target_value=spec["target_value"],
+            period="month",
+            period_start=period_start,
+            period_end=period_end,
+            channel_filter=spec["channel_filter"],
+            is_active=True,
+        )
+        db.add(goal)
+        counts["goals"] += 1
+
+    db.commit()
+    print(f"  Inserted {counts['goals']} Goals (period {period_start} — {period_end})")
+    return counts
+
+
+# ── Automation rules seeding (M9 — Otomasyon) ─────────────────────────────────
+
+
+def _seed_automation(db, tenant: Tenant) -> dict:
+    """Seed 2 AutomationRules — one already "triggered", one still idle.
+
+    1. "ROAS Düşüş Uyarısı — Google Ads Brand Search": scope=campaign,
+       scope_filter=<Brand Search campaign UUID>, metric=roas,
+       comparator=pct_drop, threshold=20%, window_days=7.  The seeded anomaly
+       (_CHANNEL_SPECS google_ads / "Brand Search" / anomaly="roas_drop")
+       halves conversion_value in the last 7 days of the rich fact window.
+       Scoping is deliberately at the *campaign* level, not the channel
+       level: google_ads also runs two unaffected campaigns ("Prospecting",
+       "Shopping"), and their steady ROAS dilutes a channel-wide aggregate
+       below the 20% drop threshold. Evaluating at the campaign grain
+       matches the anomaly 1:1, so as of ``_RICH_END_DATE`` it genuinely
+       triggers — last_triggered_at is set and a matching
+       AutomationRun(triggered=True) row exists, giving the Automation
+       screen a real "tetiklendi" (triggered) card instead of an empty list.
+    2. "Harcama Sıçraması İzleme — Tüm Hesap": scope=account, metric=spend,
+       comparator=pct_rise, threshold=50%, action=notify_email.  Left idle
+       (never evaluated) so the demo also shows a healthy/un-triggered rule.
+
+    Idempotency: skip entirely if the tenant already has any AutomationRule.
+    """
+    from sqlalchemy import func as _func
+    from ayaz.models.analytics import DimCampaign
+    from ayaz.models.automation import AutomationRule
+    from ayaz.services.automation import run_rule
+
+    counts = {"rules": 0, "triggered": 0}
+
+    existing = db.scalar(
+        select(_func.count()).select_from(AutomationRule).where(
+            AutomationRule.tenant_id == tenant.id
+        )
+    ) or 0
+    if existing > 0:
+        print(f"  AutomationRules already exist ({existing} rows) — skipping")
+        return counts
+
+    brand_search_campaign = db.scalar(
+        select(DimCampaign).where(
+            DimCampaign.tenant_id == tenant.id,
+            DimCampaign.external_id == "G-CAMP-BRAND",
+        )
+    )
+    if brand_search_campaign is None:
+        # Defensive: rich facts are always seeded before this step, but guard
+        # against being called standalone/out of order.
+        print(
+            "  WARNING: 'Brand Search' campaign not found — falling back to "
+            "channel-wide scope (rule may not trigger on first evaluation)"
+        )
+        rule_scope, rule_scope_filter = "channel", "google_ads"
+    else:
+        rule_scope, rule_scope_filter = "campaign", str(brand_search_campaign.id)
+
+    triggered_rule = AutomationRule(
+        tenant_id=tenant.id,
+        name="ROAS Düşüş Uyarısı — Google Ads Brand Search",
+        scope=rule_scope,
+        scope_filter=rule_scope_filter,
+        metric="roas",
+        comparator="pct_drop",
+        threshold=20.0,
+        window_days=7,
+        action="alert",
+        action_config={},
+        is_active=True,
+    )
+    idle_rule = AutomationRule(
+        tenant_id=tenant.id,
+        name="Harcama Sıçraması İzleme — Tüm Hesap",
+        scope="account",
+        scope_filter=None,
+        metric="spend",
+        comparator="pct_rise",
+        threshold=50.0,
+        window_days=7,
+        action="notify_email",
+        action_config={"recipients": [DEMO_EMAIL]},
+        is_active=True,
+    )
+    db.add_all([triggered_rule, idle_rule])
+    db.flush()
+    counts["rules"] = 2
+
+    # Evaluate the first rule as of the end of the seeded anomaly window so it
+    # genuinely fires (real ROAS drop in the data, not a fabricated flag).
+    evaluation = run_rule(db, triggered_rule, _RICH_END_DATE)
+    db.flush()
+    if evaluation.triggered:
+        counts["triggered"] = 1
+        print(
+            f"  AutomationRule '{triggered_rule.name}' TRIGGERED as of {_RICH_END_DATE} "
+            f"({len(evaluation.matched_entities)} matched entities)"
+        )
+    else:
+        print(
+            f"  WARNING: expected '{triggered_rule.name}' to trigger as of "
+            f"{_RICH_END_DATE} but it did not — anomaly data may have shifted"
+        )
+
+    db.commit()
+    print(f"  Inserted {counts['rules']} AutomationRules ({counts['triggered']} pre-triggered)")
+    return counts
+
+
+# ── Daily briefing seeding (M-briefing — Günlük Brifing) ─────────────────────
+
+
+def _seed_briefing(db, tenant: Tenant) -> dict:
+    """Generate one real Briefing row anchored to the seeded fact window.
+
+    ``generate_briefing`` computes ``yesterday`` / ``prior_day`` deltas from
+    ``as_of_date - 1`` / ``as_of_date - 2``.  Anchoring ``as_of_date`` to
+    ``_RICH_END_DATE + 1 day`` means "yesterday" resolves to
+    ``_RICH_END_DATE`` (the last day of the 45-day rich fact window) and
+    "prior_day" to the day before — both inside the seeded history — so the
+    briefing body is grounded in real, non-zero numbers instead of an
+    all-zero placeholder.  This also lands inside the anomaly window, so the
+    headline reflects the seeded ROAS-drop signal.
+
+    Uses the real service (no network: ANTHROPIC_API_KEY is unset in the
+    demo env, so the deterministic Turkish template narrator is used).
+
+    Idempotency: ``generate_briefing`` itself upserts on (tenant_id,
+    briefing_date), so calling this twice updates the same row rather than
+    duplicating it.
+    """
+    from ayaz.services.briefing import generate_briefing
+
+    as_of = _RICH_END_DATE + timedelta(days=1)
+    briefing = generate_briefing(db, tenant.id, as_of_date=as_of)
+    db.commit()
+    print(
+        f"  Briefing for {briefing.briefing_date}: {briefing.headline[:80]}"
+        f"{'…' if len(briefing.headline) > 80 else ''}"
+    )
+    return {"briefing_date": briefing.briefing_date, "headline": briefing.headline}
+
+
 # ── Report seeding ─────────────────────────────────────────────────────────────
 
-_REPORT_NAME = "AYAZ Demo — Aylik Performans Raporu"
+_REPORT_NAME = "AYAZ Demo — Aylık Performans Raporu"
 _SHARED_REPORT_TOKEN = "ayaz-demo-report-token-000000001"
 
 
@@ -1853,7 +2156,7 @@ def _seed_reports(db, tenant: Tenant, user: User) -> dict:
                 "channels": ["google_ads", "meta_ads", "tiktok_ads"],
                 "date_range_preset": "last_30_days",
                 "sections": ["totals", "by_channel", "timeseries", "insights"],
-                "brand_name": "AYAZ Demo Markasi",
+                "brand_name": "AYAZ Demo Mağaza",
                 "logo_url": "https://ayaz.app/static/logo.png",
                 "primary_color": "#6C47FF",
             },
@@ -2135,9 +2438,9 @@ def run_seed() -> None:
         summary["ad_fact_inserted"] = ad_inserted
         summary["ad_fact_updated"] = ad_updated
         print("  Ad profiles seeded:")
-        print("    google_ads / Brand Search:      Video-Indirim(winner), Statik-Marka(mid), Responsive-Sezon(loser)")
-        print("    meta_ads   / Retargeting:       Video-Sepet(winner), Statik-Indirim(mid), Koleksiyon(loser, 0 conv)")
-        print("    tiktok_ads / Viral Creative:    Duet-Urun(winner), Statik-Flash(mid), Spark-Dusuk(loser)")
+        print("    google_ads / Brand Search:      Video-İndirim(winner), Statik-Marka(mid), Responsive-Sezon(loser)")
+        print("    meta_ads   / Retargeting:       Video-Sepet(winner), Statik-İndirim(mid), Koleksiyon(loser, 0 conv)")
+        print("    tiktok_ads / Viral Creative:    Duet-Ürün(winner), Statik-Flash(mid), Spark-Düşük(loser)")
 
         # ── Step 5c: Tracking (M7) demo data ─────────────────────────────────
         print(
@@ -2181,6 +2484,35 @@ def run_seed() -> None:
         ad_copy_counts = _seed_ad_copy_drafts(db, tenant)
         summary["ad_copy_drafts"] = ad_copy_counts
         print(f"  Ad copy drafts: inserted={ad_copy_counts['inserted']}")
+
+        # ── Step 5i: Subscription / billing plan ─────────────────────────────
+        print("\n[5i/7] Ensuring demo tenant has a 'growth' plan subscription...")
+        subscription_info = _seed_subscription(db, tenant)
+        summary["subscription"] = subscription_info
+        print(
+            f"  Subscription: plan={subscription_info['plan_code']} "
+            f"max_data_sources={subscription_info['max_data_sources']}"
+        )
+
+        # ── Step 5j: Goals (M5) demo data ────────────────────────────────────
+        print("\n[5j/7] Seeding M5 goals data (Goal rows)...")
+        goals_counts = _seed_goals(db, tenant)
+        summary["goals"] = goals_counts
+        print(f"  Goals: inserted={goals_counts['goals']}")
+
+        # ── Step 5k: Automation rules (M9) demo data ─────────────────────────
+        print("\n[5k/7] Seeding M9 automation rules (AutomationRule + AutomationRun)...")
+        automation_counts = _seed_automation(db, tenant)
+        summary["automation"] = automation_counts
+        print(
+            f"  Automation rules: inserted={automation_counts['rules']} "
+            f"triggered={automation_counts['triggered']}"
+        )
+
+        # ── Step 5l: Daily briefing demo data ────────────────────────────────
+        print("\n[5l/7] Generating a daily briefing anchored to the rich fact window...")
+        briefing_info = _seed_briefing(db, tenant)
+        summary["briefing"] = briefing_info
 
         # ── Step 6: Feeds ─────────────────────────────────────────────────────
         print("\n[6/7] Seeding product feed (FeedSource + 2 FeedChannels + rules)...")
@@ -2253,6 +2585,26 @@ def run_seed() -> None:
     print(f"  Destinations    : {trk.get('destinations', 0) or '(already existed)'}")
     print(f"  Events inserted : {trk.get('events_inserted', 0)}")
     print(f"  Collect URL     : /api/v1/tracking/collect/{_TRACKING_PUBLIC_TOKEN}")
+    print()
+    sub = summary.get("subscription", {})
+    print("Subscription / billing:")
+    print(f"  Plan             : {sub.get('plan_code', '—')}")
+    print(f"  Max data sources : {sub.get('max_data_sources', '—')}")
+    print()
+    goals_sum = summary.get("goals", {})
+    print("Goals (M5):")
+    print(f"  Inserted : {goals_sum.get('goals', 0) or '(already existed)'}")
+    print()
+    auto_sum = summary.get("automation", {})
+    print("Automation rules (M9):")
+    print(f"  Inserted  : {auto_sum.get('rules', 0) or '(already existed)'}")
+    print(f"  Triggered : {auto_sum.get('triggered', 0)}")
+    print()
+    brf = summary.get("briefing", {})
+    print("Daily briefing:")
+    print(f"  Date     : {brf.get('briefing_date', '—')}")
+    headline = brf.get("headline", "")
+    print(f"  Headline : {headline[:90]}{'…' if len(headline) > 90 else ''}")
     print()
     feeds = summary.get("feeds", {})
     print("Product feeds:")

@@ -596,10 +596,16 @@ class TestBriefingAPI:
         dates = [r["briefing_date"] for r in resp.json()]
         assert dates == ["2026-06-25", "2026-06-24"], "Should be newest first"
 
-    def test_get_latest_404_when_none(self, db_session: Session):
+    def test_get_latest_graceful_empty_when_none(self, db_session: Session):
+        """No briefing yet -> 200 with has_briefing=False, not a 404."""
         client, _, _ = _make_api_client(db_session)
         resp = client.get("/api/v1/briefings/latest")
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["has_briefing"] is False
+        assert data["id"] is None
+        assert data["body"]["top_insights"] == []
+        assert data["body"]["goals_status"] == []
 
     def test_get_latest_returns_most_recent(self, db_session: Session):
         client, tenant, _ = _make_api_client(db_session)

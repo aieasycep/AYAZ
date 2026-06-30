@@ -3,7 +3,9 @@
 Endpoints
 ---------
 GET  /briefings          List briefings for the tenant (newest first).
-GET  /briefings/latest   The most recent briefing, or 404 if none.
+GET  /briefings/latest   The most recent briefing, or a graceful empty payload
+                         (200, ``has_briefing=False``) if none has been
+                         generated yet.
 POST /briefings/generate Generate a briefing for the latest fact date (idempotent).
 
 Auth
@@ -38,28 +40,49 @@ router = APIRouter(prefix="/briefings", tags=["briefings"])
 
 # ── Response schema ───────────────────────────────────────────────────────────
 
+# Shape returned by an "empty" body — keeps the same keys the frontend's
+# normaliseBriefing() already guards against being absent/non-array, so a
+# client that only ever talks to /latest never has to special-case a 404.
+_EMPTY_BODY: dict[str, Any] = {
+    "performance_delta": {},
+    "top_insights": [],
+    "top_recommendation": None,
+    "goals_status": [],
+}
+
 
 class BriefingResponse(BaseModel):
-    """Serialised Briefing row."""
+    """Serialised Briefing row.
 
-    id: uuid.UUID
-    tenant_id: uuid.UUID
-    briefing_date: str
-    headline: str
+    ``has_briefing`` is True for a real, generated briefing.  When no
+    briefing has ever been generated for the tenant, ``GET /briefings/latest``
+    returns this same shape with ``has_briefing=False`` and null/empty
+    placeholder fields instead of a 404 — callers that only render "today's
+    briefing" can treat the empty state as just another payload rather than
+    an error branch.
+    """
+
+    has_briefing: bool = True
+    id: uuid.UUID | None = None
+    tenant_id: uuid.UUID | None = None
+    briefing_date: str | None = None
+    headline: str | None = None
     body: Any = Field(
+        default_factory=lambda: dict(_EMPTY_BODY),
         description=(
             "Structured JSON: performance_delta, top_insights, "
             "top_recommendation, goals_status"
-        )
+        ),
     )
-    created_at: str
-    updated_at: str
+    created_at: str | None = None
+    updated_at: str | None = None
 
     model_config = {"from_attributes": True}
 
 
 def _to_response(b: Briefing) -> BriefingResponse:
     return BriefingResponse(
+        has_briefing=True,
         id=b.id,
         tenant_id=b.tenant_id,
         briefing_date=b.briefing_date,
@@ -67,6 +90,20 @@ def _to_response(b: Briefing) -> BriefingResponse:
         body=b.body,
         created_at=b.created_at.isoformat(),
         updated_at=b.updated_at.isoformat(),
+    )
+
+
+def _empty_response() -> BriefingResponse:
+    """Graceful empty payload for GET /briefings/latest when none exists yet."""
+    return BriefingResponse(
+        has_briefing=False,
+        id=None,
+        tenant_id=None,
+        briefing_date=None,
+        headline="Henüz günlük brifing oluşturulmadı.",
+        body=dict(_EMPTY_BODY),
+        created_at=None,
+        updated_at=None,
     )
 
 
@@ -102,7 +139,12 @@ def get_latest_briefing(
     db: Session = Depends(get_db),
     membership: Membership = Depends(get_current_membership),
 ) -> BriefingResponse:
-    """Return the most recent briefing.  Returns 404 when none have been generated."""
+    """Return the most recent briefing.
+
+    Returns 200 with ``has_briefing=False`` and empty placeholder fields when
+    no briefing has been generated yet for this tenant — there is no error
+    condition here, just an empty state the caller can render directly.
+    """
     row = db.scalar(
         select(Briefing)
         .where(Briefing.tenant_id == membership.tenant_id)
@@ -110,10 +152,7 @@ def get_latest_briefing(
         .limit(1)
     )
     if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No briefing found for this tenant.",
-        )
+        return _empty_response()
     return _to_response(row)
 
 
