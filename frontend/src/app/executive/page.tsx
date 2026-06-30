@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,6 +12,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import AppNav from '@/components/AppNav';
+import EmptyState from '@/components/EmptyState';
+import SectionCard from '@/components/SectionCard';
 import {
   getExecutiveOverview,
   type ExecutiveOverview,
@@ -18,6 +21,7 @@ import {
   type ExecInsight,
   type ChannelRoi,
 } from '@/lib/executive-api';
+import { channelColor } from '@/lib/chartColors';
 import styles from './executive.module.css';
 
 // --- Formatters ---
@@ -178,13 +182,11 @@ function ChannelRoiSection({ channels }: { channels: ChannelRoi[] }) {
                 }}
                 formatter={(value: number) => [fmtRoas(value), 'ROAS']}
               />
-              <Bar
-                dataKey="roas"
-                fill="var(--color-primary)"
-                radius={[4, 4, 0, 0]}
-                name="roas"
-                isAnimationActive={false}
-              />
+              <Bar dataKey="roas" radius={[4, 4, 0, 0]} name="roas" isAnimationActive={false}>
+                {channels.map((ch) => (
+                  <Cell key={ch.channel} fill={channelColor(ch.channel)} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -205,7 +207,13 @@ function ChannelRoiSection({ channels }: { channels: ChannelRoi[] }) {
             {channels.map((ch) => (
               <tr key={ch.channel}>
                 <td>
-                  <span className={styles.channelLabel}>{ch.label}</span>
+                  <span className={styles.channelLabelWrap}>
+                    <span
+                      className={styles.channelDot}
+                      style={{ background: channelColor(ch.channel) }}
+                    />
+                    <span className={styles.channelLabel}>{ch.label}</span>
+                  </span>
                 </td>
                 <td className={styles.numCol}>{fmtCurrency(ch.spend)}</td>
                 <td className={styles.numCol}>{fmtCurrency(ch.revenue)}</td>
@@ -239,9 +247,11 @@ function ChannelRoiSection({ channels }: { channels: ChannelRoi[] }) {
 function GoalsSection({ goals }: { goals: ExecGoal[] }) {
   if (goals.length === 0) {
     return (
-      <div className={styles.stateBox}>
-        <span className={styles.muted}>Tanımlı hedef yok.</span>
-      </div>
+      <EmptyState
+        title="Henüz hedef tanımlanmadı"
+        subtitle="Pazarlama hedeflerinizi ekleyerek ilerlemenizi takip edin."
+        action={{ label: '+ Hedef ekle', href: '/goals' }}
+      />
     );
   }
 
@@ -373,7 +383,7 @@ export default function ExecutivePage() {
         {loading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <div className={styles.sectionCard}>
+          <SectionCard>
             <div className={styles.stateBox}>
               <span className={styles.errorText}>{error}</span>
               <br />
@@ -381,12 +391,12 @@ export default function ExecutivePage() {
                 Tekrar Dene
               </button>
             </div>
-          </div>
+          </SectionCard>
         ) : data ? (
           <>
-            {/* Headline banner */}
+            {/* Headline banner - keep on top */}
             <div className={styles.headlineBanner}>
-              <span className={styles.headlineIcon} aria-hidden="true">*</span>
+              <span className={styles.headlineAiBadge} aria-hidden="true">AI</span>
               <p className={styles.headlineText}>{data.headline}</p>
             </div>
 

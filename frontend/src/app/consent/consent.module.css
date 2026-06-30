@@ -777,3 +777,74 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   Checklist progress header
+   ============================================================ */
+
+.checklistProgress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-4, 1rem) 0;
+}
+
+.checklistProgressLeft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3, 0.75rem);
+}
+
+.checklistProgressTitle {
+  font-size: var(--text-md, 1.0625rem);
+  font-weight: var(--fw-bold, 700);
+  color: var(--color-text);
+}
+
+.checklistProgressCount {
+  font-size: var(--text-md, 1.0625rem);
+  font-weight: var(--fw-heavy, 800);
+  color: var(--color-text-muted);
+}
+
+.allPass {
+  color: var(--color-success);
+}
+
+.checklistProgressBar {
+  height: 8px;
+  background: var(--color-border);
+  border-radius: var(--radius-sm, 6px);
+  overflow: hidden;
+}
+
+.checklistProgressFill {
+  height: 100%;
+  background: var(--color-success);
+  border-radius: var(--radius-sm, 6px);
+  transition: width 0.4s ease;
+}
+
+/* ============================================================
+   Audit trail toggle button
+   ============================================================ */
+
+.auditToggleBtn {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius, 10px);
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: block;
+  margin: var(--space-3, 0.75rem) auto 0;
+}
+
+.auditToggleBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}

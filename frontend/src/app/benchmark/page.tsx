@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import {
   getBenchmark,
   POSITION_LABELS,
@@ -73,6 +74,21 @@ function markerClass(pos: BenchPosition): string {
     case 'weak':
       return styles.markerWeak;
   }
+}
+
+// --- Zone Legend ---
+
+function ZoneLegend() {
+  return (
+    <div className={styles.zoneLegend}>
+      <span className={styles.zoneDot} data-zone="strong" />
+      <span className={styles.zoneLegendLabel}>Güçlü</span>
+      <span className={styles.zoneDot} data-zone="average" />
+      <span className={styles.zoneLegendLabel}>Ortalama</span>
+      <span className={styles.zoneDot} data-zone="weak" />
+      <span className={styles.zoneLegendLabel}>Zayıf</span>
+    </div>
+  );
 }
 
 // --- RangeBar component ---
@@ -314,7 +330,7 @@ export default function BenchmarkPage() {
         {loading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <div className={styles.sectionCard}>
+          <SectionCard>
             <div className={styles.stateBox}>
               <span className={styles.errorText}>{error}</span>
               <br />
@@ -322,7 +338,7 @@ export default function BenchmarkPage() {
                 Tekrar Dene
               </button>
             </div>
-          </div>
+          </SectionCard>
         ) : data ? (
           <>
             {/* Headline banner + summary chips */}
@@ -363,9 +379,12 @@ export default function BenchmarkPage() {
               <div className={styles.sectionCard}>
                 <div className={styles.sectionHeader}>
                   <span className={styles.sectionTitle}>Metrik Detayları</span>
-                  <span className={styles.periodLabel}>
-                    {data.period.date_from} — {data.period.date_to}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <ZoneLegend />
+                    <span className={styles.periodLabel}>
+                      {data.period.date_from} — {data.period.date_to}
+                    </span>
+                  </div>
                 </div>
                 <div className={styles.metricList}>
                   {data.metrics.map((metric) => (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import { getFunnel, type FunnelOverview, type FunnelStage } from '@/lib/funnel-api';
 import styles from './funnel.module.css';
 
@@ -53,8 +54,16 @@ function HeroRow({ data }: HeroRowProps) {
 
       {/* En Büyük Düşüş */}
       {biggest_dropoff ? (
-        <div className={`${styles.heroStat} ${styles.heroStatWarning}`}>
-          <div className={styles.heroStatLabel}>En Büyük Düşüş</div>
+        <div
+          className={`${styles.heroStat} ${styles.heroStatWarning}`}
+          style={{ background: 'var(--color-warning-bg)', borderColor: 'var(--color-warning)' }}
+        >
+          <div
+            className={styles.heroStatLabel}
+            style={{ color: 'var(--color-warning-text)', fontWeight: 800 }}
+          >
+            EN BÜYÜK DÜÜŞ
+          </div>
           <div className={`${styles.heroStatValue} ${styles.heroStatValueWarning}`}>
             {fmtPct(biggest_dropoff.dropoff_pct)}
           </div>
@@ -200,7 +209,7 @@ export default function FunnelPage() {
         {loading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <div className={styles.sectionCard}>
+          <SectionCard>
             <div className={styles.stateBox}>
               <span className={styles.errorText}>{error}</span>
               <br />
@@ -208,24 +217,25 @@ export default function FunnelPage() {
                 Tekrar Dene
               </button>
             </div>
-          </div>
+          </SectionCard>
         ) : data ? (
           <>
             {/* Hero stats */}
             <HeroRow data={data} />
 
             {/* Funnel section */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>Müşteri Yolculuğu</span>
+            <SectionCard
+              title="Müşteri Yolculuğu"
+              right={
                 <span className={styles.periodLabel}>
                   {data.period.date_from} &mdash; {data.period.date_to}
                 </span>
-              </div>
+              }
+            >
               <div className={styles.funnelWrap}>
                 <FunnelViz stages={data.stages} />
               </div>
-            </div>
+            </SectionCard>
           </>
         ) : null}
       </main>

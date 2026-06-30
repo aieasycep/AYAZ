@@ -1400,3 +1400,129 @@
   margin-top: 0.3rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* ------------------------------------------------------------------ */
+/* Tab bar                                                             */
+/* ------------------------------------------------------------------ */
+
+.tabBar {
+  display: flex;
+  flex-direction: row;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-4, 1rem);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.tabBtn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
+  font-size: var(--text-sm, 0.8125rem);
+  font-weight: var(--fw-semibold, 600);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+
+.tabBtn:hover {
+  color: var(--color-primary);
+}
+
+.tabBtnActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Health summary bar                                                  */
+/* ------------------------------------------------------------------ */
+
+.healthSummary {
+  display: flex;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.kpiChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--text-sm, 0.8125rem);
+  font-weight: var(--fw-semibold, 600);
+}
+
+.kpiChipInfo {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.kpiChipOk {
+  background: var(--color-success-bg, rgba(16, 185, 129, 0.12));
+  color: var(--color-success-text, #059669);
+}
+
+.kpiChipErr {
+  background: var(--color-critical-bg);
+  color: var(--color-critical-text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Snippet toggle button                                               */
+/* ------------------------------------------------------------------ */
+
+.snippetToggleBtn {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm, 6px);
+  padding: 0.3rem 0.75rem;
+  font-size: var(--text-sm, 0.8125rem);
+  font-weight: var(--fw-medium, 500);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 0.625rem;
+}
+
+.snippetToggleBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Pagination row                                                      */
+/* ------------------------------------------------------------------ */
+
+.paginationRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  justify-content: center;
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-top: 1px solid var(--color-border);
+}
+
+.pageInfo {
+  font-size: var(--text-sm, 0.8125rem);
+  color: var(--color-text-muted);
+  min-width: 100px;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Sticky table header                                                 */
+/* ------------------------------------------------------------------ */
+
+.stickyThead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-bg);
+}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import {
   getConsentCenter,
   GRADE_LABELS,
@@ -309,6 +310,8 @@ function CheckRow({ check }: { check: ConsentCheck }) {
 // ============================================================
 
 function AuditTrailTable({ entries }: { entries: ConsentAuditEntry[] }) {
+  const [showAll, setShowAll] = useState(false);
+
   if (entries.length === 0) {
     return (
       <div className={styles.stateBox}>
@@ -319,47 +322,96 @@ function AuditTrailTable({ entries }: { entries: ConsentAuditEntry[] }) {
     );
   }
 
+  const visibleEntries = showAll ? entries : entries.slice(0, 10);
+
   return (
-    <div className={styles.tableWrap}>
-      <table className={styles.auditTable}>
-        <thead>
-          <tr>
-            <th>Zaman</th>
-            <th>Olay</th>
-            <th>Rıza</th>
-            <th>Durum</th>
-            <th>Sinyaller</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry, idx) => (
-            <tr key={`${entry.event_time}-${idx}`}>
-              <td style={{ whiteSpace: 'nowrap' }}>
-                {formatEventTime(entry.event_time)}
-              </td>
-              <td>{entry.event_name}</td>
-              <td>
-                <span
-                  className={
-                    entry.consent ? styles.consentYes : styles.consentNo
-                  }
-                >
-                  {entry.consent ? '✓' : '✕'}
-                </span>
-              </td>
-              <td>
-                <span className={statusBadgeClass(entry.status)}>
-                  {entry.status_label}
-                </span>
-              </td>
-              <td className={styles.signalsSummaryCell}>
-                {entry.signals_summary}
-              </td>
+    <>
+      <div className={styles.tableWrap}>
+        <table className={styles.auditTable}>
+          <thead>
+            <tr>
+              <th>Zaman</th>
+              <th>Olay</th>
+              <th>Rıza</th>
+              <th>Durum</th>
+              <th>Sinyaller</th>
             </tr>
+          </thead>
+          <tbody>
+            {visibleEntries.map((entry, idx) => (
+              <tr key={`${entry.event_time}-${idx}`}>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {formatEventTime(entry.event_time)}
+                </td>
+                <td>{entry.event_name}</td>
+                <td>
+                  <span
+                    className={
+                      entry.consent ? styles.consentYes : styles.consentNo
+                    }
+                  >
+                    {entry.consent ? '✓' : '✕'}
+                  </span>
+                </td>
+                <td>
+                  <span className={statusBadgeClass(entry.status)}>
+                    {entry.status_label}
+                  </span>
+                </td>
+                <td className={styles.signalsSummaryCell}>
+                  {entry.signals_summary}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {entries.length > 10 && (
+        <button
+          className={styles.auditToggleBtn}
+          onClick={() => setShowAll((v) => !v)}
+        >
+          {showAll
+            ? 'Daha Az Göster'
+            : `Tümünü Gör (${entries.length} kayıt)`}
+        </button>
+      )}
+    </>
+  );
+}
+
+// ============================================================
+// Checklist progress header
+// ============================================================
+
+function ChecklistProgress({ checks }: { checks: ConsentCheck[] }) {
+  const passed = checks.filter((c) => c.status === 'pass').length;
+  const total = checks.length;
+  const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+  const allPass = passed === total && total > 0;
+
+  return (
+    <SectionCard title="KVKK Uyum Kontrol Listesi">
+      <div className={styles.checklistProgress}>
+        <div className={styles.checklistProgressLeft}>
+          <span className={styles.checklistProgressTitle}>Kontrol Listesi</span>
+          <span className={`${styles.checklistProgressCount}${allPass ? ` ${styles.allPass}` : ''}`}>
+            {passed}/{total} geçti
+          </span>
+        </div>
+        <div className={styles.checklistProgressBar}>
+          <div
+            className={styles.checklistProgressFill}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <div className={styles.checkList}>
+          {checks.map((check) => (
+            <CheckRow key={check.id} check={check} />
           ))}
-        </tbody>
-      </table>
-    </div>
+        </div>
+      </div>
+    </SectionCard>
   );
 }
 
@@ -438,7 +490,10 @@ export default function ConsentPage() {
           </div>
         ) : data ? (
           <>
-            {/* Hero — two stat blocks */}
+            {/* 1. Checklist progress header (HERO) */}
+            <ChecklistProgress checks={data.compliance.checks} />
+
+            {/* 2. Hero — two stat blocks */}
             <div className={styles.heroRow}>
               {/* (a) Rıza Oranı */}
               <div className={styles.heroCard}>
@@ -520,13 +575,8 @@ export default function ConsentPage() {
               </div>
             </div>
 
-            {/* Consent Mode v2 sinyalleri */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>
-                  Consent Mode v2 Sinyalleri
-                </span>
-              </div>
+            {/* 3. Consent Mode v2 sinyalleri */}
+            <SectionCard title="Consent Mode v2 Sinyalleri">
               {data.signals.length > 0 ? (
                 <div className={styles.signalsGrid}>
                   {data.signals.map((signal) => (
@@ -545,60 +595,22 @@ export default function ConsentPage() {
                   </span>
                 </div>
               )}
-            </div>
+            </SectionCard>
 
-            {/* Hedef noktası rıza duruşu */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>
-                  Hedef Noktası Rıza Duruşu
-                </span>
-              </div>
+            {/* 4. Hedef noktası rıza duruşu */}
+            <SectionCard title="Hedef Noktası Rıza Duruşu">
               <DestinationTable destinations={data.destinations} />
-            </div>
+            </SectionCard>
 
-            {/* Kaynaklar */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>Kaynaklar</span>
-              </div>
+            {/* 5. Kaynaklar */}
+            <SectionCard title="Kaynaklar">
               <SourcesList sources={data.sources} />
-            </div>
+            </SectionCard>
 
-            {/* KVKK Uyum Kontrol Listesi */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>
-                  KVKK Uyum Kontrol Listesi
-                </span>
-              </div>
-              {data.compliance.checks.length > 0 ? (
-                <div className={styles.checkList}>
-                  {data.compliance.checks.map((check) => (
-                    <CheckRow key={check.id} check={check} />
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.stateBox}>
-                  <span
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    Kontrol listesi bulunamadı.
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Rıza Denetim İzi */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <span className={styles.sectionTitle}>Rıza Denetim İzi</span>
-              </div>
+            {/* 6. Rıza Denetim İzi */}
+            <SectionCard title="Rıza Denetim İzi">
               <AuditTrailTable entries={data.audit_trail} />
-            </div>
+            </SectionCard>
           </>
         ) : null}
       </main>

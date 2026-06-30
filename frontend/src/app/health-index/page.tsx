@@ -236,7 +236,12 @@ export default function HealthIndexPage() {
         <div>
           <h1 className={styles.pageTitle}>Pazarlama Sağlık Endeksi</h1>
           <p className={styles.pageSubtitle}>
-            Tüm pazarlamanızın tek strateji puanı — 6 boyutta sağlık.
+            Tüm kanalların stratejik sağlık puanı — reklam, içerik, ölçümleme ve daha fazlası 6 boyutta.
+          </p>
+          <p className={styles.pageNote}>
+            Bu sayfa stratejik puanlamayı gösterir. Teknik sorunlar için{' '}
+            <a href="/audit" className={styles.pageNoteLink}>Hesap Sağlık Taraması</a>
+            {' '}sayfasını ziyaret edin.
           </p>
         </div>
 
@@ -270,13 +275,13 @@ export default function HealthIndexPage() {
                   </span>
                 </div>
 
-                <p className={styles.heroSummary}>
-                  {data.summary.scored_count} boyut puanlandı
-                  {' · '}
-                  {data.summary.strong_count} güçlü
-                  {' · '}
-                  {data.summary.weak_count} zayıf
-                </p>
+                <div className={styles.summaryChips}>
+                  <span className={styles.chipStrong}>{data.summary.strong_count} güçlü</span>
+                  <span className={styles.chipSep}>·</span>
+                  <span className={styles.chipWeak}>{data.summary.weak_count} zayıf</span>
+                  <span className={styles.chipSep}>·</span>
+                  <span className={styles.chipNeutral}>{data.summary.scored_count} boyut</span>
+                </div>
               </div>
             </div>
 

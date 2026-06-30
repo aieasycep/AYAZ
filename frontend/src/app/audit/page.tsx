@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
 import {
   runAudit,
   GRADE_LABELS,
@@ -134,6 +135,7 @@ function CheckRow({ check }: { check: AuditCheck }) {
 // --- Category card ---
 
 function CategoryCard({ category }: { category: AuditCategory }) {
+  const passCount = category.checks.filter((c) => c.severity === 'pass').length;
   const warnCount = category.checks.filter((c) => c.severity === 'warn').length;
   const failCount = category.checks.filter((c) => c.severity === 'fail').length;
 
@@ -146,10 +148,10 @@ function CategoryCard({ category }: { category: AuditCategory }) {
 
   const badgeText =
     failCount > 0
-      ? `${failCount} sorun`
+      ? `${failCount} sorun · ${warnCount} uyarı · ${passCount} geçti`
       : warnCount > 0
-      ? `${warnCount} uyarı`
-      : `${category.checks.length} geçti`;
+      ? `${warnCount} uyarı · ${passCount} geçti`
+      : `${passCount} geçti`;
 
   return (
     <div className={styles.sectionCard}>
@@ -224,7 +226,7 @@ export default function AuditPage() {
         {loading ? (
           <LoadingSkeleton />
         ) : error ? (
-          <div className={styles.sectionCard}>
+          <SectionCard>
             <div className={styles.stateBox}>
               <span className={styles.errorText}>{error}</span>
               <br />
@@ -232,7 +234,7 @@ export default function AuditPage() {
                 Tekrar Dene
               </button>
             </div>
-          </div>
+          </SectionCard>
         ) : data ? (
           <>
             {/* Hero score card */}

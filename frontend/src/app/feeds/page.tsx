@@ -38,6 +38,8 @@ import {
   type EnrichmentSuggestion,
 } from '@/lib/feeds-api';
 import AppNav from '@/components/AppNav';
+import SectionCard from '@/components/SectionCard';
+import EmptyState from '@/components/EmptyState';
 import styles from './feeds.module.css';
 
 // --- Label maps ---
@@ -88,6 +90,17 @@ function fmtDate(iso: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function fmtRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Az önce';
+  if (mins < 60) return `${mins} dk önce`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} sa önce`;
+  const days = Math.floor(hrs / 24);
+  return `${days} gün önce`;
 }
 
 function fmtRuleConfigSummary(type: RuleType, config: Record<string, unknown>): string {
@@ -774,25 +787,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
         <CopyButton text={publicUrl} />
       </div>
 
-      {/* Rules header */}
-      <div className={styles.rulePanelHeader}>
-        <span className={styles.rulePanelTitle}>Kurallar</span>
-        {/* Feature 4: Lint summary */}
-        {!lintLoading && lintIssues.length > 0 && (
-          <span className={styles.lintSummary}>
-            {totalLintErrors > 0 && (
-              <span className={`${styles.lintChip} ${styles.lintChipError}`}>
-                {totalLintErrors} hata
-              </span>
-            )}
-            {totalLintWarnings > 0 && (
-              <span className={`${styles.lintChip} ${styles.lintChipWarn}`}>
-                {totalLintWarnings} uyarı
-              </span>
-            )}
-          </span>
-        )}
-      </div>
+      {/* Rules header — replaced by SectionCard in linted content below */}
 
       {rulesLoading ? (
         <div className={styles.stateBoxSm}>
@@ -836,6 +831,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
               </div>
 
               {/* Feature 5: Quality section */}
+              <SectionCard title="Feed Kalitesi">
               <div className={styles.qualityBar}>
                 {quality && (() => {
                   const { label, mod } = qualityRating(quality.score);
@@ -880,6 +876,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                   {qualityLoading ? 'Kontrol ediliyor...' : 'Kalite Kontrolü'}
                 </button>
               </div>
+              </SectionCard>
 
               <div className={styles.ruleList}>
                 {rules
@@ -1337,9 +1334,11 @@ function ChannelPanel({ source }: { source: FeedSource }) {
           </button>
         </div>
       ) : channels.length === 0 ? (
-        <div className={styles.stateBox}>
-          <span className={styles.muted}>Bu kaynağa bağlı kanal yok. Yeni bir kanal ekleyin.</span>
-        </div>
+        <EmptyState
+          title="Bu kaynağa bağlı kanal yok"
+          subtitle="Yeni bir kanal ekleyerek ürünlerinizi kanallara göre özelleştirin"
+          action={{ label: '+ Kanal Ekle', onClick: () => setShowForm(true) }}
+        />
       ) : (
         <div className={styles.channelGrid}>
           {channels.map((ch) => {
@@ -1558,9 +1557,11 @@ export default function FeedsPage() {
                 </button>
               </div>
             ) : sources.length === 0 ? (
-              <div className={styles.stateBox}>
-                <span className={styles.muted}>Henüz bir feed kaynağı yok.</span>
-              </div>
+              <EmptyState
+                title="Henüz feed kaynağı yok"
+                subtitle="İlk feed kaynağınızı ekleyerek başlayın"
+                action={{ label: '+ Yeni Feed', onClick: () => setShowNewSource(true) }}
+              />
             ) : (
               <div className={styles.sourceList}>
                 {sources.map((src) => (
@@ -1574,11 +1575,19 @@ export default function FeedsPage() {
                     >
                       <span className={`${styles.sourceDot} ${selectedSourceId === src.id ? styles.sourceDotActive : ''}`} />
                       <div className={styles.sourceInfo}>
-                        <div className={styles.sourceName}>{src.name}</div>
+                        <div className={styles.sourceName}>
+                          {src.name}
+                          {src.item_count != null && (
+                            <span className={styles.itemCountBadge} style={{ marginLeft: '0.5rem' }}>
+                              {src.item_count.toLocaleString('tr-TR')}
+                            </span>
+                          )}
+                        </div>
                         <div className={styles.sourceMeta}>
                           {SOURCE_TYPE_LABELS[src.source_type]}
-                          {src.item_count != null ? ` · ${src.item_count.toLocaleString('tr-TR')} ürün` : ''}
-                          {src.last_synced ? ` · ${fmtDate(src.last_synced)}` : ''}
+                          {src.last_synced
+                            ? ` · ${fmtRelative(src.last_synced)}`
+                            : ' · Hiç senkronize edilmedi'}
                         </div>
                       </div>
                       <button
@@ -1587,20 +1596,20 @@ export default function FeedsPage() {
                         disabled={syncing[src.id] ?? false}
                         title="Senkronize Et"
                       >
-                        {syncing[src.id] ? '...' : 'Sync'}
+                        {syncing[src.id] ? '...' : '↻ Sync'}
                       </button>
                     </div>
                     {selectedSourceId === src.id && (
                       <div className={styles.sourceEnrichRow}>
                         <button
-                          className={`${styles.enrichBtn} ${enrichSourceId === src.id ? styles.enrichBtnActive : ''}`}
+                          className={styles.aiBtn}
                           onClick={(e) => {
                             e.stopPropagation();
                             setEnrichSourceId((prev) => (prev === src.id ? null : src.id));
                           }}
                           aria-expanded={enrichSourceId === src.id}
                         >
-                          AI ile Zenginleştir
+                          ✦ AI ile Zenginleştir
                         </button>
                       </div>
                     )}
