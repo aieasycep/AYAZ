@@ -204,7 +204,7 @@ function DraftRow({ draft, onRefresh, onToast }: DraftRowProps) {
                 draft.source === 'ai' ? styles.sourceChipAi : styles.sourceChipTemplate
               }`}
             >
-              {draft.source === 'ai' ? 'Yapay zeka' : 'Otomatik'}
+              {draft.source === 'ai' ? 'Yapay zeka' : 'Şablon'}
             </span>
           </div>
           <div className={styles.draftCardTitle}>{draft.title}</div>
@@ -579,7 +579,7 @@ export default function AdStudioPage() {
                       result.source === 'ai' ? styles.sourceChipAi : styles.sourceChipTemplate
                     }`}
                   >
-                    {result.source === 'ai' ? 'Yapay zeka' : 'Otomatik'}
+                    {result.source === 'ai' ? 'Yapay zeka' : 'Şablon'}
                   </span>
                   <span className={styles.sourceChip} style={{ background: 'transparent', color: 'var(--color-text-muted)' }}>
                     {result.tone_label || TONE_LABELS[result.tone]}

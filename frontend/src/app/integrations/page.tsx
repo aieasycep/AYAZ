@@ -790,7 +790,7 @@ export default function IntegrationsPage() {
           <div className={styles.progressHero}>
             <div className={styles.progressRow}>
               <span className={styles.progressLabel}>
-                Bağlı Entegrasyonlar{' '}
+                Bağlı Uygulama &amp; Aksiyon{' '}
                 <span className={styles.progressCount}>
                   {connectedCount}/{totalCount}
                 </span>
