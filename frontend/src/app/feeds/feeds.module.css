@@ -8,23 +8,23 @@
 .main {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-5);
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 .pageTitle {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 .pageSubtitle {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
 }
 
 /* Layout: split pane on wide screens */
@@ -32,7 +32,7 @@
 .layout {
   display: grid;
   grid-template-columns: 320px 1fr;
-  gap: 1.5rem;
+  gap: var(--space-5);
   align-items: start;
 }
 
@@ -56,15 +56,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.125rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border);
-  gap: 0.75rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .cardTitle {
-  font-size: 0.9375rem;
-  font-weight: 700;
+  font-size: var(--text-base);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
@@ -78,8 +78,8 @@
 .sourceItem {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.875rem 1.25rem;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--color-border);
   cursor: pointer;
   transition: background 0.12s;
@@ -121,8 +121,8 @@
 }
 
 .sourceName {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
@@ -130,7 +130,7 @@
 }
 
 .sourceMeta {
-  font-size: 0.775rem;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
   margin-top: 0.2rem;
 }
@@ -140,9 +140,9 @@
   border: 1.5px solid var(--color-border);
   color: var(--color-text-muted);
   border-radius: 7px;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.775rem;
-  font-weight: 500;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
   transition: all 0.15s;
   flex-shrink: 0;
 }
@@ -160,16 +160,16 @@
 /* Forms */
 
 .formBox {
-  padding: 1.25rem;
+  padding: var(--space-5);
   border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .formRow {
   display: flex;
-  gap: 0.625rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -182,18 +182,18 @@
 }
 
 .label {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.6px;
 }
 
 .input {
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 0.45rem 0.75rem;
-  font-size: 0.875rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   color: var(--color-text);
   background: var(--color-surface);
   outline: none;
@@ -208,8 +208,8 @@
 .select {
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 0.45rem 0.75rem;
-  font-size: 0.875rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   color: var(--color-text);
   background: var(--color-surface);
   outline: none;
@@ -228,9 +228,9 @@
   color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
-  padding: 0.5rem 1.25rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   transition: background 0.15s;
   white-space: nowrap;
 }
@@ -249,9 +249,9 @@
   border: 1.5px solid var(--color-border);
   color: var(--color-text-muted);
   border-radius: var(--radius);
-  padding: 0.45rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
   transition: all 0.15s;
   white-space: nowrap;
 }
@@ -286,8 +286,8 @@
 .channelCardHeader {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1.25rem;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
   cursor: pointer;
   flex-wrap: wrap;
 }
@@ -298,16 +298,16 @@
 
 .channelName {
   flex: 1;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   color: var(--color-text);
   min-width: 0;
 }
 
 .channelTypeBadge {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.2rem 0.55rem;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-1) var(--space-2);
   border-radius: 6px;
   background: rgba(59, 91, 219, 0.1);
   color: var(--color-primary);
@@ -362,25 +362,25 @@
 .publicUrlRow {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
   background: var(--color-surface-2);
   border-top: 1px solid var(--color-border);
   flex-wrap: wrap;
 }
 
 .publicUrlLabel {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.6px;
   white-space: nowrap;
 }
 
 .publicUrl {
   flex: 1;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
   color: var(--color-text);
   white-space: nowrap;
@@ -394,9 +394,9 @@
   border: 1.5px solid var(--color-border);
   color: var(--color-text-muted);
   border-radius: 6px;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.775rem;
-  font-weight: 600;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   transition: all 0.15s;
   flex-shrink: 0;
 }
@@ -415,34 +415,34 @@
 
 .rulePanel {
   border-top: 1px solid var(--color-border);
-  padding: 0 1.25rem 1.25rem;
+  padding: 0 var(--space-5) var(--space-5);
 }
 
 .rulePanelTitle {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  padding: 0.875rem 0 0.625rem;
+  letter-spacing: 0.6px;
+  padding: var(--space-3) 0 var(--space-3);
 }
 
 .ruleList {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 0.875rem;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .ruleRow {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
 }
 
 .rulePos {
@@ -478,43 +478,43 @@
 .ruleForm {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
-  padding: 0.875rem;
+  gap: var(--space-3);
+  padding: var(--space-3);
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: 8px;
 }
 
 .ruleFormTitle {
-  font-size: 0.8125rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 /* States */
 
 .stateBox {
-  padding: 2.5rem;
+  padding: var(--space-8);
   text-align: center;
 }
 
 .stateBoxSm {
-  padding: 1.25rem;
+  padding: var(--space-5);
   text-align: center;
 }
 
 .muted {
   color: var(--color-text-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 
 .errorText {
   color: var(--color-danger);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 
 .formError {
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--color-danger);
 }
 
@@ -990,16 +990,16 @@
 
 @media (max-width: 640px) {
   .main {
-    padding: 1rem;
-    gap: 1rem;
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 
   .cardHeader {
-    padding: 0.875rem 1rem;
+    padding: var(--space-3) var(--space-4);
   }
 
   .formBox {
-    padding: 1rem;
+    padding: var(--space-4);
   }
 }
 
@@ -1008,15 +1008,15 @@
 /* ------------------------------------------------------------------ */
 
 .sourceEnrichRow {
-  padding: 0 1.25rem 0.625rem;
+  padding: 0 var(--space-5) var(--space-3);
   background: rgba(59, 91, 219, 0.03);
   border-bottom: 1px solid var(--color-border);
 }
 
 .enrichBtn {
-  font-size: 0.775rem;
-  font-weight: 600;
-  padding: 0.25rem 0.75rem;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  padding: var(--space-1) var(--space-3);
   border-radius: 6px;
   border: 1.5px solid var(--color-primary);
   color: var(--color-primary);
@@ -1046,7 +1046,7 @@
 .enrichPanel {
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
-  padding: 0 1.25rem 1.25rem;
+  padding: 0 var(--space-5) var(--space-5);
   position: relative;
 }
 
@@ -1054,15 +1054,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.875rem 0 0.75rem;
+  padding: var(--space-3) 0 var(--space-3);
 }
 
 .enrichTitle {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.6px;
 }
 
 .enrichCloseBtn {
@@ -1171,10 +1171,10 @@
 /* Empty state */
 
 .enrichEmpty {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   text-align: center;
-  padding: 1.25rem 0;
+  padding: var(--space-5) 0;
 }
 
 /* Review table */

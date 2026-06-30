@@ -115,7 +115,7 @@
 }
 
 .markAllBtn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  background: var(--color-info-bg);
 }
 
 .markAllBtn:disabled {
@@ -171,7 +171,7 @@
 }
 
 .itemUnread:hover {
-  background: color-mix(in srgb, var(--color-surface-2) 80%, var(--color-border));
+  background: var(--color-border);
 }
 
 /* Severity stripe on the left */
@@ -266,7 +266,7 @@
 }
 
 .viewAllLink:hover {
-  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  background: var(--color-info-bg);
 }
 
 .viewAllLink:focus-visible {

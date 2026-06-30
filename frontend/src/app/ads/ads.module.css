@@ -22,19 +22,19 @@
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .pageTitle {
-  font-size: 1.375rem;
-  font-weight: 700;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 .pageSubtitle {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
 }
 
 /* Section card */
@@ -51,16 +51,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 1.5rem;
+  padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .sectionTitle {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-text);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
 /* Toolbar (date + filters) */
@@ -68,8 +70,8 @@
 .toolbar {
   display: flex;
   align-items: flex-end;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap;
   background: var(--color-bg);
@@ -84,12 +86,12 @@
 .dateGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .dateLabel {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -98,8 +100,8 @@
 .dateInput {
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   color: var(--color-text);
   background: var(--color-surface);
   outline: none;
@@ -114,12 +116,12 @@
 .filterGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .filterLabel {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -128,8 +130,8 @@
 .filterSelect {
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   color: var(--color-text);
   background: var(--color-surface);
   outline: none;
@@ -147,9 +149,9 @@
   color: #fff;
   border: none;
   border-radius: var(--radius);
-  padding: 0.5rem 1.25rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   transition: background 0.15s;
   height: 38px;
   align-self: flex-end;
@@ -162,29 +164,29 @@
 /* States */
 
 .stateBox {
-  padding: 3rem 2rem;
+  padding: var(--space-8) var(--space-6);
   text-align: center;
 }
 
 .muted {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 .errorText {
   color: var(--color-danger);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 .retryBtn {
-  margin-top: 1rem;
+  margin-top: var(--space-4);
   background: transparent;
   border: 1.5px solid var(--color-border);
   color: var(--color-text-muted);
   border-radius: 7px;
   padding: 0.375rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
   transition: all 0.15s;
 }
 
@@ -203,14 +205,14 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 
 .th {
-  padding: 0.75rem 1rem;
+  padding: var(--space-3) var(--space-4);
   text-align: left;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -237,7 +239,7 @@
 }
 
 .td {
-  padding: 0.8rem 1rem;
+  padding: var(--space-3) var(--space-4);
   color: var(--color-text);
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
@@ -280,8 +282,8 @@
   align-items: center;
   padding: 0.2rem 0.6rem;
   border-radius: 100px;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
   letter-spacing: 0.3px;
   text-transform: uppercase;
   white-space: nowrap;
@@ -315,14 +317,14 @@
 }
 
 .expandedCell {
-  padding: 1rem 1.5rem;
+  padding: var(--space-4) var(--space-6);
 }
 
 .expandedTitle {
-  font-size: 0.8125rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
   color: var(--color-text-muted);
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -337,8 +339,8 @@
 .recoRow {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
-  padding: 1.125rem 1.5rem;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap;
   transition: background 0.12s;
@@ -378,23 +380,23 @@
 }
 
 .recoCampaign {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   color: var(--color-text-muted);
   margin-bottom: 0.2rem;
 }
 
 .recoMessage {
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
   color: var(--color-text);
   line-height: 1.35;
 }
 
 .recoAction {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
 }
 
 .recoBtn {
@@ -403,8 +405,8 @@
   color: var(--color-text-muted);
   border-radius: 6px;
   padding: 0.25rem 0.625rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
   white-space: nowrap;
   transition: all 0.15s;
   align-self: flex-start;
@@ -433,23 +435,23 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
-  padding: 2rem 2.5rem;
+  padding: var(--space-6) var(--space-6);
   max-width: 380px;
   width: 90%;
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .comingSoonTitle {
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: var(--text-md);
+  font-weight: var(--fw-bold);
   color: var(--color-text);
 }
 
 .comingSoonBody {
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
   line-height: 1.5;
 }
@@ -459,9 +461,9 @@
   color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius);
-  padding: 0.5rem 1.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   transition: background 0.15s;
   align-self: center;
 }
@@ -478,8 +480,8 @@
   border-radius: var(--radius);
   color: var(--color-text);
   padding: 0.375rem 0.875rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
   height: 34px;
   transition: border-color 0.15s, color 0.15s;
   white-space: nowrap;
@@ -497,9 +499,9 @@
 }
 
 .csvError {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--color-danger);
-  margin-top: 0.25rem;
+  margin-top: var(--space-1);
 }
 
 .csvGroup {
@@ -525,26 +527,26 @@
 
 @media (max-width: 640px) {
   .main {
-    padding: 1rem;
-    gap: 1rem;
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 
   .toolbar {
-    padding: 0.875rem 1rem;
-    gap: 0.75rem;
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-3);
   }
 
   .sectionHeader {
-    padding: 1rem;
+    padding: var(--space-4);
   }
 
   .th,
   .td {
-    padding: 0.625rem 0.75rem;
+    padding: var(--space-2) var(--space-3);
   }
 
   .recoRow {
-    padding: 1rem;
+    padding: var(--space-4);
   }
 }
 

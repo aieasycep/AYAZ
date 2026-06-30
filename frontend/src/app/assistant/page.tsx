@@ -376,9 +376,10 @@ function AssistantPageInner() {
           ) : msgsError ? (
             /* Error loading messages */
             <div className={styles.noConvPlaceholder}>
-              <span style={{ color: 'var(--color-danger)', fontSize: '0.9rem' }}>
-                {msgsError}
-              </span>
+              <EmptyState
+                title="Mesajlar yüklenemedi"
+                subtitle={msgsError}
+              />
             </div>
           ) : isEmpty ? (
             /* Empty conversation — intro + suggested prompts */

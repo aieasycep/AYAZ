@@ -21,6 +21,7 @@ import {
   type ActualChannel,
 } from '@/lib/budget-api';
 import AppNav from '@/components/AppNav';
+import EmptyState from '@/components/EmptyState';
 import styles from './planning.module.css';
 
 // --- Currency formatter ---
@@ -443,16 +444,18 @@ function SavedPlansList({
   }
   if (error) {
     return (
-      <div className={styles.stateBoxSm}>
-        <span className={styles.errorText}>{error}</span>
-      </div>
+      <EmptyState
+        title="Plan verileri yüklenemedi"
+        subtitle={error}
+      />
     );
   }
   if (plans.length === 0) {
     return (
-      <div className={styles.stateBoxSm}>
-        <span className={styles.muted}>Henüz kayıtlı plan yok.</span>
-      </div>
+      <EmptyState
+        title="Henüz kayıtlı plan yok"
+        subtitle="Bütçe planlayıcısından yeni bir plan oluşturun."
+      />
     );
   }
 
