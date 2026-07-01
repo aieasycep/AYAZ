@@ -129,8 +129,9 @@ function CreativeCard({ row }: { row: CreativeRow }) {
         </div>
       )}
 
-      {/* Bridge to content planner */}
-      <Link href="/content" className={styles.organicLink}>
+      {/* Bridge to content planner — opens the "Kreatiften İçerik Oluştur"
+          picker directly instead of dropping the user on a blank planner. */}
+      <Link href="/content?compose=creative" className={styles.organicLink}>
         Organik içeriğe çevir &rarr;
       </Link>
     </div>

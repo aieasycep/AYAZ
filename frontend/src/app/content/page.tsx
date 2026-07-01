@@ -1077,6 +1077,16 @@ export default function ContentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Deep-link bridge: /content?compose=creative opens the "Kreatiften İçerik
+  // Oluştur" picker directly (from Kreatif Lensi "Organik içeriğe çevir"), so the
+  // link lands the user IN the create-from-creative flow, not on a blank planner.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('compose') === 'creative') {
+      setShowCreativePicker(true);
+    }
+  }, []);
+
   function handleEdit(post: ContentPost) {
     setEditingPost(post);
     setShowComposer(true);
