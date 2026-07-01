@@ -367,3 +367,31 @@ textarea:focus-visible,
     padding-left: 248px;
   }
 }
+
+/* ============================================================
+   Print / PDF export utilities
+   Zero-dependency "branded PDF": the browser's Save-as-PDF prints
+   the page with app chrome removed. These rules ONLY apply while
+   printing — the on-screen experience is untouched.
+   - .print-hide  → element hidden when printing (nav, buttons, inputs)
+   - .print-only  → element shown ONLY when printing (branded header)
+   ============================================================ */
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  /* Sidebar is display:none in print, but its DOM node still matches
+     :has([data-app-sidebar]); drop the offset so there's no blank band. */
+  body {
+    background: #ffffff !important;
+    padding-left: 0 !important;
+  }
+}

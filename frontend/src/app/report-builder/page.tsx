@@ -14,6 +14,8 @@ import TimeSeriesChart from '@/components/TimeSeriesChart';
 import ChannelTable from '@/components/ChannelTable';
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
+import PrintButton from '@/components/PrintButton';
+import ReportPrintHeader from '@/components/ReportPrintHeader';
 import type { ChannelRow } from '@/lib/api';
 import { parseApiError } from '@/lib/parseApiError';
 import { downloadRowsAsCsv } from '@/lib/csv';
@@ -232,7 +234,7 @@ export default function ReportBuilderPage() {
 
       <main className={styles.main}>
         {/* Page header */}
-        <div className={styles.pageHeader}>
+        <div className={`${styles.pageHeader} print-hide`}>
           <h1 className={styles.pageTitle}>Rapor Oluşturucu</h1>
           <p className={styles.pageSubtitle}>
             Doğal dille istediğin raporu oluştur
@@ -240,7 +242,7 @@ export default function ReportBuilderPage() {
         </div>
 
         {/* Query card */}
-        <div className={styles.queryCard}>
+        <div className={`${styles.queryCard} print-hide`}>
           <label className={styles.queryLabel}>Ne görmek istersin?</label>
 
           <div className={styles.queryRow}>
@@ -351,16 +353,25 @@ export default function ReportBuilderPage() {
         {/* Generated report */}
         {!loading && !error && report && (
           <div className={styles.reportSection}>
-            {/* Title + save button */}
-            <div className={styles.reportTitleRow}>
+            {/* Branded header — visible only in the printed / PDF output */}
+            <ReportPrintHeader
+              title={report.spec.title}
+              subtitle={`${dateFrom} — ${dateTo}`}
+            />
+
+            {/* Title + actions (hidden in print; the branded header replaces it) */}
+            <div className={`${styles.reportTitleRow} print-hide`}>
               <h2 className={styles.reportTitle}>{report.spec.title}</h2>
-              <button
-                className={styles.saveBtn}
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? 'Kaydediliyor...' : 'Raporu Kaydet'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <PrintButton className={styles.saveBtn} />
+                <button
+                  className={styles.saveBtn}
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? 'Kaydediliyor...' : 'Raporu Kaydet'}
+                </button>
+              </div>
             </div>
 
             {/* KPI cards */}
@@ -393,7 +404,7 @@ export default function ReportBuilderPage() {
               title="Kanala Göre Performans"
               right={
                 <button
-                  className={styles.csvBtn}
+                  className={`${styles.csvBtn} print-hide`}
                   onClick={() =>
                     downloadRowsAsCsv(
                       channelRows.map((r) => ({

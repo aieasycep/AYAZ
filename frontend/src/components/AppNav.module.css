@@ -2,6 +2,17 @@
    AppNav — left sidebar (desktop) + slim top strip + mobile drawer
    ============================================================ */
 
+/* Remove all app-nav chrome when printing / saving as PDF, so a report
+   prints clean. Only affects the print medium. */
+@media print {
+  .sidebar,
+  .topStrip,
+  .overlay,
+  .drawer {
+    display: none !important;
+  }
+}
+
 /* ============================================================
    SIDEBAR — fixed left panel (desktop ≥ 1024px)
    ============================================================ */
