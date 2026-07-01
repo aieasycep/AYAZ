@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
 import {
@@ -376,6 +377,14 @@ export default function BriefingPage() {
                     <div className={styles.recommendationAction}>
                       {briefing.body.top_recommendation.suggested_action}
                     </div>
+                    {briefing.body.top_recommendation.campaign_name && (
+                      <Link
+                        href={`/ads?focus=${encodeURIComponent(briefing.body.top_recommendation.campaign_name)}`}
+                        className={styles.recommendationCtaLink}
+                      >
+                        &ldquo;{briefing.body.top_recommendation.campaign_name}&rdquo; kampanyasını Reklam Yönetimi&apos;nde aç &rarr;
+                      </Link>
+                    )}
                   </div>
                 </div>
               </section>

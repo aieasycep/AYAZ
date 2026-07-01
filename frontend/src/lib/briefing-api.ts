@@ -62,6 +62,8 @@ export interface TopInsight {
 export interface TopRecommendation {
   message: string;
   suggested_action: string;
+  /** Campaign this recommendation is about (used to deep-link into /ads?focus=). */
+  campaign_name?: string;
 }
 
 export interface GoalStatusItem {
