@@ -7,12 +7,111 @@ import {
   getConnectedAccounts,
   getOAuthAuthorizeUrl,
   syncAccount,
+  discoverAccounts,
+  updateAccount,
   type ConnectedAccount,
+  type DiscoveredAccount,
   type Platform,
   type SyncStatus,
 } from '@/lib/connectors-api';
 import EmptyState from '@/components/EmptyState';
 import styles from '@/app/connections/connections.module.css';
+
+/**
+ * AccountLinker — inline "pick your ad account" control shown when a connected
+ * account has no ad-account id yet (the OAuth flow leaves it empty). Offers
+ * auto-discovery (list ad accounts via the stored token) and manual entry.
+ */
+function AccountLinker({
+  account,
+  onLinked,
+}: {
+  account: ConnectedAccount;
+  onLinked: () => void;
+}) {
+  const [discovering, setDiscovering] = useState(false);
+  const [found, setFound] = useState<DiscoveredAccount[] | null>(null);
+  const [manual, setManual] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleDiscover() {
+    setDiscovering(true);
+    setErr(null);
+    try {
+      setFound(await discoverAccounts(account.id));
+    } catch (e: unknown) {
+      setErr(parseApiError(e));
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  async function link(externalId: string, displayName?: string) {
+    if (!externalId.trim()) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await updateAccount(account.id, {
+        external_account_id: externalId.trim(),
+        ...(displayName ? { display_name: displayName } : {}),
+      });
+      onLinked();
+    } catch (e: unknown) {
+      setErr(parseApiError(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className={styles.stateBox} style={{ margin: '0.25rem 0 0.75rem 3.25rem', padding: '0.75rem', textAlign: 'left' }}>
+      <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+        Reklam hesabı seçilmedi — veri çekmeden önce bir reklam hesabı bağlayın.
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+        <button className={styles.resyncBtn} onClick={handleDiscover} disabled={discovering}>
+          {discovering ? 'Aranıyor...' : 'Hesapları bul'}
+        </button>
+        <input
+          className={styles.input ?? undefined}
+          style={{ flex: 1, minWidth: '160px', padding: '0.4rem 0.6rem', border: '1px solid var(--color-border)', borderRadius: 6 }}
+          placeholder="veya reklam hesabı ID'si"
+          value={manual}
+          onChange={(e) => setManual(e.target.value)}
+        />
+        <button className={styles.connectBtn} onClick={() => link(manual)} disabled={saving || !manual.trim()}>
+          {saving ? 'Kaydediliyor...' : 'Kaydet'}
+        </button>
+      </div>
+      {found && found.length > 0 && (
+        <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          {found.map((f) => (
+            <button
+              key={f.id}
+              className={styles.resyncBtn}
+              style={{ textAlign: 'left' }}
+              onClick={() => link(f.id, f.name || undefined)}
+              disabled={saving}
+            >
+              {f.name || f.id} {f.currency ? `· ${f.currency}` : ''} ({f.id})
+            </button>
+          ))}
+        </div>
+      )}
+      {found && found.length === 0 && (
+        <div className={styles.watermarkText} style={{ marginTop: '0.5rem' }}>
+          Erişilebilir reklam hesabı bulunamadı — token izinlerini kontrol edin.
+        </div>
+      )}
+      {err && (
+        <div className={styles.watermarkText} style={{ marginTop: '0.5rem', color: 'var(--color-critical-text)' }}>
+          {err}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // --- Platform metadata ---
 
@@ -233,6 +332,9 @@ export default function DataSourcesPanel() {
                     >
                       {syncMsg.text}
                     </div>
+                  )}
+                  {!acc.external_account_id && (
+                    <AccountLinker account={acc} onLinked={fetchAccounts} />
                   )}
                 </div>
               );

@@ -61,6 +61,7 @@ export type Platform =
 export interface ConnectedAccount {
   id: string;
   platform: Platform;
+  external_account_id: string;
   display_name: string;
   sync_status: SyncStatus;
   watermark: string | null; // ISO date string of last sync
@@ -120,4 +121,30 @@ export function syncAccount(accountId: string, days = 30): Promise<SyncResult> {
     `/api/v1/connectors/accounts/${accountId}/sync?days=${days}`,
     { method: 'POST' },
   );
+}
+
+export interface DiscoveredAccount {
+  id: string;
+  name: string;
+  currency: string;
+}
+
+/** List the ad accounts reachable with this connection's stored credentials. */
+export function discoverAccounts(accountId: string): Promise<DiscoveredAccount[]> {
+  return authFetch<DiscoveredAccount[]>(
+    `/api/v1/connectors/accounts/${accountId}/discover`,
+    { method: 'POST' },
+  );
+}
+
+/** Update a connected account (e.g. set the ad account id after OAuth). */
+export async function updateAccount(
+  accountId: string,
+  body: { external_account_id?: string; display_name?: string },
+): Promise<ConnectedAccount> {
+  const acc = await authFetch<ConnectedAccount>(
+    `/api/v1/connectors/accounts/${accountId}`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+  );
+  return normaliseAccount(acc);
 }
