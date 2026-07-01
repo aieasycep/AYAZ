@@ -235,6 +235,20 @@ function DestinationTable({
           ))}
         </tbody>
       </table>
+      <p
+        style={{
+          marginTop: 'var(--space-2)',
+          fontSize: '0.75rem',
+          color: 'var(--color-text-muted)',
+          lineHeight: 1.5,
+        }}
+      >
+        Not: Hedef bazlı &ldquo;İletildi / Atlandı&rdquo; sayıları kaynak
+        seviyesinde <strong>tahminidir</strong> — her olayın hangi hedefe
+        iletildiği ayrı kaydedilmediğinden, aynı kaynağı paylaşan hedefler benzer
+        değerler gösterebilir ve toplamla birebir örtüşmeyebilir. Kesin denetim
+        kanıtı için olay-hedef eşleşme kaydı gerekir.
+      </p>
     </div>
   );
 }
