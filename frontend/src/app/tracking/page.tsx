@@ -91,6 +91,16 @@ const RAW_STATUS_NORM: Record<string, EventStatus> = {
 const PAGE_SIZE = 25;
 type DetailTab = 'kurulum' | 'olay-kalitesi' | 'olay-gunlugu';
 
+// --- Data-quality thresholds (server-side conversion / CAPI health) ---
+// Error rate = failed / total events. Consent-block rate = skipped_no_consent / total.
+// Match-quality (EMQ) score is 0..100. These bounds drive the red/amber warnings so a
+// user never has to eyeball raw counts to notice a broken feed.
+const ERR_RATE_CRITICAL = 0.1; // ≥10% iletilemedi → kırmızı
+const ERR_RATE_WARNING = 0.03; // ≥3% iletilemedi → turuncu
+const CONSENT_BLOCK_WARNING = 0.3; // ≥30% rıza yok → turuncu (dönüşüm sinyali kaybı)
+const MQ_SCORE_CRITICAL = 30; // <30 zayıf eşleşme → kırmızı
+const MQ_SCORE_WARNING = 60; // <60 orta eşleşme → turuncu
+
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '-';
   return new Date(iso).toLocaleString('tr-TR', {
@@ -101,6 +111,17 @@ function fmtDate(iso: string | null | undefined): string {
 
 function fmtShortDate(iso: string): string {
   return iso.slice(5).replace('-', '/');
+}
+
+// Format a 0..1 fraction as a Turkish percentage with one decimal (e.g. 0.104 → "%10,4").
+function fmtPct1(fraction: number): string {
+  return (
+    '%' +
+    (fraction * 100).toLocaleString('tr-TR', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })
+  );
 }
 
 // --- CopyButton ---
@@ -170,14 +191,23 @@ function HealthSummary({ stats, loading }: { stats: TrackingStats | null; loadin
     );
   }
   if (!stats) return null;
-  const hasErrors = stats.totals.total_errors > 0;
+  const total = stats.totals.total_events;
+  const errRate = total > 0 ? stats.totals.total_errors / total : 0;
+  // Rate-aware severity: a handful of errors in a large volume is not "red".
+  const errChipClass =
+    errRate >= ERR_RATE_CRITICAL
+      ? styles.kpiChipErr
+      : errRate >= ERR_RATE_WARNING
+        ? styles.kpiChipWarn
+        : styles.kpiChipOk;
   return (
     <div className={styles.healthSummary}>
       <span className={`${styles.kpiChip} ${styles.kpiChipInfo}`}>
-        {stats.totals.total_events.toLocaleString('tr-TR')} Toplam Olay
+        {total.toLocaleString('tr-TR')} Toplam Olay
       </span>
-      <span className={`${styles.kpiChip} ${hasErrors ? styles.kpiChipErr : styles.kpiChipOk}`}>
+      <span className={`${styles.kpiChip} ${errChipClass}`}>
         {stats.totals.total_errors.toLocaleString('tr-TR')} Hata
+        {total > 0 && stats.totals.total_errors > 0 ? ` · ${fmtPct1(errRate)}` : ''}
       </span>
     </div>
   );
@@ -319,6 +349,113 @@ function DestConsentSignals({ dest, onSaved }: { dest: TrackingDestination; onSa
           {saveError && <span className={styles.formError} role="alert">{saveError}</span>}
         </div>
       </form>
+    </div>
+  );
+}
+
+// --- Data Quality Alerts ---
+// Threshold-driven red/amber banners so a broken or degraded feed is impossible to
+// miss: high delivery-error rate, high consent-loss rate, and low match quality.
+
+type AlertSeverity = 'critical' | 'warning';
+
+interface QualityAlert {
+  severity: AlertSeverity;
+  title: string;
+  detail: string;
+}
+
+function computeQualityAlerts(stats: TrackingStats): QualityAlert[] {
+  const alerts: QualityAlert[] = [];
+  const total = stats.totals.total_events;
+  if (total <= 0) return alerts;
+
+  // 1) Delivery error rate
+  const errRate = stats.totals.total_errors / total;
+  if (errRate >= ERR_RATE_CRITICAL) {
+    const perm = stats.deliverability?.permanent ?? 0;
+    const permNote =
+      perm > 0
+        ? ` Bunların ${perm.toLocaleString('tr-TR')} tanesi kalıcı hata — hedef kimlik/yapılandırması düzeltilmeli.`
+        : '';
+    alerts.push({
+      severity: 'critical',
+      title: `İletim hata oranı yüksek: ${fmtPct1(errRate)}`,
+      detail: `${stats.totals.total_errors.toLocaleString('tr-TR')} olay hedeflere iletilemedi. Olay Günlüğü'nden hata detaylarını inceleyin; geçici hataları "Yeniden Gönder" ile tekrar deneyin.${permNote}`,
+    });
+  } else if (errRate >= ERR_RATE_WARNING) {
+    alerts.push({
+      severity: 'warning',
+      title: `Hata oranı beklenenden yüksek: ${fmtPct1(errRate)}`,
+      detail: `${stats.totals.total_errors.toLocaleString('tr-TR')} olay iletilemedi. Geçici hatalar için "Yeniden Gönder", kalıcı hatalar için hedef yapılandırmasını kontrol edin.`,
+    });
+  }
+
+  // 2) Consent-blocked rate — high loss usually signals a mis-wired consent banner
+  const blockRate = stats.totals.consent_blocked / total;
+  if (blockRate >= CONSENT_BLOCK_WARNING) {
+    alerts.push({
+      severity: 'warning',
+      title: `Olayların ${fmtPct1(blockRate)}'i rıza olmadığı için iletilmedi`,
+      detail: `${stats.totals.consent_blocked.toLocaleString('tr-TR')} olay KVKK rıza sinyali gelmediği için hedeflere gönderilmedi; bu, dönüşüm ölçümünde sinyal kaybına yol açar. Rıza banner'ınızın Consent Mode sinyallerini doğru gönderdiğini ve "Çerez Rıza Değişkeni" ayarını kontrol edin.`,
+    });
+  }
+
+  // 3) Match quality (EMQ) — weak identity signals hurt attribution
+  const mq = stats.match_quality;
+  if (mq && mq.scored_events > 0) {
+    if (mq.avg_score < MQ_SCORE_CRITICAL) {
+      alerts.push({
+        severity: 'critical',
+        title: `Eşleşme kalitesi düşük: ${mq.avg_score}/100`,
+        detail:
+          'Kimlik sinyalleri zayıf olduğundan platformlar dönüşümleri kullanıcılarla yeterince eşleştiremiyor. Aşağıdaki "Eşleşme Kalitesi" bölümündeki eksik sinyalleri (e-posta, telefon, tıklama kimliği) tamamlayın.',
+      });
+    } else if (mq.avg_score < MQ_SCORE_WARNING) {
+      alerts.push({
+        severity: 'warning',
+        title: `Eşleşme kalitesi geliştirilebilir: ${mq.avg_score}/100`,
+        detail:
+          'Daha fazla kimlik sinyali göndererek atıf doğruluğunu artırabilirsiniz. Aşağıdaki "Eşleşme Kalitesi" bölümündeki önerilere bakın.',
+      });
+    }
+  }
+
+  return alerts;
+}
+
+function DataQualityAlerts({ stats, loading }: { stats: TrackingStats | null; loading: boolean }) {
+  if (loading || !stats || stats.totals.total_events <= 0) return null;
+  const alerts = computeQualityAlerts(stats);
+  if (alerts.length === 0) {
+    return (
+      <div className={`${styles.dqAlert} ${styles.dqAlertOk}`}>
+        <span className={styles.dqAlertIcon} aria-hidden="true">✓</span>
+        <div className={styles.dqAlertBody}>
+          <div className={styles.dqAlertTitle}>Veri kalitesi sağlıklı</div>
+          <div className={styles.dqAlertDetail}>
+            Hata oranı, rıza kaybı ve eşleşme kalitesi normal aralıkta — iletim sağlıklı çalışıyor.
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.dqAlertStack} role="alert">
+      {alerts.map((a, i) => (
+        <div
+          key={i}
+          className={`${styles.dqAlert} ${a.severity === 'critical' ? styles.dqAlertCritical : styles.dqAlertWarning}`}
+        >
+          <span className={styles.dqAlertIcon} aria-hidden="true">
+            {a.severity === 'critical' ? '⚠' : '!'}
+          </span>
+          <div className={styles.dqAlertBody}>
+            <div className={styles.dqAlertTitle}>{a.title}</div>
+            <div className={styles.dqAlertDetail}>{a.detail}</div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -997,6 +1134,7 @@ function SourceDetailPanel({ source: initialSource, onSourceUpdated }: { source:
       {/* Tab: Olay Kalitesi */}
       {activeTab === 'olay-kalitesi' && (
         <div className={styles.tabContent}>
+          <DataQualityAlerts stats={stats} loading={statsLoading} />
           <DeliveryHealthPanel stats={stats} loading={statsLoading} error={statsError}
             dateFrom={statsDateFrom} dateTo={statsDateTo} activePreset={activePreset}
             onSelectPreset={(from, to) => { setStatsDateFrom(from); setStatsDateTo(to); }} />

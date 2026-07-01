@@ -1491,6 +1491,82 @@
   color: var(--color-critical-text);
 }
 
+.kpiChipWarn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Data-quality alerts (Olay Kalitesi tab)                             */
+/* ------------------------------------------------------------------ */
+
+.dqAlertStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+}
+
+.dqAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid transparent;
+}
+
+.dqAlertCritical {
+  background: var(--color-critical-bg);
+  border-color: var(--color-critical-text);
+}
+
+.dqAlertWarning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-text);
+}
+
+.dqAlertOk {
+  background: var(--color-success-bg, rgba(16, 185, 129, 0.12));
+  border-color: var(--color-success-text, #059669);
+}
+
+.dqAlertIcon {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  font-weight: var(--fw-bold, 700);
+  line-height: 1.4;
+}
+
+.dqAlertCritical .dqAlertIcon {
+  color: var(--color-critical-text);
+}
+
+.dqAlertWarning .dqAlertIcon {
+  color: var(--color-warning-text);
+}
+
+.dqAlertOk .dqAlertIcon {
+  color: var(--color-success-text, #059669);
+}
+
+.dqAlertBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dqAlertTitle {
+  font-size: var(--text-sm, 0.8125rem);
+  font-weight: var(--fw-semibold, 600);
+  color: var(--color-text);
+}
+
+.dqAlertDetail {
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
 /* ------------------------------------------------------------------ */
 /* Snippet toggle button                                               */
 /* ------------------------------------------------------------------ */
