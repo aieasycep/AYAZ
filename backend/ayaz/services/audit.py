@@ -65,6 +65,11 @@ def _compute_score(checks: list[dict]) -> int:
     return max(0, score)
 
 
+def _tr_num(value: float, decimals: int = 1) -> str:
+    """Format a number with the Turkish decimal comma (e.g. 0.4 → '0,4')."""
+    return f"{value:.{decimals}f}".replace(".", ",")
+
+
 def _grade(score: int) -> str:
     if score >= 85:
         return "mukemmel"
@@ -113,12 +118,25 @@ def _check_ads(db: Session, tenant_id: uuid.UUID, date_from: Any, date_to: Any) 
         # --- Fail: any ad with spend>0 and roas < 1.0 ---
         loss_ads = [a for a in spenders if a.get("roas", 0) < 1.0]
         if loss_ads:
+            worst = sorted(loss_ads, key=lambda a: a.get("roas", 0))[:3]
+            named = ", ".join(
+                f"'{a.get('ad_name', '(isimsiz)')}' (ROAS {_tr_num(a.get('roas', 0))}x)"
+                for a in worst
+            )
+            more = (
+                f" ve {len(loss_ads) - len(worst)} reklam daha"
+                if len(loss_ads) > len(worst)
+                else ""
+            )
             checks.append({
                 "id": "ads_roas_below_1",
                 "severity": "fail",
                 "title": "Zarar eden reklam(lar)",
-                "finding": f"{len(loss_ads)} reklam ROAS<1.0 (harcama dönüşüm değerinin üstünde).",
-                "recommendation": "Bu reklamları durdurun/optimize edin.",
+                "finding": (
+                    f"{len(loss_ads)} reklam zarar ediyor (ROAS<1,0 — harcama "
+                    f"dönüşüm değerinin üstünde): {named}{more}."
+                ),
+                "recommendation": "En düşük getirili reklamları durdurun veya optimize edin.",
             })
 
         # --- Warn: any single creative > 50% of total spend ---
@@ -141,12 +159,24 @@ def _check_ads(db: Session, tenant_id: uuid.UUID, date_from: Any, date_to: Any) 
         # --- Warn: any ad with spend>0 and ctr < 0.5% ---
         low_ctr_ads = [a for a in spenders if a.get("ctr", 1) < 0.005]
         if low_ctr_ads:
+            worst_ctr = sorted(low_ctr_ads, key=lambda a: a.get("ctr", 0))[:3]
+            named = ", ".join(
+                f"'{a.get('ad_name', '(isimsiz)')}' (%{_tr_num(a.get('ctr', 0) * 100)})"
+                for a in worst_ctr
+            )
+            more = (
+                f" ve {len(low_ctr_ads) - len(worst_ctr)} reklam daha"
+                if len(low_ctr_ads) > len(worst_ctr)
+                else ""
+            )
             checks.append({
                 "id": "ads_low_ctr",
                 "severity": "warn",
                 "title": "Düşük CTR kreatif(ler)",
-                "finding": f"{len(low_ctr_ads)} reklamın CTR'si %0.5'in altında.",
-                "recommendation": "Kreatifi yenileyin.",
+                "finding": (
+                    f"{len(low_ctr_ads)} reklamın CTR'si %0,5'in altında: {named}{more}."
+                ),
+                "recommendation": "En düşük CTR'li kreatifleri yenileyin.",
             })
 
         # --- Pass: no issues found ---

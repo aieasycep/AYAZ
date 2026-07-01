@@ -59,7 +59,7 @@ from ayaz.models.oltp import Membership, MembershipRole, Tenant, User
 from ayaz.models.tracking import ConversionEvent, EventDestination, TrackingSource
 from ayaz.api.deps import get_current_membership
 from ayaz.api.v1 import audit as audit_module
-from ayaz.services.audit import _compute_score, _grade, run_account_audit
+from ayaz.services.audit import _compute_score, _grade, _tr_num, run_account_audit
 from ayaz.services.auth import hash_password
 
 # ── Minimal test app ──────────────────────────────────────────────────────────
@@ -330,6 +330,22 @@ class TestGrade:
 
     def test_0_is_zayif(self) -> None:
         assert _grade(0) == "zayif"
+
+
+class TestTrNum:
+    """Turkish decimal-comma formatting used in named ad findings."""
+
+    def test_one_decimal_uses_comma(self) -> None:
+        assert _tr_num(0.4) == "0,4"
+
+    def test_rounds_to_one_decimal(self) -> None:
+        assert _tr_num(0.55) == "0,6"  # banker/half-up → 0.6 at 1 decimal
+
+    def test_integer_value(self) -> None:
+        assert _tr_num(3.0) == "3,0"
+
+    def test_custom_decimals(self) -> None:
+        assert _tr_num(12.345, decimals=2) == "12,35"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
