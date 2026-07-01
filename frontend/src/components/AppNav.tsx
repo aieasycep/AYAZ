@@ -33,6 +33,7 @@ export const NAV_LINKS = [
   { href: '/creative-lens', label: 'Kreatif Lensi' },
   { href: '/insights', label: 'İçgörüler' },
   { href: '/funnel', label: 'Dönüşüm Hunisi' },
+  { href: '/products', label: 'Ürün Performansı' },
   { href: '/benchmark', label: 'Sektör Kıyaslama' },
   { href: '/audit', label: 'Hesap Taraması' },
   { href: '/reports', label: 'Raporlar' },
@@ -110,6 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { href: '/insights', label: 'İçgörüler' },
       { href: '/funnel', label: 'Dönüşüm Hunisi' },
+      { href: '/products', label: 'Ürün Performansı' },
       { href: '/benchmark', label: 'Sektör Kıyaslama' },
       { href: '/audit', label: 'Hesap Taraması' },
     ],
