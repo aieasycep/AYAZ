@@ -1,0 +1,741 @@
+/* ============================================================
+   AppNav — left sidebar (desktop) + slim top strip + mobile drawer
+   ============================================================ */
+
+/* Remove all app-nav chrome when printing / saving as PDF, so a report
+   prints clean. Only affects the print medium. */
+@media print {
+  .sidebar,
+  .topStrip,
+  .overlay,
+  .drawer {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   SIDEBAR — fixed left panel (desktop ≥ 1024px)
+   ============================================================ */
+
+.sidebar {
+  display: none; /* shown via media query below */
+}
+
+@media (min-width: 1024px) {
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 248px;
+    background: var(--color-nav-bg);
+    border-right: 1px solid var(--color-nav-border);
+    z-index: 200;
+    overflow: hidden;
+  }
+}
+
+/* Brand area at top of sidebar */
+.sidebarBrand {
+  display: flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--color-nav-border);
+  flex-shrink: 0;
+}
+
+.brandText {
+  font-size: 1.375rem;
+  font-weight: var(--fw-heavy);
+  color: var(--color-on-primary);
+  letter-spacing: -0.3px;
+}
+
+/* Scrollable section list */
+.sidebarNav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-3) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Custom thin scrollbar for dark background */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+
+.sidebarNav::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebarNav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebarNav::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 4px;
+}
+
+/* ---- Section toggle (group header button) ---- */
+
+.sidebarSection {
+  /* no extra margin — gap on sidebarNav handles spacing */
+}
+
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  min-height: 36px;
+}
+
+.sectionToggle:hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.75);
+}
+
+.sectionToggleActive {
+  color: rgba(255,255,255,0.85);
+}
+
+.sectionToggleActive:hover {
+  background: rgba(255,255,255,0.07);
+}
+
+.sectionToggleIcon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.sectionToggleLabel {
+  flex: 1;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sectionChevron {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform 0.18s ease;
+  margin-left: auto;
+}
+
+.sectionChevronOpen {
+  transform: rotate(180deg);
+  opacity: 0.75;
+}
+
+/* ---- Links inside a section ---- */
+
+.sectionLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 1px;
+  margin-bottom: var(--space-1);
+}
+
+.sidebarLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3) var(--space-2) 28px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: rgba(255,255,255,0.58);
+  transition: background 0.13s, color 0.13s;
+  min-height: 34px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebarLink:hover {
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.88);
+}
+
+.sidebarLinkActive {
+  background: rgba(59,91,219,0.22);
+  color: #fff;
+  font-weight: var(--fw-semibold);
+}
+
+.sidebarLinkActive:hover {
+  background: rgba(59,91,219,0.3);
+}
+
+/* Active accent bar — left edge indicator */
+.activeBar {
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--color-primary);
+}
+
+/* ============================================================
+   TOP STRIP — slim bar at the top of the content area
+   ============================================================ */
+
+.topStrip {
+  position: sticky;
+  top: 0;
+  z-index: 190;
+  background: var(--color-nav-bg);
+  border-bottom: 1px solid var(--color-nav-border);
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+}
+
+.stripLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.stripRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Desktop: workspace switcher visible, hamburger + mobile brand hidden */
+.desktopOnly {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .desktopOnly {
+    display: flex;
+    align-items: center;
+  }
+
+  .hamburger {
+    display: none !important;
+  }
+
+  .mobileBrand {
+    display: none !important;
+  }
+}
+
+/* Mobile brand text (shown only on mobile in the top strip) */
+.mobileBrand {
+  font-size: 1.25rem;
+  font-weight: var(--fw-heavy);
+  color: var(--color-on-primary);
+  letter-spacing: -0.3px;
+}
+
+/* ---- Global search box — desktop only ---- */
+
+.globalSearch {
+  display: none; /* hidden on mobile; shown via @media below */
+}
+
+@media (min-width: 1024px) {
+  .globalSearch {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: rgba(255,255,255,0.07);
+    border: 1.5px solid rgba(255,255,255,0.14);
+    border-radius: var(--radius);
+    padding: 0 var(--space-3);
+    height: 34px;
+    min-width: 220px;
+    max-width: 320px;
+    flex: 1;
+    cursor: text;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .globalSearch:hover {
+    background: rgba(255,255,255,0.10);
+    border-color: rgba(255,255,255,0.25);
+  }
+
+  .globalSearch:focus-within {
+    border-color: var(--color-primary);
+    background: rgba(59,91,219,0.12);
+  }
+}
+
+.globalSearchIcon {
+  color: rgba(255,255,255,0.45);
+  flex-shrink: 0;
+}
+
+.globalSearchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: var(--text-sm);
+  color: rgba(255,255,255,0.7);
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.globalSearchInput::placeholder {
+  color: rgba(255,255,255,0.38);
+}
+
+.globalSearchKbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-family: inherit;
+  color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--radius-sm);
+  padding: 0.1rem 0.35rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.01em;
+}
+
+/* ---- "Veriye Sor" quick-ask icon button ---- */
+
+.quickAskBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(107,140,255,0.18);
+  border: 1.5px solid rgba(107,140,255,0.35);
+  color: #a5b9ff;
+  border-radius: 8px;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.quickAskBtn:hover {
+  background: rgba(107,140,255,0.28);
+  border-color: rgba(107,140,255,0.6);
+  color: #fff;
+}
+
+/* ---- Theme toggle ---- */
+
+.themeToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1.5px solid rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.75);
+  border-radius: 8px;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.themeToggle:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.45);
+  color: #fff;
+}
+
+/* ---- Account menu ---- */
+
+.accountMenuWrapper {
+  position: relative;
+}
+
+.avatarBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  background: rgba(107,140,255,0.25);
+  border: 1.5px solid rgba(107,140,255,0.4);
+  color: #a5b9ff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.avatarBtn:hover {
+  background: rgba(107,140,255,0.38);
+  border-color: rgba(107,140,255,0.65);
+  color: #fff;
+}
+
+.avatarBtnActive {
+  background: rgba(59,91,219,0.35);
+  border-color: rgba(107,140,255,0.6);
+  color: #fff;
+}
+
+.avatarBtnActive:hover {
+  background: rgba(59,91,219,0.48);
+}
+
+.avatarInitials {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+/* Account dropdown panel — right-aligned */
+.accountDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 192px;
+  background: var(--color-nav-bg, #111827);
+  border: 1px solid var(--color-nav-border, rgba(255,255,255,0.1));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  padding: 0.375rem;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  animation: dropdownIn 0.14s ease;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdownLink {
+  display: block;
+  padding: 0.55rem 0.875rem;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  white-space: nowrap;
+  transition: background 0.13s, color 0.13s;
+}
+
+.dropdownLink:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+.dropdownLinkActive {
+  background: rgba(59,91,219,0.35);
+  color: #fff;
+  font-weight: 600;
+}
+
+.dropdownLinkActive:hover {
+  background: rgba(59,91,219,0.45);
+}
+
+.accountDivider {
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 0.25rem 0.5rem;
+}
+
+.accountLogoutItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.875rem;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(248,113,113,0.85);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.13s, color 0.13s;
+}
+
+.accountLogoutItem:hover {
+  background: rgba(239,68,68,0.12);
+  color: #fca5a5;
+}
+
+/* ============================================================
+   HAMBURGER BUTTON — mobile only (shown when < 1024px)
+   ============================================================ */
+
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.hamburger:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.hamburgerLine {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 2px;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+  transform-origin: center;
+}
+
+.hamburgerLineTopOpen {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburgerLineMidOpen {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.hamburgerLineBotOpen {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ============================================================
+   MOBILE DRAWER OVERLAY
+   ============================================================ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 198;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ============================================================
+   MOBILE DRAWER PANEL
+   ============================================================ */
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 300px;
+  max-width: 85vw;
+  background: var(--color-nav-bg);
+  z-index: 199;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+}
+
+.drawerOpen {
+  transform: translateX(0);
+  box-shadow: 4px 0 32px rgba(0,0,0,0.4);
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  height: 56px;
+  border-bottom: 1px solid var(--color-nav-border);
+  flex-shrink: 0;
+}
+
+.drawerBrand {
+  font-size: 1.375rem;
+  font-weight: var(--fw-heavy);
+  color: var(--color-on-primary);
+  letter-spacing: -0.3px;
+}
+
+.drawerLinks {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0.75rem);
+}
+
+.drawerGroup {
+  margin-bottom: 0.25rem;
+}
+
+.drawerGroupLabel {
+  padding: 0.5rem 1rem 0.25rem;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  user-select: none;
+}
+
+.drawerGroup + .drawerGroup .drawerGroupLabel {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+}
+
+.drawerLink {
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  border-radius: 9px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  transition: background 0.14s, color 0.14s;
+  min-height: 44px;
+}
+
+.drawerLink:hover {
+  background: rgba(255,255,255,0.07);
+  color: #fff;
+}
+
+.drawerLinkActive {
+  background: rgba(59,91,219,0.28);
+  color: #fff;
+  font-weight: 600;
+}
+
+.drawerLinkActive:hover {
+  background: rgba(59,91,219,0.36);
+}
+
+.drawerFooter {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--color-nav-border);
+  flex-shrink: 0;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drawerFooterTop {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
+.drawerQuickAskBtn {
+  width: 100%;
+  background: rgba(107,140,255,0.15);
+  border: 1.5px solid rgba(107,140,255,0.3);
+  color: #a5b9ff;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.drawerQuickAskBtn:hover {
+  background: rgba(107,140,255,0.25);
+  border-color: rgba(107,140,255,0.5);
+  color: #fff;
+}
+
+.drawerLogoutBtn {
+  width: 100%;
+  background: transparent;
+  border: 1.5px solid rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.75);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.15s;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+.drawerLogoutBtn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.45);
+  color: #fff;
+}

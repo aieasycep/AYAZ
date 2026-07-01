@@ -1,0 +1,67 @@
+{
+  "code": 0,
+  "message": "OK",
+  "data": {
+    "list": [
+      {
+        "dimensions": {
+          "campaign_id": "1780012345678901",
+          "stat_time_day": "2024-06-01 00:00:00"
+        },
+        "metrics": {
+          "spend": "112.35",
+          "impressions": "204500",
+          "clicks": "5120",
+          "conversions": "94",
+          "total_purchase_value": "3760.00"
+        }
+      },
+      {
+        "dimensions": {
+          "campaign_id": "1780012345678902",
+          "stat_time_day": "2024-06-01 00:00:00"
+        },
+        "metrics": {
+          "spend": "45.80",
+          "impressions": "98700",
+          "clicks": "2340",
+          "conversions": "31",
+          "total_purchase_value": "1240.00"
+        }
+      },
+      {
+        "dimensions": {
+          "campaign_id": "1780012345678901",
+          "stat_time_day": "2024-06-02 00:00:00"
+        },
+        "metrics": {
+          "spend": "119.60",
+          "impressions": "218000",
+          "clicks": "5480",
+          "conversions": "102",
+          "total_purchase_value": "4080.00"
+        }
+      },
+      {
+        "dimensions": {
+          "campaign_id": "1780012345678902",
+          "stat_time_day": "2024-06-02 00:00:00"
+        },
+        "metrics": {
+          "spend": "0",
+          "impressions": "0",
+          "clicks": "0",
+          "conversions": "0",
+          "total_purchase_value": "0"
+        }
+      }
+    ],
+    "page_info": {
+      "page": 1,
+      "page_size": 1000,
+      "total_number": 4,
+      "total_page": 1
+    }
+  },
+  "request_id": "202406030001abc"
+}

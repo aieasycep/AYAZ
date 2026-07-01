@@ -1,0 +1,397 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ============================================================
+   Light theme (default)
+   ============================================================ */
+
+:root {
+  /* Core palette */
+  --color-bg: #f5f6fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8f9fe;       /* subtle alt background — hovers, code rows */
+  --color-border: #e2e5ef;
+  --color-text: #1a1d2e;
+  --color-text-muted: #6b7280;
+  --color-primary: #3b5bdb;
+  --color-primary-hover: #2f4ac0;
+  --color-accent: #f59e0b;
+  --color-danger: #ef4444;
+  --color-success: #10b981;
+
+  /* On-coloured-element whites — must stay white in BOTH themes */
+  --color-on-primary: #ffffff;
+
+  /* Nav bar — deliberately dark in both themes */
+  --color-nav-bg: #1a1d2e;
+  --color-nav-border: #2d3561;
+
+  /* Landing page dark sections (always dark) */
+  --color-landing-dark: #0f1629;
+
+  /* Tinted backgrounds for status badges */
+  --color-success-bg: rgba(16, 185, 129, 0.12);
+  --color-success-text: #059669;
+  --color-danger-bg: rgba(239, 68, 68, 0.10);
+  --color-danger-text: #dc2626;
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-warning-text: #b45309;
+
+  /* Commentary / AI card background */
+  --color-ai-card-bg: linear-gradient(135deg, #eef2ff 0%, #f0fdf4 100%);
+  --color-ai-card-border: #c7d2fe;
+
+  /* Highlight badges */
+  --color-badge-top-bg: #d1fae5;
+  --color-badge-top-text: #065f46;
+  --color-badge-bottom-bg: #fee2e2;
+  --color-badge-bottom-text: #991b1b;
+  --color-badge-channel-bg: #ede9fe;
+  --color-badge-channel-text: #5b21b6;
+
+  /* Solution col */
+  --color-solution-bg: linear-gradient(135deg, #f0f4ff 0%, #e8efff 100%);
+
+  /* Warning/amber alert (login page) */
+  --color-alert-bg: #fef9c3;
+  --color-alert-border: #fbbf24;
+  --color-alert-text: #92400e;
+
+  /* Billing purple */
+  --color-purple: #7c3aed;
+  --color-purple-hover: #6d28d9;
+
+  /* Toggle knob (always white over coloured track) */
+  --color-toggle-knob: #ffffff;
+
+  /* Shadows */
+  --radius: 10px;
+  --shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* ============================================================
+     Design system tokens (Dalga 1 — UX redesign foundation)
+     Theme-independent (spacing/type/radius) live here once; colour
+     and shadow aliases reference theme-aware tokens so they adapt
+     automatically in dark mode without redefinition.
+     ============================================================ */
+
+  /* Spacing — strict 4px grid. Replaces ad-hoc 1/1.25/1.5rem usage. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;   /* default card padding + section gap */
+  --space-5: 24px;   /* section-to-section gap */
+  --space-6: 32px;   /* primary/secondary/tertiary zone breaks */
+  --space-8: 48px;   /* page top padding */
+
+  /* Type scale — 6 steps only. Pair each size with the matching weight. */
+  --text-xs: 11px;   /* badges, uppercase labels, table column headers */
+  --text-sm: 13px;   /* secondary labels, captions, muted meta */
+  --text-base: 15px; /* body text, table cell values */
+  --text-md: 17px;   /* card titles, section headings */
+  --text-lg: 22px;   /* page titles */
+  --text-xl: 32px;   /* primary KPI values */
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-heavy: 800;
+
+  /* Radii — three named steps (badges / cards / overlays). */
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+
+  /* Elevation — 3 levels. Reference theme-aware shadows so dark mode adapts. */
+  --shadow-0: none;
+  --shadow-1: var(--shadow);
+  --shadow-2: var(--shadow-md);
+
+  /* Semantic colour roles — 5 only. Aliased to existing theme tokens so they
+     adapt in dark mode. Modules should use THESE, never raw hex. */
+  --color-critical: var(--color-danger);
+  --color-critical-bg: var(--color-danger-bg);
+  --color-critical-text: var(--color-danger-text);
+  --color-warning: var(--color-accent);
+  /* --color-warning-bg / --color-warning-text already defined above */
+  --color-info: var(--color-primary);
+  --color-info-bg: rgba(59, 91, 219, 0.08);
+  --color-info-text: var(--color-primary);
+  --color-ai: var(--color-purple);
+  --color-ai-bg: rgba(124, 58, 237, 0.08);
+  --color-ai-text: var(--color-purple-hover);
+
+  /* Chart channel palette — consistent colour per channel across all recharts. */
+  --chart-meta: #3b5bdb;
+  --chart-google: #10b981;
+  --chart-tiktok: #f59e0b;
+  --chart-4: #7c3aed;
+  --chart-5: #6b7280;
+}
+
+/* ============================================================
+   Dark theme
+   ============================================================ */
+
+:root[data-theme="dark"] {
+  --color-bg: #0f1117;
+  --color-surface: #171a23;
+  --color-surface-2: #1d2133;
+  --color-border: #272b38;
+  --color-text: #e6e8ef;
+  --color-text-muted: #8b90a0;
+  --color-primary: #6b8cff;
+  --color-primary-hover: #5a7ef5;
+  --color-accent: #f59e0b;
+  --color-danger: #f87171;
+  --color-success: #34d399;
+
+  /* On-primary stays white — never flips */
+  --color-on-primary: #ffffff;
+
+  /* Nav stays dark — same as light (already dark enough, just slightly adapt border) */
+  --color-nav-bg: #0d0f18;
+  --color-nav-border: #1e2133;
+
+  /* Landing page dark sections (always dark) */
+  --color-landing-dark: #0f1629;
+
+  /* Status tints — darker base for dark mode */
+  --color-success-bg: rgba(52, 211, 153, 0.12);
+  --color-success-text: #34d399;
+  --color-danger-bg: rgba(248, 113, 113, 0.12);
+  --color-danger-text: #f87171;
+  --color-warning-bg: rgba(245, 158, 11, 0.14);
+  --color-warning-text: #fbbf24;
+
+  /* AI commentary card */
+  --color-ai-card-bg: linear-gradient(135deg, rgba(107, 140, 255, 0.08) 0%, rgba(52, 211, 153, 0.06) 100%);
+  --color-ai-card-border: rgba(107, 140, 255, 0.25);
+
+  /* Highlight badges */
+  --color-badge-top-bg: rgba(52, 211, 153, 0.15);
+  --color-badge-top-text: #34d399;
+  --color-badge-bottom-bg: rgba(248, 113, 113, 0.15);
+  --color-badge-bottom-text: #f87171;
+  --color-badge-channel-bg: rgba(167, 139, 250, 0.15);
+  --color-badge-channel-text: #a78bfa;
+
+  /* Solution col */
+  --color-solution-bg: linear-gradient(135deg, rgba(107, 140, 255, 0.1) 0%, rgba(107, 140, 255, 0.06) 100%);
+
+  /* Warning/amber alert */
+  --color-alert-bg: rgba(245, 158, 11, 0.12);
+  --color-alert-border: rgba(245, 158, 11, 0.35);
+  --color-alert-text: #fbbf24;
+
+  /* Billing purple */
+  --color-purple: #8b5cf6;
+  --color-purple-hover: #7c3aed;
+
+  /* Toggle knob stays white */
+  --color-toggle-knob: #ffffff;
+
+  /* Shadows — softer/dimmer in dark */
+  --shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+}
+
+/* ============================================================
+   System preference: apply dark tokens when OS is dark
+   and user has chosen "system" (or no preference stored yet)
+   ============================================================ */
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --color-bg: #0f1117;
+    --color-surface: #171a23;
+    --color-surface-2: #1d2133;
+    --color-border: #272b38;
+    --color-text: #e6e8ef;
+    --color-text-muted: #8b90a0;
+    --color-primary: #6b8cff;
+    --color-primary-hover: #5a7ef5;
+    --color-accent: #f59e0b;
+    --color-danger: #f87171;
+    --color-success: #34d399;
+
+    --color-on-primary: #ffffff;
+
+    --color-nav-bg: #0d0f18;
+    --color-nav-border: #1e2133;
+
+    --color-landing-dark: #0f1629;
+
+    --color-success-bg: rgba(52, 211, 153, 0.12);
+    --color-success-text: #34d399;
+    --color-danger-bg: rgba(248, 113, 113, 0.12);
+    --color-danger-text: #f87171;
+    --color-warning-bg: rgba(245, 158, 11, 0.14);
+    --color-warning-text: #fbbf24;
+
+    --color-ai-card-bg: linear-gradient(135deg, rgba(107, 140, 255, 0.08) 0%, rgba(52, 211, 153, 0.06) 100%);
+    --color-ai-card-border: rgba(107, 140, 255, 0.25);
+
+    --color-badge-top-bg: rgba(52, 211, 153, 0.15);
+    --color-badge-top-text: #34d399;
+    --color-badge-bottom-bg: rgba(248, 113, 113, 0.15);
+    --color-badge-bottom-text: #f87171;
+    --color-badge-channel-bg: rgba(167, 139, 250, 0.15);
+    --color-badge-channel-text: #a78bfa;
+
+    --color-solution-bg: linear-gradient(135deg, rgba(107, 140, 255, 0.1) 0%, rgba(107, 140, 255, 0.06) 100%);
+
+    --color-alert-bg: rgba(245, 158, 11, 0.12);
+    --color-alert-border: rgba(245, 158, 11, 0.35);
+    --color-alert-text: #fbbf24;
+
+    --color-purple: #8b5cf6;
+    --color-purple-hover: #7c3aed;
+
+    --color-toggle-knob: #ffffff;
+
+    --shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+  }
+}
+
+html,
+body {
+  font-family: var(--font);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
+
+/* ============================================================
+   PWA / Mobile global helpers
+   ============================================================ */
+
+/* Prevent overscroll bounce on iOS while keeping scroll inside containers */
+html {
+  overscroll-behavior: none;
+}
+
+/* Prevent tap highlight flash on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Inputs at 16px minimum on iOS to prevent zoom-on-focus */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Safe area padding for notched phones (standalone PWA mode) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ============================================================
+   Accessibility
+   ============================================================ */
+
+/* Visible keyboard-focus indicator. :focus-visible only matches keyboard /
+   assistive-tech focus, so mouse clicks stay clean while keyboard users get a
+   clear ring in both light and dark themes. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   Sidebar layout offset — desktop ≥ 1024px
+   The fixed left sidebar is 248px wide. Shift page content right so
+   it never overlaps the sidebar — but ONLY on pages that actually
+   render the sidebar. `body:has([data-app-sidebar])` matches the
+   server-rendered sidebar <nav>, so auth pages (login/signup) and the
+   landing page — which have no sidebar — keep full width and no blank
+   left band. Using :has() (not a JS-toggled class) means the offset is
+   correct on first paint with no hydration flash.
+   ============================================================ */
+
+@media (min-width: 1024px) {
+  body:has([data-app-sidebar]) {
+    padding-left: 248px;
+  }
+}
+
+/* ============================================================
+   Print / PDF export utilities
+   Zero-dependency "branded PDF": the browser's Save-as-PDF prints
+   the page with app chrome removed. These rules ONLY apply while
+   printing — the on-screen experience is untouched.
+   - .print-hide  → element hidden when printing (nav, buttons, inputs)
+   - .print-only  → element shown ONLY when printing (branded header)
+   ============================================================ */
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  /* Sidebar is display:none in print, but its DOM node still matches
+     :has([data-app-sidebar]); drop the offset so there's no blank band. */
+  body {
+    background: #ffffff !important;
+    padding-left: 0 !important;
+  }
+}

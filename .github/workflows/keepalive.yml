@@ -1,0 +1,53 @@
+# Backend /health kontrolü (elle) — ve opsiyonel keep-alive
+# ---------------------------------------------------------------------------
+# Render ücretsiz web servisi 15 dk hareketsizlikten sonra uykuya geçer, sonraki
+# istekte ~1 dk soğuk başlangıç bekletir. Bu dosya backend'in /health ucunu
+# pingler.
+#
+# ⚠️ KEEP-ALIVE İÇİN GITHUB ACTIONS'A GÜVENME (private repo):
+#   GitHub Actions ücretsiz kotası private repo'da aylık 2000 dakikadır ve her
+#   çalışma en az 1 dk faturalanır. 15 dk'dan sık ping (uyandırmak için şart)
+#   ayda 2000 dk'yı katlayarak aşar. Bu yüzden otomatik `schedule` bilinçli
+#   olarak KAPALI bırakıldı. Gerçek keep-alive'ı HARİCİ ve ücretsiz bir izleyici
+#   ile yap:
+#     UptimeRobot → Add New Monitor → HTTP(s)
+#       URL: https://ayaz-backend.onrender.com/health   ·   aralık: 5 dk
+#   (Sıklık Render saat maliyetini değiştirmez; kota uptime bazlıdır ~720 sa/ay.)
+#
+#   Repo PUBLIC ise Actions dakikaları sınırsızdır → aşağıdaki `schedule`
+#   satırlarını açıp (yorumdan çıkarıp) bunu keep-alive olarak da kullanabilirsin.
+#
+# Uykuyu tamamen kaldırmanın temiz yolu: Render Basic (~$7/ay) — hiç uyumaz.
+name: backend-health-check
+
+on:
+  # Otomatik keep-alive için AÇMA (yukarıdaki private-repo dakika uyarısına bak).
+  # Public repo'daysan bu iki satırı yorumdan çıkarabilirsin:
+  # schedule:
+  #   - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: backend-health-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend /health
+        env:
+          # Repo değişkeni ile override edilebilir; yoksa canlı backend'e düşer.
+          URL: ${{ vars.RENDER_HEALTHCHECK_URL || 'https://ayaz-backend.onrender.com/health' }}
+        run: |
+          echo "Ping: $URL"
+          # Soğuk başlangıç ~1 dk sürebilir; retry ile uyanmasını bekle.
+          code=$(curl -sS -m 90 --retry 4 --retry-delay 15 --retry-all-errors \
+                   -o /dev/null -w '%{http_code}' "$URL" || echo "000")
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::/health beklenen 200 yerine $code döndürdü (servis uyanıyor olabilir)."
+          fi

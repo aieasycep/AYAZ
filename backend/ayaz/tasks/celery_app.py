@@ -1,0 +1,105 @@
+"""Celery application factory for AYAZ.
+
+The broker and result backend both default to Redis (``settings.redis_url``).
+Configure via the ``REDIS_URL`` environment variable in production.
+
+Worker launch::
+
+    celery -A ayaz.tasks.celery_app worker --loglevel=info --concurrency=4
+
+Beat (scheduler) launch::
+
+    celery -A ayaz.tasks.celery_app beat --loglevel=info
+
+Combined (development only)::
+
+    celery -A ayaz.tasks.celery_app worker --beat --loglevel=info
+
+Dependencies (add to pyproject.toml)::
+
+    celery[redis]>=5.3,<6
+    redis>=5.0,<6
+"""
+
+from __future__ import annotations
+
+from celery import Celery
+from celery.schedules import crontab
+
+from ayaz.config import settings
+
+# ── Application ───────────────────────────────────────────────────────────────
+
+celery_app = Celery(
+    "ayaz",
+    broker=settings.redis_url,
+    backend=settings.redis_url,
+    include=[
+        "ayaz.tasks.sync_tasks",
+        "ayaz.tasks.automation_tasks",
+        "ayaz.tasks.briefing_tasks",
+        "ayaz.tasks.token_refresh",
+        "ayaz.tasks.shield_tasks",
+    ],
+)
+
+celery_app.conf.update(
+    # Serialisation
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    # Timezone
+    timezone="UTC",
+    enable_utc=True,
+    # Reliability
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+    # Result expiry: 24 hours
+    result_expires=86_400,
+)
+
+# ── Beat schedule ─────────────────────────────────────────────────────────────
+
+celery_app.conf.beat_schedule = {
+    # Fan-out: enqueue one sync_account_task per active connected account.
+    # Runs every hour at minute 0.
+    "sync-all-active-accounts-hourly": {
+        "task": "ayaz.tasks.sync_tasks.sync_all_active_accounts",
+        "schedule": crontab(minute=0),  # top of every hour
+        "options": {"queue": "beat"},
+    },
+    # Evaluate all active automation rules once daily at 00:30 UTC.
+    "evaluate-automation-rules-daily": {
+        "task": "ayaz.tasks.automation_tasks.evaluate_automation_rules",
+        "schedule": crontab(minute=30, hour=0),
+        "options": {"queue": "beat"},
+    },
+    # Generate the proactive AI daily briefing for all tenants at 07:00 UTC.
+    "generate-daily-briefings": {
+        "task": "ayaz.tasks.briefing_tasks.generate_daily_briefings",
+        "schedule": crontab(minute=0, hour=7),
+        "options": {"queue": "beat"},
+    },
+    # Refresh OAuth tokens whose access_expires_at is within 10 minutes.
+    # Runs every 15 minutes at minutes 0, 15, 30, 45.
+    # One failing grant does not abort the batch (idempotent, resilient).
+    "refresh-due-grants": {
+        "task": "ayaz.tasks.token_refresh.refresh_due_grants",
+        "schedule": crontab(minute="*/15"),
+        "options": {"queue": "beat"},
+    },
+    # Usage shield: check limits and idle connectors for all tenants daily.
+    # Runs at 00:15 UTC (after midnight, before daily briefings at 07:00).
+    # Each tenant's check is fan-out as an independent task.
+    "usage-shield-daily": {
+        "task": "ayaz.tasks.shield_tasks.check_shield_all_tenants",
+        "schedule": crontab(minute=15, hour=0),
+        "options": {"queue": "beat"},
+    },
+}
+
+celery_app.conf.task_default_queue = "default"
+celery_app.conf.task_queues = {
+    "default": {},
+    "beat": {},
+}

@@ -1,0 +1,64 @@
+[
+  {
+    "results": [
+      {
+        "campaign": {
+          "resourceName": "customers/1234567890/campaigns/111000001",
+          "id": "111000001",
+          "name": "Summer Promo 2024",
+          "status": "ENABLED"
+        },
+        "metrics": {
+          "impressions": "82000",
+          "clicks": "1540",
+          "costMicros": "25000000",
+          "conversions": 18.0,
+          "conversionsValue": 540.0
+        },
+        "segments": {
+          "date": "2024-06-01"
+        }
+      },
+      {
+        "campaign": {
+          "resourceName": "customers/1234567890/campaigns/111000001",
+          "id": "111000001",
+          "name": "Summer Promo 2024",
+          "status": "ENABLED"
+        },
+        "metrics": {
+          "impressions": "91000",
+          "clicks": "1780",
+          "costMicros": "31500000",
+          "conversions": 24.0,
+          "conversionsValue": 720.0
+        },
+        "segments": {
+          "date": "2024-06-02"
+        }
+      }
+    ]
+  },
+  {
+    "results": [
+      {
+        "campaign": {
+          "resourceName": "customers/1234567890/campaigns/111000002",
+          "id": "111000002",
+          "name": "Brand Awareness Q2",
+          "status": "ENABLED"
+        },
+        "metrics": {
+          "impressions": "310000",
+          "clicks": "2100",
+          "costMicros": "8750000",
+          "conversions": 0.0,
+          "conversionsValue": 0.0
+        },
+        "segments": {
+          "date": "2024-06-01"
+        }
+      }
+    ]
+  }
+]

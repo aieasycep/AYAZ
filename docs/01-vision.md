@@ -1,7 +1,7 @@
-# AYAZ — Ürün Vizyonu (Taslak)
+# AYAZ — Ürün Vizyonu
 
-> Bu belge bir **çalışma taslağıdır**. Araç envanteri ve pazar araştırması sonrası
-> `product-strategist` ile birlikte netleştirilecektir.
+> Araç araştırması + strateji sentezi sonrası netleştirildi (2026-06-26).
+> Detay: `03-strategy.md`. Hedef pazar: **önce Türkiye, sonra global.**
 
 ## Problem
 Dijital pazarlama ekipleri işlerini 8-12 ayrı araçta (reklam panelleri, sosyal medya
@@ -20,17 +20,26 @@ AYAZ, bu araçları **tek bir kokpitte** birleştirir:
 - Hızlı "aha": kayıttan dakikalar sonra dağınık veri birleşmiş halde.
 - Türkiye pazarına yerel uyum (KVKK, dil, yerel ödeme) — hedef pazara göre.
 
-## Hedef Kitle (ICP — taslak)
-- KOBİ'ler ve dijital pazarlama ajansları (çok sayıda araç, sınırlı zaman).
-- Hangi segmentin önce hedefleneceği strateji fazında netleşecek.
+## Hedef Kitle (ICP)
+- **Birincil:** Bir şirketin dijital pazarlamasını yöneten kişi (her sektör) —
+  Google Ads + Meta + GA4 + (TikTok/LinkedIn/Search Console) gibi 5-10 ayrı panel
+  arasında gidip gelen, kanal-üstü performansı tek yerde göremeyen pazarlama yöneticisi.
+- **İkincil:** Dijital pazarlama ajansları (çok müşteri, white-label rapor ihtiyacı).
 
-## Başarı Ölçütleri (taslak)
-- Aktivasyon: ilk araç bağlama oranı ve süresi.
-- Tutundurma: aylık aktif + bağlı araç sayısı.
-- Gelir: dönüşüm, ARPU, churn.
+## Kazanma Kaması (Wedge)
+"Tek panelde kanal-üstü performans + Türkçe otomatik içgörü" — **salt-okunur** başla
+(reklam yazma yok → düşük risk, hızlı güven). Reklam yönetimi/optimizasyon sonraki faz.
+
+## Strateji Kararları
+- **Yap-vs-entegre:** Çekirdek (konektör + birleşik veri + dashboard + içgörü) sıfırdan
+  bizim; LLM, döviz kuru ve ödeme dışarıdan entegre. (Detay: `04-architecture.md`)
+- **Fiyat:** Sabit katmanlı abonelik (Funnel'in öngörülemez flexpoint modelinin tersi).
+
+## Başarı Ölçütleri
+- **Aktivasyon:** ilk kaynak bağlama oranı + time-to-value (hedef: 24 saatte ilk içgörü).
+- **Tutundurma:** aylık aktif + bağlı kaynak sayısı; "eski panelleri açmayı bıraktı mı".
+- **Gelir:** dönüşüm, ARPU, churn, expansion (kaynak/spend eşiği aşımı).
 
 ## Açık Sorular
-- Birleştirilecek araçlar tam olarak hangileri? (envanter bekleniyor)
-- Bunlar üçüncü parti SaaS mı (API ile entegre), açık kaynak mı (paketle), yoksa
-  kendi yeniden yazımımız mı?
-- İlk hedef pazar?
+- İlk hedef müşterilerin en çok hangi platformları kullandığı (konektör önceliklendirmesi).
+- heyBooster public API kapsamı (entegre mi sıfırdan mı?).

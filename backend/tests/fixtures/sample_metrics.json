@@ -1,0 +1,50 @@
+[
+  {
+    "account_id": "ACC-001",
+    "date": "2024-03-15",
+    "campaign_id": "CAMP-100",
+    "campaign_name": "Spring Sale 2024",
+    "adset_id": "ADSET-200",
+    "adset_name": "Remarketing 25-44",
+    "ad_id": "AD-300",
+    "ad_name": "Banner v2",
+    "impressions": 150000,
+    "clicks": 3200,
+    "spend": "1280.50",
+    "currency": "USD",
+    "conversions": "48.0",
+    "conversion_value": "9600.00"
+  },
+  {
+    "account_id": "ACC-001",
+    "date": "2024-03-16",
+    "campaign_id": "CAMP-100",
+    "campaign_name": "Spring Sale 2024",
+    "adset_id": "ADSET-200",
+    "adset_name": "Remarketing 25-44",
+    "ad_id": "AD-300",
+    "ad_name": "Banner v2",
+    "impressions": 162000,
+    "clicks": 3480,
+    "spend": "1392.75",
+    "currency": "USD",
+    "conversions": "52.0",
+    "conversion_value": "10400.00"
+  },
+  {
+    "account_id": "ACC-001",
+    "date": "2024-03-15",
+    "campaign_id": "CAMP-101",
+    "campaign_name": "Brand Awareness",
+    "adset_id": "ADSET-201",
+    "adset_name": "Lookalike 1%",
+    "ad_id": "AD-301",
+    "ad_name": "Video 30s",
+    "impressions": 500000,
+    "clicks": 1800,
+    "spend": "750.00",
+    "currency": "USD",
+    "conversions": "0.0",
+    "conversion_value": "0.00"
+  }
+]

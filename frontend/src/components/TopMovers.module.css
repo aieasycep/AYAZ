@@ -1,0 +1,192 @@
+/* ============================================================
+   TopMovers widget
+   ============================================================ */
+
+/* Controls row — dimension toggle + metric select */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Segmented dimension toggle */
+
+.toggle {
+  display: flex;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.toggleBtn {
+  background: transparent;
+  border: none;
+  padding: 0.3125rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  transition: background 0.15s, color 0.15s;
+  line-height: 1.4;
+}
+
+.toggleBtn:not(:last-child) {
+  border-right: 1.5px solid var(--color-border);
+}
+
+.toggleBtn:hover:not(.toggleBtnActive) {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.toggleBtnActive {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* Metric select */
+
+.metricSelect {
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.3125rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color 0.15s;
+  height: 32px;
+}
+
+.metricSelect:focus {
+  border-color: var(--color-primary);
+}
+
+/* Mover list */
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 1.5rem 1.5rem;
+  gap: 0;
+}
+
+.moverRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.moverRow:last-child {
+  border-bottom: none;
+}
+
+/* Label + sub-line */
+
+.labelGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prevCurrent {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* Current value */
+
+.currentValue {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Delta badge */
+
+.deltaBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1875rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.deltaBadgeUp {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.deltaBadgeDown {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.deltaBadgeNeutral {
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+
+.arrow {
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+
+/* State wrappers */
+
+.stateWrapper {
+  padding: 2rem 1.5rem;
+}
+
+/* Responsive */
+
+@media (max-width: 480px) {
+  .list {
+    padding: 0.25rem 1rem 1rem;
+  }
+
+  .moverRow {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+  }
+
+  .labelGroup {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .currentValue {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .deltaBadge {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+  }
+}

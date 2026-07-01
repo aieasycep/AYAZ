@@ -1,0 +1,530 @@
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Page header */
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pageTitle {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.pageSubtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+
+.refreshBtn {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Section card */
+
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.sectionTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* Hero headline card */
+
+.heroCard {
+  background: linear-gradient(135deg, var(--color-nav-bg) 0%, #2d3561 100%);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 2rem 2rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.heroTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.heroDateLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.heroDate {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.125rem;
+}
+
+.heroHeadline {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Delta cards grid */
+
+.deltaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.deltaCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.125rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.deltaLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.deltaValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deltaPct {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-top: 0.125rem;
+}
+
+.deltaUp {
+  color: var(--color-success);
+}
+
+.deltaDown {
+  color: var(--color-danger);
+}
+
+.deltaNeutral {
+  color: var(--color-text-muted);
+}
+
+.deltaPrev {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.125rem;
+}
+
+/* Insights list */
+
+.insightsList {
+  display: flex;
+  flex-direction: column;
+}
+
+.insightRow {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.insightRow:last-child {
+  border-bottom: none;
+}
+
+.insightRowTitle {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Severity badges */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.badgeCritical {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.badgeWarning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.badgeInfo {
+  background: rgba(59, 91, 219, 0.1);
+  color: var(--color-primary);
+}
+
+/* Recommendation callout */
+
+.recommendationBox {
+  margin: 1.25rem 1.5rem;
+  background: rgba(59, 91, 219, 0.06);
+  border: 1.5px solid rgba(59, 91, 219, 0.2);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.375rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.recommendationMessage {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.45;
+}
+
+.recommendationAction {
+  font-size: 0.875rem;
+  color: var(--color-primary);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.recommendationActionLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.recommendationCtaLink {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.recommendationCtaLink:hover {
+  text-decoration: underline;
+}
+
+/* Goals list */
+
+.goalsList {
+  display: flex;
+  flex-direction: column;
+}
+
+.goalRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.goalRow:last-child {
+  border-bottom: none;
+}
+
+.goalInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.goalName {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.goalForecast {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-top: 0.2rem;
+  line-height: 1.4;
+}
+
+/* Goal status badges */
+
+.badgeOnTrack {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.badgeAtRisk {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.badgeBehind {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+/* History list */
+
+.historyDetails {
+  padding: 1rem 1.5rem;
+}
+
+.historySummary {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.historySummary::-webkit-details-marker {
+  display: none;
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.12s;
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  text-align: left;
+  width: 100%;
+}
+
+.historyItem:last-child {
+  border-bottom: none;
+}
+
+.historyItem:hover {
+  background: var(--color-bg);
+}
+
+.historyItemDate {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 90px;
+}
+
+.historyItemHeadline {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* States */
+
+.stateBox {
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.errorText {
+  color: var(--color-danger);
+  font-size: 0.9rem;
+}
+
+.retryBtn {
+  margin-top: 1rem;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: 7px;
+  padding: 0.375rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s;
+  display: inline-block;
+}
+
+.retryBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Toast notification */
+
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-radius: var(--radius);
+  padding: 0.625rem 1.125rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
+  animation: slideUp 0.2s ease;
+  max-width: 420px;
+  word-break: break-word;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+
+@media (max-width: 640px) {
+  .main {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .heroCard {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .heroHeadline {
+    font-size: 1.15rem;
+  }
+
+  .deltaGrid {
+    padding: 1rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .sectionHeader {
+    padding: 1rem;
+  }
+
+  .insightRow,
+  .goalRow {
+    padding: 0.75rem 1rem;
+  }
+
+  .recommendationBox {
+    margin: 1rem;
+  }
+
+  .historyDetails {
+    padding: 0.75rem 1rem;
+  }
+}

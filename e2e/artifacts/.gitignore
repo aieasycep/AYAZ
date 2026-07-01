@@ -1,0 +1,5 @@
+# Generated E2E failure screenshots — keep the directory, ignore its contents.
+*.png
+*.jpg
+*.webp
+!.gitignore

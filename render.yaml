@@ -1,0 +1,123 @@
+# ── AYAZ — Render Blueprint (ÜCRETSİZ / $0 test kurulumu) ──────────────────────
+# Deploy: https://dashboard.render.com → New → Blueprint → bu repoyu seç.
+#
+# Mimari (tam $0 test): backend → Render (free) · veritabanı → Neon (free) ·
+# frontend → Vercel (free). Adım adım: docs/15-deploy-and-review-guide.md
+#
+# Neden Render'ın yönetilen Postgres'i YOK burada:
+#   - Render free Postgres ~90 günde siliniyor; Neon free uzun ömürlü.
+#   - Bu yüzden DATABASE_URL'i Neon'dan alıyoruz (aşağıda sync:false).
+#
+# Neden migrasyon "preDeployCommand" değil de başlangıç komutunda:
+#   - Render'da Pre-Deploy Command ÜCRETLİ planlara özel. Free planda çalışmaz.
+#   - Bu yüzden `alembic upgrade head` (+ opsiyonel demo seed) servis başlarken
+#     dockerCommand içinde çalışır (idempotent — tekrar çalışması sorun değil).
+#
+# İlk deploy sonrası Render dashboard → ayaz-backend → Environment'ta ayarla:
+#   DATABASE_URL    — Neon connection string (postgresql://...  — uygulama
+#                     +psycopg sürücüsünü otomatik ekler, olduğu gibi yapıştır)
+#   VAULT_KEY       — 32-byte URL-safe base64 (üretmek için kılavuza bak)
+#   ALLOWED_ORIGINS — Vercel frontend URL'in (örn. https://ayaz.vercel.app)
+#   SEED_DEMO       — "true" (zengin demo verisiyle dolu arayüz için)
+#   REDIS_URL       — (ops.) Upstash Redis free URL — Celery arka plan işleri için
+#   ANTHROPIC_API_KEY — (ops.) AI metinleri gerçek üretilsin (yoksa şablon)
+
+services:
+  - type: web
+    name: ayaz-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+
+    # Migrasyon + (opsiyonel) demo seed + uvicorn, imajdaki başlangıç script'inde
+    # (backend/start.sh, Dockerfile CMD'si) çalışır. Free planda Pre-Deploy
+    # Command olmadığı için migrasyonlar başlangıçta uygulanır; tüm adımlar
+    # idempotenttir. (dockerCommand string'i "&&" yüzünden Render'da exit 127
+    # veriyordu — bu yüzden script'e taşındı.)
+
+    healthCheckPath: /health
+
+    envVars:
+      # Neon (veya Supabase) connection string. postgresql://... olarak yapıştır;
+      # uygulama otomatik olarak +psycopg sürücüsüne çevirir. Neon SSL gerektirir
+      # (string'de ?sslmode=require zaten gelir).
+      - key: DATABASE_URL
+        sync: false
+
+      # Auto-generated strong secret.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # vault_token kullanılmıyor (Fernet için VAULT_KEY yeterli) ama production
+      # güvenlik kontrolü varsayılan "root" olmasını reddediyor → Render otomatik
+      # rastgele üretsin (kullanıcının elle girmesine gerek kalmasın).
+      - key: VAULT_TOKEN
+        generateValue: true
+
+      # Set manually in the Render dashboard.
+      - key: VAULT_KEY
+        sync: false
+
+      # Comma-separated allowed frontend origins (Vercel URL).
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+      - key: ENVIRONMENT
+        value: production
+
+      - key: DEBUG
+        value: "false"
+
+      # "true" → migrasyon sonrası idempotent demo verisini yükler
+      # (tenant demo@ayaz.app / demo12345). Gerçek production'da boş bırak.
+      - key: SEED_DEMO
+        sync: false
+
+      # (Opsiyonel) Upstash Redis free URL — Celery zamanlı görevler için.
+      # Boş bırakılırsa app yine açılır; arka plan işleri pasif kalır.
+      - key: REDIS_URL
+        sync: false
+
+      # (Opsiyonel) AI anlatı/öneri/metin üretimi — boşsa deterministik şablon.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # ── OAuth (SATICI SAĞLAMASI — bir kez, ömürde bir) ──────────────────
+      # Müşterilerin panelden "Meta'yı bağla / Google'ı bağla" diyebilmesi için
+      # AYAZ'ın bir kez kaydettiği uygulamanın kimlikleri. MÜŞTERİ BUNLARI
+      # GÖRMEZ/GİRMEZ — tıpkı Stripe API anahtarı gibi, satıcı bir kere girer.
+      #
+      # OAUTH_REDIRECT_BASE = bu backend'in URL'i + /api/v1
+      #   (ör. https://ayaz-backend.onrender.com/api/v1). Her platformun
+      #   developer konsolunda kayıtlı redirect URI ile birebir eşleşmeli:
+      #   <OAUTH_REDIRECT_BASE>/oauth/meta_ads/callback  (Meta)
+      #   <OAUTH_REDIRECT_BASE>/oauth/google_ads/callback (Google)
+      - key: OAUTH_REDIRECT_BASE
+        sync: false
+      # FRONTEND_BASE_URL = Vercel panel URL'in (ör. https://ayaz.vercel.app).
+      # Ayarlıysa OAuth sonrası kullanıcı ham JSON yerine panele geri döner.
+      - key: FRONTEND_BASE_URL
+        sync: false
+      # Meta (Facebook) uygulaması — developers.facebook.com'da bir kez oluştur.
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      # Google (Ads/GA4/Search Console) — Google Cloud OAuth istemcisi.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      # Faturalama — test için kapalı.
+      - key: BILLING_PROVIDER
+        value: none
+      - key: IYZICO_API_KEY
+        sync: false
+      - key: IYZICO_SECRET_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

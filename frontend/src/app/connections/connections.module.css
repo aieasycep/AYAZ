@@ -1,0 +1,346 @@
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-5);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.pageTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
+  color: var(--color-text);
+}
+
+.pageSubtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+/* Section */
+
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Platform grid */
+
+.platformGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+}
+
+.platformCard {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--color-surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.platformCard:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(59, 91, 219, 0.1);
+}
+
+.platformCardConnected {
+  border-color: var(--color-success);
+}
+
+.platformCardConnected:hover {
+  border-color: var(--color-success);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+}
+
+.platformCardError {
+  border-color: var(--color-danger);
+}
+
+.platformCardError:hover {
+  border-color: var(--color-danger);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+}
+
+.platformTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.platformIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.platformInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.platformName {
+  font-size: var(--text-base);
+  font-weight: var(--fw-bold);
+  color: var(--color-text);
+}
+
+.platformLabel {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: 0.125rem;
+}
+
+/* Status badge */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 100px;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.2px;
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.badgeConnected {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.badgeConnected .badgeDot {
+  background: var(--color-success);
+}
+
+.badgeSyncing {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.badgeSyncing .badgeDot {
+  background: var(--color-info);
+}
+
+.badgeError {
+  background: var(--color-critical-bg);
+  color: var(--color-critical-text);
+}
+
+.badgeError .badgeDot {
+  background: var(--color-critical);
+}
+
+.badgePending {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.badgePending .badgeDot {
+  background: var(--color-warning);
+}
+
+/* Watermark row */
+
+.watermarkRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.watermarkText {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+/* Buttons */
+
+.connectBtn {
+  width: 100%;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  transition: background 0.15s;
+}
+
+.connectBtn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.connectBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.resyncBtn {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: 7px;
+  padding: 0.3rem 0.75rem;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  transition: all 0.15s;
+}
+
+.resyncBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.resyncBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* States */
+
+.stateBox {
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.errorText {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+/* Accounts list */
+
+.accountsList {
+  display: flex;
+  flex-direction: column;
+}
+
+.accountRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.accountRow:last-child {
+  border-bottom: none;
+}
+
+.accountRow:hover {
+  background: var(--color-surface-2);
+}
+
+.accountInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.accountName {
+  font-weight: var(--fw-semibold);
+  font-size: var(--text-base);
+  color: var(--color-text);
+}
+
+.accountPlatform {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-weight: var(--fw-normal);
+  margin-top: var(--space-1);
+}
+
+/* Connected account row inside card */
+.connectedAccRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+/* Card action buttons row */
+.cardActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Platform top row layout */
+.platformTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: var(--space-4);
+    gap: var(--space-4);
+  }
+
+  .platformGrid {
+    grid-template-columns: 1fr;
+    padding: var(--space-4);
+  }
+
+  .sectionHeader {
+    padding: var(--space-4);
+  }
+}

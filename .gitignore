@@ -7,6 +7,10 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Build outputs
 dist/
@@ -46,3 +50,12 @@ coverage/
 *.mobileprovision
 ios/Pods/
 .expo/
+
+# Local SQLite test/demo databases
+backend/*.db
+*.sqlite
+
+# Keep example env templates tracked
+!.env.prod.example
+!*.env.example
+!.env.example

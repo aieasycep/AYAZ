@@ -1,0 +1,26 @@
+{
+  "rows": [
+    {
+      "keys": ["2024-06-01"],
+      "clicks": 3210,
+      "impressions": 84500,
+      "ctr": 0.037988,
+      "position": 6.42
+    },
+    {
+      "keys": ["2024-06-02"],
+      "clicks": 3580,
+      "impressions": 89200,
+      "ctr": 0.040134,
+      "position": 6.18
+    },
+    {
+      "keys": ["2024-06-03"],
+      "clicks": 2940,
+      "impressions": 76800,
+      "ctr": 0.038281,
+      "position": 6.61
+    }
+  ],
+  "responseAggregationType": "byPage"
+}
