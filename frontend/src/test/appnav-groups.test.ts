@@ -7,7 +7,7 @@
  *  (b) every grouped href and every ACCOUNT_LINKS href exists in NAV_LINKS
  *  (c) no duplicate hrefs across groups or ACCOUNT_LINKS
  *  (d) NAV_GROUPS count === 10 and ACCOUNT_LINKS length === 6
- *      combined grouped links === NAV_LINKS.length (36)
+ *      combined grouped links === NAV_LINKS.length (35)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -29,9 +29,9 @@ describe('NAV_GROUPS integrity', () => {
     expect(ACCOUNT_LINKS).toHaveLength(6);
   });
 
-  it('(d) combined grouped links + account links equals NAV_LINKS.length (36)', () => {
+  it('(d) combined grouped links + account links equals NAV_LINKS.length (35)', () => {
     expect(allGroupedHrefs).toHaveLength(NAV_LINKS.length);
-    expect(NAV_LINKS).toHaveLength(36);
+    expect(NAV_LINKS).toHaveLength(35);
   });
 
   it('(c) no duplicate hrefs across NAV_GROUPS and ACCOUNT_LINKS', () => {

@@ -102,7 +102,7 @@ ROUTES = [
     ("/integrations",      True,  "Entegrasyon Merkezi"),
     ("/feeds",             True,  "Feed Yönetimi"),
     ("/ads",               True,  "Reklam Yönetimi"),
-    ("/optimizer",         True,  "Bütçe Optimizasyonu"),
+    ("/optimizer",         True,  "Bütçe Aracı"),
     ("/goals",             True,  "Hedefler"),
     ("/reports",           True,  "Raporlar"),
     ("/report-builder",    True,  "Rapor Oluşturucu"),

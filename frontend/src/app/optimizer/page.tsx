@@ -12,7 +12,10 @@ import {
 import { parseApiError } from '@/lib/parseApiError';
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
+import BudgetSimulatorPanel from '@/components/BudgetSimulatorPanel';
 import styles from './optimizer.module.css';
+
+type BudgetMainTab = 'optimizasyon' | 'senaryo';
 
 // --- Date helpers ---
 
@@ -119,6 +122,22 @@ export default function OptimizerPage() {
     if (!getToken()) router.replace('/login');
   }, [router]);
 
+  // Two sub-tools under one "Bütçe Aracı" roof: the optimizer (default) and the
+  // scenario simulator (formerly the standalone /budget-simulator page). A
+  // ?tab=senaryo query — used by the old route's redirect — opens the simulator.
+  const [mainTab, setMainTab] = useState<BudgetMainTab>('optimizasyon');
+
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t === 'senaryo') setMainTab('senaryo');
+  }, []);
+
+  const selectMainTab = useCallback((t: BudgetMainTab) => {
+    setMainTab(t);
+    const url = t === 'senaryo' ? '/optimizer?tab=senaryo' : '/optimizer';
+    window.history.replaceState(null, '', url);
+  }, []);
+
   const defaults = getDefaultDates();
   const [dateFrom, setDateFrom] = useState(defaults.from);
   const [dateTo, setDateTo] = useState(defaults.to);
@@ -162,13 +181,39 @@ export default function OptimizerPage() {
         {/* Page header */}
         <div className={styles.pageHeader}>
           <div>
-            <h1 className={styles.pageTitle}>Bütçe Optimizasyonu</h1>
+            <h1 className={styles.pageTitle}>Bütçe Aracı</h1>
             <p className={styles.pageSubtitle}>
-              Kanallar arası bütçe dağılımını optimize ederek dönüşüm değerini artırın.
+              Bütçenizi optimize edin veya kanallar arası senaryoları anında test edin.
             </p>
           </div>
         </div>
 
+        {/* Sub-tool tabs: optimizasyon | senaryo */}
+        <div className={styles.mainTabs} role="tablist" aria-label="Bütçe aracı bölümleri">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mainTab === 'optimizasyon'}
+            className={`${styles.mainTab} ${mainTab === 'optimizasyon' ? styles.mainTabActive : ''}`}
+            onClick={() => selectMainTab('optimizasyon')}
+          >
+            Optimizasyon
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mainTab === 'senaryo'}
+            className={`${styles.mainTab} ${mainTab === 'senaryo' ? styles.mainTabActive : ''}`}
+            onClick={() => selectMainTab('senaryo')}
+          >
+            Senaryo Simülatörü
+          </button>
+        </div>
+
+        {mainTab === 'senaryo' && <BudgetSimulatorPanel />}
+
+        {mainTab === 'optimizasyon' && (
+        <>
         {/* Controls section */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
@@ -393,6 +438,8 @@ export default function OptimizerPage() {
               )}
             </section>
           </>
+        )}
+        </>
         )}
       </main>
     </div>

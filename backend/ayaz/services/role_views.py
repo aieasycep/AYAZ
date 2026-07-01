@@ -158,7 +158,7 @@ ROLE_DEFINITIONS: list[dict] = [
                 "why": "Aylık bütçe planını oluştur ve gerçekleşen harcamayla karşılaştır.",
             },
             {
-                "href": "/budget-simulator",
+                "href": "/optimizer?tab=senaryo",
                 "label": "Bütçe Simülatörü",
                 "why": "Farklı bütçe senaryolarının etkisini simüle et.",
             },
@@ -171,7 +171,7 @@ ROLE_DEFINITIONS: list[dict] = [
         "quick_actions": [
             {"label": "Bütçe Planını Aç", "href": "/planning"},
             {"label": "Hedefleri Görüntüle", "href": "/goals"},
-            {"label": "Simülasyon Çalıştır", "href": "/budget-simulator"},
+            {"label": "Simülasyon Çalıştır", "href": "/optimizer?tab=senaryo"},
         ],
         "rec_categories": ["budget", "goal"],
     },

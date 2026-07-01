@@ -37,6 +37,39 @@
   margin-top: 0.25rem;
 }
 
+/* Sub-tool tabs (Optimizasyon | Senaryo) */
+
+.mainTabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-bottom: 1.5px solid var(--color-border);
+}
+
+.mainTab {
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1.5px;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.mainTab:hover {
+  color: var(--color-text);
+}
+
+.mainTabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
 /* Section card */
 
 .section {

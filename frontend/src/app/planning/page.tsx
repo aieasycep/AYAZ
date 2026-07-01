@@ -928,7 +928,7 @@ export default function PlanningPage() {
         <SuggestionsStrip
           title="Planlama araçları"
           suggestions={[
-            { label: 'Bütçe simülatörü', href: '/budget-simulator' },
+            { label: 'Bütçe simülatörü', href: '/optimizer?tab=senaryo' },
             { label: 'Kanal performansı', href: '/ads' },
             { label: 'Hedefler', href: '/goals' },
           ]}

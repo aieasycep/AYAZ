@@ -125,7 +125,7 @@ the unauthenticated rendering path is also exercised.
 | `/connections` | Yes | `Bağlantılar` |
 | `/feeds` | Yes | `Feed Yönetimi` |
 | `/ads` | Yes | `Reklam Yönetimi` |
-| `/optimizer` | Yes | `Bütçe Optimizasyonu` |
+| `/optimizer` | Yes | `Bütçe Aracı` |
 | `/goals` | Yes | `Hedefler` |
 | `/reports` | Yes | `Raporlar` |
 | `/report-builder` | Yes | `Rapor Oluşturucu` |
