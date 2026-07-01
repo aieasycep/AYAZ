@@ -82,9 +82,10 @@ function humanizeFeature(raw: string): string {
     .join(' ');
 }
 
-// Plans in intended display order; Growth is "recommended"
-const PLAN_ORDER = ['free', 'starter', 'growth', 'agency'];
-const RECOMMENDED_PLAN = 'growth';
+// Plans in intended display order; Pro is "recommended" (freelancer/small-team
+// sweet spot — white-label + multi-account without the Agency price jump).
+const PLAN_ORDER = ['free', 'starter', 'pro', 'growth', 'agency'];
+const RECOMMENDED_PLAN = 'pro';
 
 // ---- Cancel confirm dialog ----
 

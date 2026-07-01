@@ -263,7 +263,10 @@
 
 .plansGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Auto-fit so the grid adapts to the number of plans (5 now: Free/Starter/
+     Pro/Growth/Agency) — 5 flow in one row on wide screens, wrapping down
+     gracefully instead of leaving a lonely card on a second row. */
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-4);
 }
 

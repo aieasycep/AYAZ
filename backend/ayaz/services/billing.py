@@ -49,9 +49,12 @@ PLANS: dict[str, dict[str, Any]] = {
         "price_try": 0,
         "price_usd": 0,
         "limits": {
-            "max_data_sources": 1,
+            # Gerçek bir deneme değeri: tek müşteri bile Google+Meta gibi 2 kaynak
+            # kullanır; 1 kaynak/7 gün ürünü denemeden değerlendirmeyi imkânsız
+            # kılıyordu (freelancer/KOBİ geri bildirimi).
+            "max_data_sources": 2,
             "max_dashboards": 1,
-            "history_days": 7,
+            "history_days": 14,
             "insights": False,
             "ad_spend_cap": 0,
         },
@@ -72,6 +75,34 @@ PLANS: dict[str, dict[str, Any]] = {
         },
         "features": ["insights_basic", "alerts_email"],
     },
+    "pro": {
+        "code": "pro",
+        "name": "Pro",
+        "price_try": 2490,
+        "price_usd": 65,
+        # Freelancer / küçük ekip için Starter ile Agency arasındaki boşluğu
+        # dolduran paket: white-label ve çoklu-müşteri (multi_account) buradan
+        # başlıyor — böylece markalı rapor artık yalnızca ₺12.900 Agency'e kilitli
+        # değil (freelancer + ajans geri bildirimi).
+        "limits": {
+            "max_data_sources": 6,
+            "max_dashboards": "unlimited",
+            "history_days": 365,
+            "insights": "full",
+            "ad_spend_cap": 500000,
+            "alerts": ["email", "slack"],
+            "white_label": True,
+            "multi_account": True,
+        },
+        "features": [
+            "insights_full",
+            "alerts_email",
+            "alerts_slack",
+            "anomaly_detection",
+            "white_label",
+            "multi_account",
+        ],
+    },
     "growth": {
         "code": "growth",
         "name": "Growth",
@@ -84,12 +115,14 @@ PLANS: dict[str, dict[str, Any]] = {
             "insights": "full",
             "ad_spend_cap": 1000000,
             "alerts": ["email", "slack"],
+            "white_label": True,
         },
         "features": [
             "insights_full",
             "alerts_email",
             "alerts_slack",
             "anomaly_detection",
+            "white_label",
         ],
     },
     "agency": {

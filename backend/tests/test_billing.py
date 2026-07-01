@@ -210,8 +210,8 @@ def connectors_client(db_session: Session):
 
 
 class TestPlansCatalog:
-    def test_plans_has_four_tiers(self) -> None:
-        assert set(PLANS.keys()) == {"free", "starter", "growth", "agency"}
+    def test_plans_has_five_tiers(self) -> None:
+        assert set(PLANS.keys()) == {"free", "starter", "pro", "growth", "agency"}
 
     def test_each_plan_has_required_keys(self) -> None:
         required = {"code", "name", "price_try", "price_usd", "limits", "features"}
@@ -236,7 +236,7 @@ class TestPlansCatalog:
         assert PLANS["agency"]["price_usd"] == 349
 
     def test_free_max_data_sources(self) -> None:
-        assert PLANS["free"]["limits"]["max_data_sources"] == 1
+        assert PLANS["free"]["limits"]["max_data_sources"] == 2
 
     def test_starter_max_data_sources(self) -> None:
         assert PLANS["starter"]["limits"]["max_data_sources"] == 3
@@ -317,7 +317,7 @@ class TestEntitlements:
 
         ents = entitlements(db_session, tenant.id)
         assert ents["plan_code"] == "free"
-        assert ents["limits"]["max_data_sources"] == 1
+        assert ents["limits"]["max_data_sources"] == 2
         assert ents["limits"]["insights"] is False
 
     def test_starter_entitlements(self, db_session: Session) -> None:
@@ -394,7 +394,7 @@ class TestEntitlements:
 
         ents = entitlements(db_session, tenant.id)
         # Should downgrade to free limits
-        assert ents["limits"]["max_data_sources"] == 1
+        assert ents["limits"]["max_data_sources"] == 2
 
     def test_canceled_before_period_end_keeps_plan(self, db_session: Session) -> None:
         from datetime import timedelta
@@ -434,11 +434,12 @@ class TestDataSourceGating:
         assert result is True
 
     def test_block_at_free_limit(self, db_session: Session) -> None:
-        """Free plan allows 1 data source; 1 already connected → should raise 402."""
+        """Free plan allows 2 data sources; 2 already connected → should raise 402."""
         from fastapi import HTTPException
 
         tenant = _make_tenant(db_session)
-        _make_connected_account(db_session, tenant)
+        _make_connected_account(db_session, tenant, Platform.google_ads)
+        _make_connected_account(db_session, tenant, Platform.meta_ads)
         db_session.commit()
 
         with pytest.raises(HTTPException) as exc_info:
@@ -747,12 +748,12 @@ class TestBillingAPI:
         resp = client.get("/api/v1/billing/plans")
         assert resp.status_code == 200
 
-    def test_get_plans_returns_four_tiers(self, billing_client) -> None:
+    def test_get_plans_returns_five_tiers(self, billing_client) -> None:
         client, _, _ = billing_client
         resp = client.get("/api/v1/billing/plans")
         plans = resp.json()
         codes = {p["code"] for p in plans}
-        assert codes == {"free", "starter", "growth", "agency"}
+        assert codes == {"free", "starter", "pro", "growth", "agency"}
 
     def test_get_plans_free_price_zero(self, billing_client) -> None:
         client, _, _ = billing_client
@@ -904,10 +905,11 @@ class TestConnectorPlanGating:
     def test_create_account_blocked_at_free_limit(
         self, connectors_client, db_session: Session
     ) -> None:
-        """Free plan allows 1 data source; 1 already linked → 402."""
+        """Free plan allows 2 data sources; 2 already linked → 402."""
         client, tenant, _ = connectors_client
-        # Insert one account directly so we're at the limit
+        # Insert two accounts directly so we're at the free limit (2)
         _make_connected_account(db_session, tenant, Platform.sample)
+        _make_connected_account(db_session, tenant, Platform.meta_ads)
         db_session.commit()
 
         resp = client.post(
