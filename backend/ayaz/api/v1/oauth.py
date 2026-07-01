@@ -40,6 +40,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
+from ayaz.config import settings
 from ayaz.database import SessionLocal
 from ayaz.models.oltp import ConnectedAccount, Membership, Platform, SyncStatus
 from ayaz.services import oauth_broker
@@ -77,9 +78,11 @@ class CallbackResponse(BaseModel):
 # ── Default redirect URI ──────────────────────────────────────────────────────
 
 # The redirect_uri must be registered in each platform's developer console.
-# Override via the ``redirect_uri`` query param; the default is the production
-# value — set this correctly when deploying.
-_DEFAULT_REDIRECT_BASE = "http://localhost:8000/api/v1"
+# Override per-request via the ``redirect_uri`` query param; otherwise the base
+# comes from ``settings.oauth_redirect_base`` (env: OAUTH_REDIRECT_BASE), which
+# MUST be set to the deployed backend URL in production.
+def _redirect_base() -> str:
+    return settings.oauth_redirect_base
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -163,7 +166,7 @@ def authorize(
     account = _get_or_create_pending_account(db, membership.tenant_id, platform_enum)
 
     effective_redirect_uri = redirect_uri or (
-        f"{_DEFAULT_REDIRECT_BASE}/oauth/{platform}/callback"
+        f"{_redirect_base()}/oauth/{platform}/callback"
     )
 
     state = _sign_state(str(account.id), str(membership.tenant_id))
@@ -244,7 +247,7 @@ def callback(
         )
 
     effective_redirect_uri = redirect_uri or (
-        f"{_DEFAULT_REDIRECT_BASE}/oauth/{platform}/callback"
+        f"{_redirect_base()}/oauth/{platform}/callback"
     )
 
     # 3. Exchange code for tokens

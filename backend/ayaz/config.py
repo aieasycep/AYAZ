@@ -95,6 +95,11 @@ class Settings(BaseSettings):
     tiktok_app_secret: str = ""
     slack_client_id: str = ""
     slack_client_secret: str = ""
+    # Public base URL used to build OAuth redirect (callback) URIs. Must match the
+    # redirect URI registered in each platform's developer console. In production
+    # set OAUTH_REDIRECT_BASE to the deployed backend, e.g.
+    # "https://ayaz-backend.onrender.com/api/v1". Defaults to local dev.
+    oauth_redirect_base: str = "http://localhost:8000/api/v1"
 
     # ── AI / Insights ─────────────────────────────────────────────────────────
     # Anthropic API key for ClaudeNarrator (M4 AI insights).
