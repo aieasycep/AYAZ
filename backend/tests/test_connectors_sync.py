@@ -152,3 +152,54 @@ def test_sync_respects_days_window(ctx) -> None:
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "success"
+
+
+def test_patch_sets_external_account_id(ctx) -> None:
+    client, db, _tenant, account = ctx
+    resp = client.patch(
+        f"/api/v1/connectors/accounts/{account.id}",
+        json={"external_account_id": "123456", "display_name": "Benim Hesabım"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["external_account_id"] == "123456"
+    assert body["display_name"] == "Benim Hesabım"
+
+
+def test_patch_strips_act_prefix_for_meta(ctx) -> None:
+    client, db, tenant, _account = ctx
+    meta = ConnectedAccount(
+        id=uuid.uuid4(), tenant_id=tenant.id, platform=Platform.meta_ads,
+        external_account_id="", display_name="Meta",
+        vault_secret_ref="", sync_status=SyncStatus.idle,
+    )
+    db.add(meta)
+    db.commit()
+    resp = client.patch(
+        f"/api/v1/connectors/accounts/{meta.id}",
+        json={"external_account_id": "act_987654"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["external_account_id"] == "987654"
+
+
+def test_discover_without_creds_400(ctx) -> None:
+    # ctx's default vault is empty → get() returns None → 400.
+    client, _db, _tenant, account = ctx
+    resp = client.post(f"/api/v1/connectors/accounts/{account.id}/discover")
+    assert resp.status_code == 400
+
+
+def test_discover_lists_accounts(ctx) -> None:
+    client, _db, _tenant, account = ctx
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"access_token": "T"})
+    _test_app.dependency_overrides[connectors_module._get_vault] = lambda: vault
+
+    resp = client.post(f"/api/v1/connectors/accounts/{account.id}/discover")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # Sample connector.discover() returns one fake account.
+    assert isinstance(body, list)
+    assert len(body) >= 1
+    assert "id" in body[0]

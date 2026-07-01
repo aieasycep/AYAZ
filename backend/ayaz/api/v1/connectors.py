@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
 from ayaz.connectors import ConnectorRegistry
+from ayaz.connectors.base import ConnectorConfig
 from ayaz.database import SessionLocal
 from ayaz.models.oltp import ConnectedAccount, Membership, Platform, SyncStatus
 from ayaz.services.vault import EncryptedColumnVault, SecretsVault
@@ -301,3 +302,125 @@ def sync_account(
         updated=int(result.get("updated", 0)),
         records_processed=int(result.get("records_processed", 0)),
     )
+
+
+class UpdateAccountRequest(BaseModel):
+    external_account_id: str | None = None
+    display_name: str | None = None
+
+
+@router.patch(
+    "/accounts/{account_id}",
+    response_model=ConnectedAccountResponse,
+    summary="Update a connected account (e.g. set the ad account id after OAuth)",
+)
+def update_account(
+    account_id: uuid.UUID,
+    body: UpdateAccountRequest,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+) -> ConnectedAccount:
+    """Patch mutable fields of a connected account, scoped to the tenant.
+
+    The primary use is setting ``external_account_id`` — the platform ad-account
+    id (e.g. a Meta ad account) — which the OAuth flow leaves empty and which the
+    connector needs before it can fetch data.  For Meta, a leading ``act_``
+    prefix is stripped (the connector adds it back).
+    """
+    account = db.scalar(
+        select(ConnectedAccount).where(
+            ConnectedAccount.id == account_id,
+            ConnectedAccount.tenant_id == membership.tenant_id,
+        )
+    )
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hesap bulunamadı.")
+
+    if body.external_account_id is not None:
+        ext = body.external_account_id.strip()
+        if account.platform == Platform.meta_ads and ext.lower().startswith("act_"):
+            ext = ext[4:]
+        account.external_account_id = ext
+    if body.display_name is not None:
+        account.display_name = body.display_name.strip()
+
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+class DiscoveredAccount(BaseModel):
+    id: str
+    name: str = ""
+    currency: str = ""
+
+
+@router.post(
+    "/accounts/{account_id}/discover",
+    response_model=list[DiscoveredAccount],
+    summary="List ad accounts reachable with this connection's stored credentials",
+)
+def discover_accounts(
+    account_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+    vault: SecretsVault = Depends(_get_vault),
+) -> list[DiscoveredAccount]:
+    """Use the stored OAuth token to list the ad accounts the user can access.
+
+    Lets the user pick which ad account to attach (set via PATCH) before the
+    first sync.  Requires the account to have been connected (token in Vault).
+
+    Errors
+    ------
+    404 — account not found / tenant mismatch.
+    400 — no stored credentials (connect via OAuth first).
+    502 — the platform discovery call failed.
+    """
+    account = db.scalar(
+        select(ConnectedAccount).where(
+            ConnectedAccount.id == account_id,
+            ConnectedAccount.tenant_id == membership.tenant_id,
+        )
+    )
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hesap bulunamadı.")
+
+    try:
+        secrets = vault.get(str(account.id)) or {}
+    except Exception:
+        secrets = {}
+    if not secrets:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bu hesap için saklı kimlik yok — önce OAuth ile bağlanın.",
+        )
+
+    connector_cls = ConnectorRegistry.get(account.platform.value)
+    config = ConnectorConfig(
+        tenant_id=str(account.tenant_id),
+        connected_account_id=str(account.id),
+        external_account_id=account.external_account_id,
+        platform_key=account.platform.value,
+        vault_secret_ref=account.vault_secret_ref or "",
+        extra=secrets,
+    )
+    connector = connector_cls(config=config)
+    try:
+        connector.authenticate()
+        found = connector.discover()
+    except Exception:
+        logger.exception("Discover failed: account=%s", account_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Reklam hesabı listesi alınamadı. İzinleri kontrol edin.",
+        )
+
+    return [
+        DiscoveredAccount(
+            id=str(a.get("id", "")),
+            name=str(a.get("name", "")),
+            currency=str(a.get("currency", "")),
+        )
+        for a in (found or [])
+    ]
