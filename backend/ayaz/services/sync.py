@@ -265,6 +265,7 @@ def sync_connected_account(
     account: ConnectedAccount,
     since: date,
     until: date,
+    vault: Any = None,
 ) -> dict[str, int]:
     """Sync one connected account for the given date range.
 
@@ -318,15 +319,38 @@ def sync_connected_account(
     # 1. Resolve connector class
     connector_cls = ConnectorRegistry.get(platform_key)
 
+    # Load stored OAuth tokens / API keys from the Vault (keyed by account id)
+    # and inject them into ConnectorConfig.extra so the connector can read them
+    # via ``_get_secret``.  When no vault is supplied (demo / fixture path,
+    # tests), ``extra`` stays empty and connectors that need no creds (e.g. the
+    # sample connector) still work exactly as before.
+    secrets: dict[str, Any] = {}
+    if vault is not None:
+        try:
+            secrets = vault.get(str(connected_account_id)) or {}
+        except Exception:
+            logger.warning(
+                "[sync] Vault load failed for account=%s; proceeding without creds",
+                account.id,
+                exc_info=True,
+            )
+            secrets = {}
+
     config = ConnectorConfig(
         tenant_id=str(tenant_id),
         connected_account_id=str(connected_account_id),
         external_account_id=account.external_account_id,
         platform_key=platform_key,
         vault_secret_ref=account.vault_secret_ref or "",
-        extra={},
+        extra=secrets,
     )
     connector = connector_cls(config=config)
+
+    # Real connectors (Meta/Google/…) require authenticate() to load the access
+    # token from config.extra before fetch().  Only call it when we actually have
+    # credentials, so the credential-free fixture path is untouched.
+    if secrets:
+        connector.authenticate()
 
     account.sync_status = SyncStatus.syncing
     db.flush()
