@@ -1,0 +1,61 @@
+# Render Free-tier keep-alive
+# ---------------------------------------------------------------------------
+# Render'ın ücretsiz web servisi 15 dk hareketsizlikten sonra uykuya geçer ve
+# sonraki istekte ~1 dk "soğuk başlangıç" bekletir. Bu iş, backend'in /health
+# ucunu her 10 dakikada bir "ping"leyerek servisi uyanık tutar.
+#
+# KURULUM (tek seferlik):
+#   GitHub → repo → Settings → Secrets and variables → Actions → Variables
+#   → New repository variable
+#       Name:  RENDER_HEALTHCHECK_URL
+#       Value: https://<senin-servisin>.onrender.com/health
+#   (URL'yi Render dashboard → ayaz-backend üstünde bulabilirsin.)
+#
+# NOTLAR / UYARILAR:
+#   - Zamanlanmış (schedule) iş YALNIZCA varsayılan dalda (main) çalışır; bu
+#     dosya main'e merge olunca cron devreye girer. O zamana kadar aşağıdaki
+#     "Run workflow" (workflow_dispatch) ile elle test edebilirsin.
+#   - GitHub cron "best-effort"tür, birkaç dakika gecikebilir; 10 dk aralık
+#     çoğu zaman 15 dk uyku penceresini yakalar ama garanti değildir. Daha
+#     güvenilir alternatif: UptimeRobot (harici, 5 dk, ücretsiz).
+#   - Ücretsiz kota aylık 750 instance-saat (workspace başına, paylaşımlı).
+#     Tek servisi 7/24 uyanık tutmak ~720 saat → sığar; ikinci bir ücretsiz
+#     servisin varsa kotayı aşabilirsin.
+#   - Uykuyu tamamen kaldırmanın gerçek yolu: Render Basic (~$7/ay).
+name: keep-render-awake
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: keep-render-awake
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend /health
+        env:
+          URL: ${{ vars.RENDER_HEALTHCHECK_URL }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "RENDER_HEALTHCHECK_URL repo değişkeni ayarlı değil — atlanıyor."
+            echo "Ayarla: Settings → Secrets and variables → Actions → Variables → New variable"
+            echo "  Name:  RENDER_HEALTHCHECK_URL"
+            echo "  Value: https://<servis>.onrender.com/health"
+            exit 0
+          fi
+          echo "Ping: $URL"
+          # Soğuk başlangıç ~1 dk sürebilir; retry ile uyanmasını bekle.
+          code=$(curl -sS -m 90 --retry 4 --retry-delay 15 --retry-all-errors \
+                   -o /dev/null -w '%{http_code}' "$URL" || echo "000")
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::/health beklenen 200 yerine $code döndürdü (servis uyanıyor olabilir)."
+          fi
