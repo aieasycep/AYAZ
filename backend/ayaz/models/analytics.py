@@ -311,3 +311,106 @@ class FactDailyMetrics(Base):
             f"<FactDailyMetrics tenant={self.tenant_id} date={self.date_key}"
             f" channel={self.channel_id}>"
         )
+
+
+# ── Segment depth (Dalga 3): product / SKU dimension + sales fact ─────────────
+
+
+class DimProduct(Base, TimestampMixin):
+    """Product / SKU dimension for segment-depth analytics (Dalga 3).
+
+    Enables slicing performance by individual SKU and by product category
+    (e.g. "Elbise", "Tişört") — the breakdown textile-e-commerce and omnichannel
+    tenants asked for.  ``tenant_id`` carried for RLS; ``sku`` is unique per
+    tenant.  ``price_*`` holds the reference list price (display only).
+    """
+
+    __tablename__ = "dim_product"
+    __table_args__ = (
+        Index("ix_dim_product_tenant", "tenant_id"),
+        UniqueConstraint("tenant_id", "sku", name="uq_dim_product_tenant_sku"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False,
+        comment="RLS: filter by current_setting('app.tenant_id')",
+    )
+    external_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    sku: Mapped[str] = mapped_column(String(120), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    category: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    price_raw: Mapped[Decimal] = mapped_column(
+        Numeric(20, 6), nullable=False, default=0,
+        comment="Reference list price in price_ccy (display only)",
+    )
+    price_ccy: Mapped[str] = mapped_column(String(3), nullable=False, default="TRY")
+
+    def __repr__(self) -> str:
+        return f"<DimProduct sku={self.sku!r} category={self.category!r}>"
+
+
+class FactProductDaily(Base):
+    """Per-(tenant, product, channel, date) sales & ad fact for SKU-level ROAS.
+
+    Unlike ``fact_daily_metrics`` (ad *delivery*), this carries actual order
+    revenue, returns, and the ad spend attributed to the product — enabling
+    gross vs return-adjusted (net) ROAS by SKU and category.
+
+    Derived (computed in the service layer, not stored):
+      net_revenue = gross_revenue - returned_revenue
+      gross_roas  = gross_revenue / ad_spend
+      net_roas    = net_revenue   / ad_spend
+      return_rate = returned_units / units_sold
+    """
+
+    __tablename__ = "fact_product_daily"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "product_id", "channel_id", "date_key",
+            name="uq_fact_product_grain",
+        ),
+        Index("ix_fact_product_tenant_date", "tenant_id", "date_key"),
+        Index("ix_fact_product_tenant_product", "tenant_id", "product_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+
+    # ── Grain ──────────────────────────────────────────────────────────────
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False,
+        comment="RLS: filter by current_setting('app.tenant_id')",
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dim_product.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    channel_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("dim_channel.id"), nullable=False
+    )
+    date_key: Mapped[date] = mapped_column(
+        Date, ForeignKey("dim_date.date_key"), nullable=False
+    )
+
+    # ── Sales & returns (tenant base currency) ─────────────────────────────
+    units_sold: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    gross_revenue: Mapped[Decimal] = mapped_column(
+        Numeric(20, 6), nullable=False, default=0,
+        comment="Actual order revenue (gross, before returns)",
+    )
+    returned_units: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    returned_revenue: Mapped[Decimal] = mapped_column(
+        Numeric(20, 6), nullable=False, default=0,
+        comment="Value of returned/refunded orders",
+    )
+    ad_spend: Mapped[Decimal] = mapped_column(
+        Numeric(20, 6), nullable=False, default=0,
+        comment="Ad spend attributed to this product/channel/day",
+    )
+    ccy: Mapped[str] = mapped_column(String(3), nullable=False, default="TRY")
+
+    def __repr__(self) -> str:
+        return (
+            f"<FactProductDaily tenant={self.tenant_id} product={self.product_id}"
+            f" date={self.date_key}>"
+        )
