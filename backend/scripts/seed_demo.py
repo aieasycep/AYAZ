@@ -78,7 +78,9 @@ from ayaz.models.analytics import (  # noqa: F401 — ensure tables known
     DimAdSet,
     DimAd,
     DimDate,
+    DimProduct,
     FactDailyMetrics,
+    FactProductDaily,
 )
 from ayaz.models.base import Base
 from ayaz.models.feeds import FeedChannel, FeedProduct, FeedRule, FeedSource
@@ -857,6 +859,113 @@ def _seed_ad_level_facts(
 
     db.commit()
     return inserted, updated
+
+
+# ── Product / SKU segment seeding (Dalga 3) ────────────────────────────────────
+
+# Demo catalog for a textile-e-commerce tenant. Each product carries a target
+# gross ROAS and a return rate so the SKU screen shows meaningful contrast —
+# notably SKUs whose high return rate quietly drags net (return-adjusted) ROAS
+# below gross ROAS (e.g. the saten elbise & deri ceket).
+# Fields: sku, name, category, price(TRY), channel_key, base_units/day,
+#         gross_roas, return_rate
+_PRODUCT_SPECS = [
+    ("TX-KBN-001", "Kışlık Uzun Kaban",          "Dış Giyim", Decimal("2499"), "google_ads",  9, Decimal("5.0"), 0.06),
+    ("TX-CKT-002", "Deri Biker Ceket",           "Dış Giyim", Decimal("3299"), "meta_ads",    5, Decimal("1.6"), 0.24),
+    ("TX-ELB-003", "Yazlık Saten Elbise",        "Elbise",    Decimal("899"),  "meta_ads",   22, Decimal("4.2"), 0.34),
+    ("TX-TSH-004", "Basic Bisiklet Yaka Tişört", "Üst Giyim", Decimal("249"),  "tiktok_ads", 40, Decimal("3.1"), 0.08),
+    ("TX-KZK-005", "Örgü Balıkçı Kazak",         "Üst Giyim", Decimal("699"),  "google_ads", 14, Decimal("4.6"), 0.11),
+    ("TX-PNT-006", "Slim Fit Kot Pantolon",      "Alt Giyim", Decimal("749"),  "meta_ads",   18, Decimal("2.3"), 0.20),
+    ("TX-SRT-007", "Keten Bermuda Şort",         "Alt Giyim", Decimal("399"),  "tiktok_ads", 16, Decimal("2.9"), 0.13),
+    ("TX-AYK-008", "Günlük Spor Sneaker",        "Ayakkabı",  Decimal("1299"), "google_ads", 11, Decimal("3.5"), 0.16),
+]
+
+
+def _get_or_create_product(db, tenant, spec) -> DimProduct:
+    sku = spec[0]
+    prod = db.scalar(
+        select(DimProduct).where(
+            DimProduct.tenant_id == tenant.id,
+            DimProduct.sku == sku,
+        )
+    )
+    if prod is None:
+        prod = DimProduct(
+            tenant_id=tenant.id,
+            external_id=sku,
+            sku=sku,
+            name=spec[1],
+            category=spec[2],
+            price_raw=spec[3],
+            price_ccy="TRY",
+        )
+        db.add(prod)
+        db.flush()
+    return prod
+
+
+def _seed_products(db, tenant) -> dict:
+    """Seed a textile catalog + 45 days of per-product sales / returns / spend.
+
+    Deterministic (no randomness) so re-runs are idempotent. Returns
+    ``{"products": n, "fact_inserted": i, "fact_updated": u}``.
+    """
+    inserted = 0
+    updated = 0
+    date_range = [_RICH_START_DATE + timedelta(days=d) for d in range(45)]
+
+    products = 0
+    for p_idx, spec in enumerate(_PRODUCT_SPECS):
+        sku, name, category, price, channel_key, base_units, gross_roas, return_rate = spec
+        product = _get_or_create_product(db, tenant, spec)
+        products += 1
+        channel = _get_or_create_channel(db, channel_key)
+
+        for day_idx, d in enumerate(date_range):
+            _ensure_dim_date(db, d)
+            # Deterministic daily noise in ~[-0.18, 0.18]
+            noise = ((day_idx * 7 + p_idx * 13) % 19 - 9) / 50.0
+            units = max(1, int(round(base_units * (1 + noise))))
+            gross_revenue = (price * units).quantize(Decimal("0.01"))
+            ad_spend = (gross_revenue / gross_roas).quantize(Decimal("0.01"))
+            returned_units = int(round(units * return_rate))
+            returned_revenue = (price * returned_units).quantize(Decimal("0.01"))
+
+            existing = db.scalar(
+                select(FactProductDaily).where(
+                    FactProductDaily.tenant_id == tenant.id,
+                    FactProductDaily.product_id == product.id,
+                    FactProductDaily.channel_id == channel.id,
+                    FactProductDaily.date_key == d,
+                )
+            )
+            if existing is None:
+                db.add(
+                    FactProductDaily(
+                        tenant_id=tenant.id,
+                        product_id=product.id,
+                        channel_id=channel.id,
+                        date_key=d,
+                        units_sold=units,
+                        gross_revenue=gross_revenue,
+                        returned_units=returned_units,
+                        returned_revenue=returned_revenue,
+                        ad_spend=ad_spend,
+                        ccy="TRY",
+                    )
+                )
+                inserted += 1
+            else:
+                existing.units_sold = units
+                existing.gross_revenue = gross_revenue
+                existing.returned_units = returned_units
+                existing.returned_revenue = returned_revenue
+                existing.ad_spend = ad_spend
+                updated += 1
+        db.flush()
+
+    db.commit()
+    return {"products": products, "fact_inserted": inserted, "fact_updated": updated}
 
 
 # ── Feed seeding ───────────────────────────────────────────────────────────────
@@ -2441,6 +2550,19 @@ def run_seed() -> None:
         print("    google_ads / Brand Search:      Video-İndirim(winner), Statik-Marka(mid), Responsive-Sezon(loser)")
         print("    meta_ads   / Retargeting:       Video-Sepet(winner), Statik-İndirim(mid), Koleksiyon(loser, 0 conv)")
         print("    tiktok_ads / Viral Creative:    Duet-Ürün(winner), Statik-Flash(mid), Spark-Düşük(loser)")
+
+        # ── Step 5b2: Product / SKU segment facts (Dalga 3) ──────────────────
+        print(
+            "\n[5b2/7] Seeding product/SKU segment facts "
+            "(DimProduct + FactProductDaily, textile catalog)..."
+        )
+        product_counts = _seed_products(db, tenant)
+        summary["products"] = product_counts
+        print(
+            f"  Products: catalog={product_counts['products']}  "
+            f"fact_inserted={product_counts['fact_inserted']}  "
+            f"fact_updated={product_counts['fact_updated']}"
+        )
 
         # ── Step 5c: Tracking (M7) demo data ─────────────────────────────────
         print(
