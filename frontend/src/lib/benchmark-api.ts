@@ -77,6 +77,14 @@ export interface BenchmarkChannel {
   ctr_position: BenchPosition;
 }
 
+export type InsightSeverity = 'opportunity' | 'diagnostic' | 'strength';
+
+export interface BenchmarkInsight {
+  severity: InsightSeverity;
+  title: string;
+  detail: string;
+}
+
 export interface Benchmark {
   period: {
     date_from: string;
@@ -91,6 +99,8 @@ export interface Benchmark {
     average: number;
     weak: number;
   };
+  // Prioritized cross-metric insights. Absent on older backends → treat as [].
+  insights?: BenchmarkInsight[];
 }
 
 // --- API function ---

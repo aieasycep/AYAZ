@@ -67,6 +67,12 @@ class SummaryCounts(BaseModel):
     weak: int
 
 
+class BenchmarkInsight(BaseModel):
+    severity: Literal["opportunity", "diagnostic", "strength"]
+    title: str
+    detail: str
+
+
 class BenchmarkOverviewResponse(BaseModel):
     period: BenchmarkPeriod
     vertical: str
@@ -74,6 +80,7 @@ class BenchmarkOverviewResponse(BaseModel):
     channels: list[BenchmarkChannel]
     headline: str
     summary_counts: SummaryCounts
+    insights: list[BenchmarkInsight] = []
 
 
 # ── Endpoint ───────────────────────────────────────────────────────────────────
@@ -152,4 +159,5 @@ def get_benchmark_overview(
         channels=[BenchmarkChannel(**c) for c in result["channels"]],
         headline=result["headline"],
         summary_counts=SummaryCounts(**result["summary_counts"]),
+        insights=[BenchmarkInsight(**i) for i in result.get("insights", [])],
     )

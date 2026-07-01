@@ -244,6 +244,147 @@ def _build_headline(counts: dict[str, int]) -> str:
     return ", ".join(parts) + " sektör kıyaslamasında."
 
 
+# ── Insight generation (deterministic, cross-metric) ──────────────────────────
+#
+# The per-metric verdicts already say "güçlü / ortalama / zayıf".  These insights
+# go one level up: they quantify the single biggest opportunity, diagnose a
+# traffic-vs-conversion mismatch, and surface channel reallocation — the reasoning
+# a data analyst would add on top of the raw position labels.  Fully rule-based;
+# no model calls, no randomness.
+
+_OPPORTUNITY_HINTS: dict[str, str] = {
+    "ctr": "Kreatif başlık/görselleri ve hedef kitleyi güçlendirin; en düşük performanslı reklamları durdurun.",
+    "cpc": "Teklif stratejisini ve anahtar kelime/hedefleme kalitesini gözden geçirin; kalite puanını yükseltin.",
+    "roas": "Bütçeyi en yüksek getirili kampanyalara kaydırın, düşük getirili reklam setlerini kısın.",
+    "conversion_rate": "Açılış sayfası deneyimini, teklif netliğini ve ödeme akışını iyileştirin.",
+    "cpm": "Hedefleme genişliğini ve yayın yerlerini gözden geçirin; aşırı dar kitlelerden kaçının.",
+}
+
+
+def _fmt_metric(value: float, unit: str) -> str:
+    """Format a metric value with the Turkish decimal comma, matching the UI."""
+    decimals = 2 if unit == "₺" else 1
+    s = f"{value:.{decimals}f}".replace(".", ",")
+    if unit == "₺":
+        return "₺" + s
+    if unit == "x":
+        return s + "x"
+    return s + "%"
+
+
+def _build_insights(
+    values: dict[str, float],
+    positions: dict[str, str],
+    channel_rows: list[dict],
+) -> list[dict]:
+    """Derive up to three prioritized, cross-metric insights (deterministic).
+
+    Parameters
+    ----------
+    values:
+        Account-level metric values keyed by metric key (ctr, cpc, ...).
+    positions:
+        Per-metric position ("strong" | "average" | "weak").
+    channel_rows:
+        Per-channel rows (each with ``label`` and ``roas``), already sorted.
+
+    Returns
+    -------
+    list of ``{severity, title, detail}`` dicts (max 3).  ``severity`` is one of
+    ``"opportunity"`` (biggest lever), ``"diagnostic"`` (cross-metric mismatch),
+    ``"strength"`` (reallocate to what works).
+    """
+    insights: list[dict] = []
+
+    # 1) Biggest opportunity — weakest metric by relative gap to its threshold.
+    worst_key: str | None = None
+    worst_gap = 0.0
+    for key in _METRIC_ORDER:
+        if positions.get(key) != "weak":
+            continue
+        ref = _REFERENCE_RANGES[key]
+        val = values[key]
+        if ref["higher_is_better"]:
+            gap = (ref["low"] - val) / ref["low"] if ref["low"] else 0.0
+        else:
+            gap = (val - ref["high"]) / ref["high"] if ref["high"] else 0.0
+        if gap > worst_gap:
+            worst_gap = gap
+            worst_key = key
+
+    if worst_key is not None and worst_gap > 0:
+        ref = _REFERENCE_RANGES[worst_key]
+        val = values[worst_key]
+        pct = round(worst_gap * 100)
+        threshold = ref["low"] if ref["higher_is_better"] else ref["high"]
+        direction = "altında" if ref["higher_is_better"] else "üzerinde"
+        hint = _OPPORTUNITY_HINTS.get(worst_key, "")
+        insights.append(
+            {
+                "severity": "opportunity",
+                "title": f"En büyük fırsat: {ref['label']}",
+                "detail": (
+                    f"Değeriniz {_fmt_metric(val, ref['unit'])}, sektör referans eşiği "
+                    f"{_fmt_metric(threshold, ref['unit'])} — yaklaşık %{pct} {direction}. {hint}"
+                ),
+            }
+        )
+
+    # 2) Traffic-vs-conversion diagnostic (cross-metric reasoning).
+    ctr_pos = positions.get("ctr")
+    conv_pos = positions.get("conversion_rate")
+    ok = {"strong", "average"}
+    if ctr_pos in ok and conv_pos == "weak":
+        insights.append(
+            {
+                "severity": "diagnostic",
+                "title": "Trafik geliyor ama dönüşmüyor",
+                "detail": (
+                    "Tıklama oranınız iyi ama tıklayanlar yeterince dönüşmüyor. Sorun büyük "
+                    "olasılıkla açılış sayfası, fiyat/teklif ya da ödeme akışında — kreatiflerde "
+                    "değil. Açılış sayfası hızını, teklif netliğini ve ödeme adımlarını gözden geçirin."
+                ),
+            }
+        )
+    elif ctr_pos == "weak" and conv_pos in ok:
+        insights.append(
+            {
+                "severity": "diagnostic",
+                "title": "Dönüşüm iyi ama trafik az",
+                "detail": (
+                    "Tıklayanlar iyi dönüşüyor ama yeterli tıklama alamıyorsunuz. Kreatif ve hedef "
+                    "kitleyi güçlendirip gösterimi artırırsanız aynı dönüşüm oranıyla daha çok satış "
+                    "elde edersiniz."
+                ),
+            }
+        )
+
+    # 3) Channel reallocation — best vs worst ROAS channel (needs ≥2 channels).
+    if len(channel_rows) >= 2:
+        best = max(channel_rows, key=lambda r: r["roas"])
+        worst = min(channel_rows, key=lambda r: r["roas"])
+        if (
+            best is not worst
+            and best["roas"] > 0
+            and worst["roas"] > 0
+            and best["roas"] >= worst["roas"] * 1.5
+        ):
+            insights.append(
+                {
+                    "severity": "strength",
+                    "title": "Bütçeyi en verimli kanala kaydırın",
+                    "detail": (
+                        f"{best['label']} ROAS'ı {_fmt_metric(best['roas'], 'x')} ile en yüksek; "
+                        f"{worst['label']} ise {_fmt_metric(worst['roas'], 'x')}. Bütçenin bir kısmını "
+                        f"{worst['label']} kanalından {best['label']} kanalına kaydırmak toplam "
+                        f"getiriyi artırabilir."
+                    ),
+                }
+            )
+
+    return insights[:3]
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
@@ -310,6 +451,7 @@ def build_benchmark(
     # ── Build metrics list in canonical order ──────────────────────────────
     metrics_list = []
     summary_counts: dict[str, int] = {"strong": 0, "average": 0, "weak": 0}
+    positions: dict[str, str] = {}
 
     for key in _METRIC_ORDER:
         ref = _REFERENCE_RANGES[key]
@@ -322,6 +464,7 @@ def build_benchmark(
         else:
             position = "weak"
 
+        positions[key] = position
         verdict = _build_verdict(key, position, ref["higher_is_better"])
         summary_counts[position] += 1
 
@@ -383,6 +526,11 @@ def build_benchmark(
     # ── Headline ───────────────────────────────────────────────────────────
     headline = _build_headline(summary_counts) if has_data else "Henüz yeterli reklam verisi yok."
 
+    # ── Prioritized cross-metric insights (empty when there is no data) ─────
+    insights = (
+        _build_insights(metrics_values, positions, channel_rows) if has_data else []
+    )
+
     return {
         "period": {
             "date_from": str(date_from),
@@ -393,4 +541,5 @@ def build_benchmark(
         "channels": channel_rows,
         "headline": headline,
         "summary_counts": summary_counts,
+        "insights": insights,
     }

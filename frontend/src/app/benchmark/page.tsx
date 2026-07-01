@@ -9,6 +9,7 @@ import {
   type Benchmark,
   type BenchmarkMetric,
   type BenchmarkChannel,
+  type BenchmarkInsight,
   type BenchPosition,
 } from '@/lib/benchmark-api';
 import { parseApiError } from '@/lib/parseApiError';
@@ -200,6 +201,63 @@ function MetricRow({ metric }: { metric: BenchmarkMetric }) {
   );
 }
 
+// --- InsightsSection ---
+//
+// Prioritized, cross-metric takeaways (biggest opportunity / traffic-vs-conversion
+// diagnostic / channel reallocation) so the page tells the user what to DO, not
+// just where each metric sits.
+
+const INSIGHT_META: Record<
+  BenchmarkInsight['severity'],
+  { label: string; icon: string }
+> = {
+  opportunity: { label: 'Fırsat', icon: '↑' },
+  diagnostic: { label: 'Teşhis', icon: '🔎' },
+  strength: { label: 'Aksiyon', icon: '➜' },
+};
+
+function insightCardClass(sev: BenchmarkInsight['severity']): string {
+  switch (sev) {
+    case 'opportunity':
+      return styles.insightOpportunity;
+    case 'diagnostic':
+      return styles.insightDiagnostic;
+    case 'strength':
+      return styles.insightStrength;
+  }
+}
+
+function InsightsSection({ insights }: { insights: BenchmarkInsight[] }) {
+  return (
+    <div className={styles.sectionCard}>
+      <div className={styles.sectionHeader}>
+        <span className={styles.sectionTitle}>Öncelikli İçgörüler</span>
+      </div>
+      <div className={styles.insightList}>
+        {insights.map((ins, i) => (
+          <div
+            key={i}
+            className={`${styles.insightCard} ${insightCardClass(ins.severity)}`}
+          >
+            <span className={styles.insightIcon} aria-hidden="true">
+              {INSIGHT_META[ins.severity].icon}
+            </span>
+            <div className={styles.insightBody}>
+              <div className={styles.insightHead}>
+                <span className={styles.insightBadge}>
+                  {INSIGHT_META[ins.severity].label}
+                </span>
+                <span className={styles.insightTitle}>{ins.title}</span>
+              </div>
+              <p className={styles.insightDetail}>{ins.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // --- ChannelsSection ---
 
 function ChannelsSection({ channels }: { channels: BenchmarkChannel[] }) {
@@ -371,6 +429,11 @@ export default function BenchmarkPage() {
                 )}
               </div>
             </div>
+
+            {/* Prioritized insights — what to do, not just where you stand */}
+            {!noData && (data.insights?.length ?? 0) > 0 && (
+              <InsightsSection insights={data.insights ?? []} />
+            )}
 
             {/* Metrics section */}
             {!noData && data.metrics.length > 0 && (

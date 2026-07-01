@@ -75,6 +75,7 @@ from ayaz.services.auth import hash_password
 from ayaz.services.benchmark import (
     _METRIC_ORDER,
     _REFERENCE_RANGES,
+    _build_insights,
     _classify_position,
     build_benchmark,
 )
@@ -412,6 +413,72 @@ class TestClassifyPosition:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# 1b. Insight generation unit tests (no DB)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestBuildInsights:
+    """Deterministic cross-metric insight rules."""
+
+    def _all_average(self) -> tuple[dict, dict]:
+        # Values that sit within every reference band → all "average".
+        values = {"ctr": 1.5, "cpc": 4.0, "roas": 3.5, "conversion_rate": 2.5, "cpm": 60.0}
+        positions = {k: "average" for k in _METRIC_ORDER}
+        return values, positions
+
+    def test_biggest_opportunity_picks_largest_gap(self) -> None:
+        values, positions = self._all_average()
+        # roas far below its low threshold (2.0) → weak, biggest opportunity.
+        values["roas"] = 0.5
+        positions["roas"] = "weak"
+        insights = _build_insights(values, positions, [])
+        assert insights, "expected at least one insight"
+        top = insights[0]
+        assert top["severity"] == "opportunity"
+        assert "Getiri" in top["title"] or "ROAS" in top["title"]
+
+    def test_traffic_but_no_conversion_diagnostic(self) -> None:
+        values, positions = self._all_average()
+        positions["ctr"] = "strong"
+        positions["conversion_rate"] = "weak"
+        values["conversion_rate"] = 0.4
+        insights = _build_insights(values, positions, [])
+        assert any(i["severity"] == "diagnostic" for i in insights)
+        diag = next(i for i in insights if i["severity"] == "diagnostic")
+        assert "dönüş" in diag["title"].lower()
+
+    def test_channel_reallocation_when_roas_gap_large(self) -> None:
+        values, positions = self._all_average()
+        channels = [
+            {"label": "Google Ads", "roas": 6.0},
+            {"label": "Meta Ads", "roas": 1.5},
+        ]
+        insights = _build_insights(values, positions, channels)
+        strength = [i for i in insights if i["severity"] == "strength"]
+        assert strength, "expected a channel-reallocation insight"
+        assert "Google Ads" in strength[0]["detail"]
+        assert "Meta Ads" in strength[0]["detail"]
+
+    def test_no_insights_when_all_average_single_channel(self) -> None:
+        values, positions = self._all_average()
+        # One channel → no reallocation; all average → no opportunity/diagnostic.
+        insights = _build_insights(values, positions, [{"label": "Google", "roas": 3.5}])
+        assert insights == []
+
+    def test_capped_at_three(self) -> None:
+        values, positions = self._all_average()
+        for k in _METRIC_ORDER:
+            positions[k] = "weak"
+            values[k] = 0.1
+        channels = [
+            {"label": "A", "roas": 8.0},
+            {"label": "B", "roas": 1.0},
+        ]
+        insights = _build_insights(values, positions, channels)
+        assert len(insights) <= 3
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # 2. build_benchmark — service-level tests (with DB)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -523,6 +590,15 @@ class TestBuildBenchmark:
         result = build_benchmark(db_session, tenant.id, self._date_from, self._date_to)
         assert result["period"]["date_from"] == str(self._date_from)
         assert result["period"]["date_to"] == str(self._date_to)
+
+    def test_result_exposes_insights_list(self, db_session: Session) -> None:
+        """build_benchmark always returns an ``insights`` list (empty when no data)."""
+        tenant = _make_tenant(db_session, "Insights Bench")
+        result = build_benchmark(db_session, tenant.id, self._date_from, self._date_to)
+        assert "insights" in result
+        assert isinstance(result["insights"], list)
+        # No data → no insights.
+        assert result["insights"] == []
 
     def test_metric_ref_ranges_match_constants(self, db_session: Session) -> None:
         """Each metric row must expose ref_low/mid/high matching _REFERENCE_RANGES."""

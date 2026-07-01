@@ -790,6 +790,9 @@ def _get_benchmark_summary(
         "headline": result.get("headline", ""),
         "summary_counts": result.get("summary_counts", {}),
         "metrics": metrics_summary,
+        # Prioritized cross-metric takeaways (biggest opportunity / diagnostic /
+        # reallocation) so the copilot can answer "ne yapmalıyım" not just "neredeyim".
+        "insights": result.get("insights", []),
     }
 
 
