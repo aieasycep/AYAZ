@@ -52,6 +52,7 @@ import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import EmptyState from '@/components/EmptyState';
 import { parseApiError } from '@/lib/parseApiError';
+import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './tracking.module.css';
 
 // --- Label maps ---
@@ -864,6 +865,35 @@ function DebugConsole({ sourceId, eventNames }: { sourceId: string; eventNames: 
   const totalPages = Math.max(1, Math.ceil(events.length / PAGE_SIZE));
   const pageEvents = events.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  // Export the currently-fetched (and filtered) event set so a data analyst can
+  // hand a failing-events log to a developer without screen-scraping.
+  function exportEvents() {
+    const errCatTr: Record<string, string> = {
+      transient: 'Geçici', permanent: 'Kalıcı', unknown: 'Bilinmiyor',
+    };
+    downloadRowsAsCsv(
+      events.map((ev) => ({
+        olay: ev.event_name,
+        zaman: ev.event_time,
+        durum: STATUS_LABELS[ev.status] ?? ev.status,
+        iletim: ev.forwarded_count,
+        yeniden_deneme: ev.retry_count ?? 0,
+        hata_kategorisi: ev.error_category ? (errCatTr[ev.error_category] ?? ev.error_category) : '',
+        hata_detayi: ev.error_detail ?? '',
+      })),
+      `olay-gunlugu-${sourceId}.csv`,
+      [
+        { key: 'olay', label: 'Olay Adı' },
+        { key: 'zaman', label: 'Zaman' },
+        { key: 'durum', label: 'Durum' },
+        { key: 'iletim', label: 'İletim' },
+        { key: 'yeniden_deneme', label: 'Yeniden Deneme' },
+        { key: 'hata_kategorisi', label: 'Hata Kategorisi' },
+        { key: 'hata_detayi', label: 'Hata Detayı' },
+      ],
+    );
+  }
+
   return (
     <SectionCard
       title="Olay Günlüğü"
@@ -877,6 +907,7 @@ function DebugConsole({ sourceId, eventNames }: { sourceId: string; eventNames: 
             <option value="">Tüm Olaylar</option>
             {eventNames.map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
+          <button className={styles.secondaryBtn} onClick={exportEvents} disabled={loading || events.length === 0} aria-label="Olay günlüğünü CSV indir">CSV</button>
           <button className={styles.secondaryBtn} onClick={fetchEvents} disabled={loading} aria-label="Yenile">{loading ? '...' : 'Yenile'}</button>
         </div>
       }
