@@ -18,6 +18,8 @@ import { parseApiError } from '@/lib/parseApiError';
 import AppNav from '@/components/AppNav';
 import EmptyState from '@/components/EmptyState';
 import SuggestionsStrip from '@/components/SuggestionsStrip';
+import PrintButton from '@/components/PrintButton';
+import ReportPrintHeader from '@/components/ReportPrintHeader';
 import styles from './briefing.module.css';
 
 // --- Formatters ---
@@ -262,21 +264,24 @@ export default function BriefingPage() {
       <AppNav />
 
       <main className={styles.main}>
-        {/* Page header */}
-        <div className={styles.pageHeader}>
+        {/* Page header (hidden in print; branded header below replaces it) */}
+        <div className={`${styles.pageHeader} print-hide`}>
           <div>
             <h1 className={styles.pageTitle}>Günlük Brifing</h1>
             <p className={styles.pageSubtitle}>
               Yapay zeka destekli günlük performans özeti ve öneriler.
             </p>
           </div>
-          <button
-            className={styles.refreshBtn}
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            {refreshing ? 'Oluşturuluyor...' : 'Brifingi Yenile'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {briefing && <PrintButton className={styles.refreshBtn} />}
+            <button
+              className={styles.refreshBtn}
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? 'Oluşturuluyor...' : 'Brifingi Yenile'}
+            </button>
+          </div>
         </div>
 
         {/* Main content area */}
@@ -304,6 +309,12 @@ export default function BriefingPage() {
           </div>
         ) : (
           <>
+            {/* Branded header — visible only in the printed / PDF output */}
+            <ReportPrintHeader
+              title="Günlük Brifing"
+              subtitle={fmtDate(briefing.briefing_date)}
+            />
+
             {/* 1. Hero headline card */}
             <div className={styles.heroCard}>
               <div className={styles.heroTop}>
@@ -452,14 +463,16 @@ export default function BriefingPage() {
           </div>
         </section>
 
-        <SuggestionsStrip
-          title="İçerik önerileri"
-          suggestions={[
-            { label: 'Kampanya özeti', href: '/ads' },
-            { label: 'İçgörüler ve uyarılar', href: '/insights' },
-            { label: 'Raporlar', href: '/reports' },
-          ]}
-        />
+        <div className="print-hide">
+          <SuggestionsStrip
+            title="İçerik önerileri"
+            suggestions={[
+              { label: 'Kampanya özeti', href: '/ads' },
+              { label: 'İçgörüler ve uyarılar', href: '/insights' },
+              { label: 'Raporlar', href: '/reports' },
+            ]}
+          />
+        </div>
       </main>
 
       {/* Toast notification */}
