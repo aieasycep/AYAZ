@@ -6,6 +6,7 @@ import { parseApiError } from '@/lib/parseApiError';
 import {
   getConnectedAccounts,
   getOAuthAuthorizeUrl,
+  syncAccount,
   type ConnectedAccount,
   type Platform,
   type SyncStatus,
@@ -92,6 +93,9 @@ export default function DataSourcesPanel() {
 
   // Per-platform connecting state
   const [connecting, setConnecting] = useState<Partial<Record<Platform, boolean>>>({});
+  // Per-account manual-sync state + last result message
+  const [syncing, setSyncing] = useState<Record<string, boolean>>({});
+  const [syncMsg, setSyncMsg] = useState<{ id: string; text: string; ok: boolean } | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
@@ -119,6 +123,24 @@ export default function DataSourcesPanel() {
     } catch (err: unknown) {
       alert(parseApiError(err));
       setConnecting((prev) => ({ ...prev, [platform]: false }));
+    }
+  }
+
+  async function handleSync(accountId: string) {
+    setSyncing((prev) => ({ ...prev, [accountId]: true }));
+    setSyncMsg(null);
+    try {
+      const r = await syncAccount(accountId);
+      setSyncMsg({
+        id: accountId,
+        text: `Senkronize edildi — ${r.records_processed.toLocaleString('tr-TR')} kayıt işlendi (${r.inserted.toLocaleString('tr-TR')} yeni).`,
+        ok: true,
+      });
+      await fetchAccounts();
+    } catch (err: unknown) {
+      setSyncMsg({ id: accountId, text: parseApiError(err), ok: false });
+    } finally {
+      setSyncing((prev) => ({ ...prev, [accountId]: false }));
     }
   }
 
@@ -170,25 +192,48 @@ export default function DataSourcesPanel() {
           <div className={styles.accountsList}>
             {accounts.map((acc) => {
               const meta = PLATFORMS.find((p) => p.id === acc.platform);
+              const isSyncing = syncing[acc.id] ?? false;
               return (
-                <div key={acc.id} className={styles.accountRow}>
-                  <div
-                    className={styles.platformIcon}
-                    style={{ background: meta?.iconBg ?? '#6b7280', color: '#fff' }}
-                  >
-                    {meta?.icon ?? '?'}
+                <div key={acc.id}>
+                  <div className={styles.accountRow}>
+                    <div
+                      className={styles.platformIcon}
+                      style={{ background: meta?.iconBg ?? '#6b7280', color: '#fff' }}
+                    >
+                      {meta?.icon ?? '?'}
+                    </div>
+                    <div className={styles.accountInfo}>
+                      <div className={styles.accountName}>{acc.display_name}</div>
+                      <div className={styles.accountPlatform}>{meta?.name ?? acc.platform}</div>
+                    </div>
+                    <span className={`${styles.badge} ${statusClass(acc.sync_status)}`}>
+                      <span className={styles.badgeDot} />
+                      {statusLabel(acc.sync_status)}
+                    </span>
+                    <span className={styles.watermarkText}>
+                      {fmtDate(acc.watermark)}
+                    </span>
+                    <button
+                      className={styles.resyncBtn}
+                      onClick={() => handleSync(acc.id)}
+                      disabled={isSyncing}
+                      title="Bu hesabın son 30 günlük verisini şimdi çek"
+                    >
+                      {isSyncing ? 'Senkronize ediliyor...' : 'Senkronize et'}
+                    </button>
                   </div>
-                  <div className={styles.accountInfo}>
-                    <div className={styles.accountName}>{acc.display_name}</div>
-                    <div className={styles.accountPlatform}>{meta?.name ?? acc.platform}</div>
-                  </div>
-                  <span className={`${styles.badge} ${statusClass(acc.sync_status)}`}>
-                    <span className={styles.badgeDot} />
-                    {statusLabel(acc.sync_status)}
-                  </span>
-                  <span className={styles.watermarkText}>
-                    {fmtDate(acc.watermark)}
-                  </span>
+                  {syncMsg?.id === acc.id && (
+                    <div
+                      className={styles.watermarkText}
+                      style={{
+                        margin: '0.25rem 0 0.5rem 3.25rem',
+                        color: syncMsg.ok ? 'var(--color-success-text)' : 'var(--color-critical-text)',
+                      }}
+                      role="status"
+                    >
+                      {syncMsg.text}
+                    </div>
+                  )}
                 </div>
               );
             })}

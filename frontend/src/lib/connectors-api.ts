@@ -102,3 +102,22 @@ export async function getConnectedAccounts(): Promise<ConnectedAccount[]> {
 export function getOAuthAuthorizeUrl(platform: Platform): Promise<AuthorizeResponse> {
   return authFetch<AuthorizeResponse>(`/api/v1/oauth/${platform}/authorize`);
 }
+
+export interface SyncResult {
+  status: string;
+  account_id: string;
+  inserted: number;
+  updated: number;
+  records_processed: number;
+}
+
+/**
+ * Trigger a synchronous data sync for one connected account.
+ * Runs in the request (no background worker on the current deployment).
+ */
+export function syncAccount(accountId: string, days = 30): Promise<SyncResult> {
+  return authFetch<SyncResult>(
+    `/api/v1/connectors/accounts/${accountId}/sync?days=${days}`,
+    { method: 'POST' },
+  );
+}
