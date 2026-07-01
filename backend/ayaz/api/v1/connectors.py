@@ -11,7 +11,9 @@ TODO (Faz 1 — Integrations): implement real OAuth broker flows.
 
 from __future__ import annotations
 
+import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,7 +23,19 @@ from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
 from ayaz.connectors import ConnectorRegistry
+from ayaz.database import SessionLocal
 from ayaz.models.oltp import ConnectedAccount, Membership, Platform, SyncStatus
+from ayaz.services.vault import EncryptedColumnVault, SecretsVault
+
+logger = logging.getLogger(__name__)
+
+
+def _get_vault() -> SecretsVault:
+    """Return a Vault backed by the production session factory.
+
+    Overridden in tests to inject an InMemoryVault.
+    """
+    return EncryptedColumnVault(session_factory=SessionLocal)
 
 # M10 Billing: plan-gating dependency
 # This import is intentionally deferred to a local import-style reference inside
@@ -214,3 +228,76 @@ def delete_account(
         )
     db.delete(account)
     db.commit()
+
+
+class SyncResultResponse(BaseModel):
+    status: str
+    account_id: str
+    inserted: int = 0
+    updated: int = 0
+    records_processed: int = 0
+
+
+@router.post(
+    "/accounts/{account_id}/sync",
+    response_model=SyncResultResponse,
+    summary="Trigger a synchronous data sync for one connected account",
+)
+def sync_account(
+    account_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    membership: Membership = Depends(get_current_membership),
+    vault: SecretsVault = Depends(_get_vault),
+    days: int = 30,
+) -> SyncResultResponse:
+    """Pull recent data for a connected account and upsert into the warehouse.
+
+    Runs the sync **synchronously** (there is no background worker on the
+    current deployment), scoped to the requesting tenant.  The stored OAuth
+    credentials are loaded from the Vault and injected into the connector.
+
+    ``days`` bounds the backfill window (clamped to 1..90; default 30).
+
+    Errors
+    ------
+    404 — account not found / tenant mismatch.
+    502 — the connector/sync failed (credentials, permissions, or platform API).
+          The account's ``sync_status`` is left as ``error``.
+    """
+    account = db.scalar(
+        select(ConnectedAccount).where(
+            ConnectedAccount.id == account_id,
+            ConnectedAccount.tenant_id == membership.tenant_id,
+        )
+    )
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Hesap bulunamadı.",
+        )
+
+    window = max(1, min(days, 90))
+    until = datetime.now(timezone.utc).date()
+    since = until - timedelta(days=window - 1)
+
+    # Local import avoids any import-time coupling between the API and the
+    # sync service (which pulls in the connector SDK).
+    from ayaz.services.sync import sync_connected_account
+
+    try:
+        result = sync_connected_account(db, account, since, until, vault=vault)
+    except Exception:
+        # sync_connected_account already set sync_status=error and committed.
+        logger.exception("Manual sync failed: account=%s", account_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Senkronizasyon başarısız oldu. Bağlantıyı ve platform izinlerini kontrol edin.",
+        )
+
+    return SyncResultResponse(
+        status="success",
+        account_id=str(account.id),
+        inserted=int(result.get("inserted", 0)),
+        updated=int(result.get("updated", 0)),
+        records_processed=int(result.get("records_processed", 0)),
+    )
