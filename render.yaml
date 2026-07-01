@@ -83,6 +83,33 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
 
+      # ── OAuth (SATICI SAĞLAMASI — bir kez, ömürde bir) ──────────────────
+      # Müşterilerin panelden "Meta'yı bağla / Google'ı bağla" diyebilmesi için
+      # AYAZ'ın bir kez kaydettiği uygulamanın kimlikleri. MÜŞTERİ BUNLARI
+      # GÖRMEZ/GİRMEZ — tıpkı Stripe API anahtarı gibi, satıcı bir kere girer.
+      #
+      # OAUTH_REDIRECT_BASE = bu backend'in URL'i + /api/v1
+      #   (ör. https://ayaz-backend.onrender.com/api/v1). Her platformun
+      #   developer konsolunda kayıtlı redirect URI ile birebir eşleşmeli:
+      #   <OAUTH_REDIRECT_BASE>/oauth/meta_ads/callback  (Meta)
+      #   <OAUTH_REDIRECT_BASE>/oauth/google_ads/callback (Google)
+      - key: OAUTH_REDIRECT_BASE
+        sync: false
+      # FRONTEND_BASE_URL = Vercel panel URL'in (ör. https://ayaz.vercel.app).
+      # Ayarlıysa OAuth sonrası kullanıcı ham JSON yerine panele geri döner.
+      - key: FRONTEND_BASE_URL
+        sync: false
+      # Meta (Facebook) uygulaması — developers.facebook.com'da bir kez oluştur.
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      # Google (Ads/GA4/Search Console) — Google Cloud OAuth istemcisi.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
       # Faturalama — test için kapalı.
       - key: BILLING_PROVIDER
         value: none

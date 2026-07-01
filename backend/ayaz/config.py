@@ -100,6 +100,10 @@ class Settings(BaseSettings):
     # set OAUTH_REDIRECT_BASE to the deployed backend, e.g.
     # "https://ayaz-backend.onrender.com/api/v1". Defaults to local dev.
     oauth_redirect_base: str = "http://localhost:8000/api/v1"
+    # Public base URL of the frontend. When set, the OAuth callback redirects the
+    # user's browser back to the panel (…/integrations) after connecting instead
+    # of returning raw JSON. Set FRONTEND_BASE_URL to the Vercel URL in prod.
+    frontend_base_url: str = ""
 
     # ── AI / Insights ─────────────────────────────────────────────────────────
     # Anthropic API key for ClaudeNarrator (M4 AI insights).

@@ -35,6 +35,7 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -83,6 +84,24 @@ class CallbackResponse(BaseModel):
 # MUST be set to the deployed backend URL in production.
 def _redirect_base() -> str:
     return settings.oauth_redirect_base
+
+
+def _panel_redirect(platform: str, ok: bool) -> RedirectResponse | None:
+    """Redirect the browser back to the panel after the OAuth callback.
+
+    Returns a 302 to the Integration Center (Veri Kaynakları tab) with a
+    ``connected`` / ``error`` query flag when ``FRONTEND_BASE_URL`` is set;
+    returns ``None`` (caller falls back to JSON / raising) when it is not — so
+    tests and pure-API/dev usage are unaffected.
+    """
+    base = (settings.frontend_base_url or "").rstrip("/")
+    if not base:
+        return None
+    flag = "connected" if ok else "error"
+    return RedirectResponse(
+        url=f"{base}/integrations?tab=veri-kaynaklari&{flag}={platform}",
+        status_code=status.HTTP_302_FOUND,
+    )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -189,7 +208,7 @@ def authorize(
 
 @router.get(
     "/{platform}/callback",
-    response_model=CallbackResponse,
+    response_model=None,
     summary="OAuth2 callback — exchange code and store tokens",
 )
 def callback(
@@ -199,7 +218,7 @@ def callback(
     redirect_uri: str | None = Query(default=None),
     db: Session = Depends(get_db),
     vault: SecretsVault = Depends(_get_vault),
-) -> CallbackResponse:
+) -> Any:
     """Exchange the authorization code for tokens and persist them in the Vault.
 
     This endpoint does NOT require the user's JWT because the platform calls
@@ -265,6 +284,9 @@ def callback(
             platform,
             account.id,
         )
+        redir = _panel_redirect(platform, ok=False)
+        if redir is not None:
+            return redir
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Token exchange failed.",
@@ -281,6 +303,9 @@ def callback(
         logger.exception(
             "Failed to store OAuth tokens: account=%s", account.id
         )
+        redir = _panel_redirect(platform, ok=False)
+        if redir is not None:
+            return redir
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to store tokens.",
@@ -293,5 +318,9 @@ def callback(
     account.sync_status = SyncStatus.idle
     db.commit()
 
-    # 6. Return confirmation
+    # 6. Redirect the browser back to the panel (customer flow), or return JSON
+    #    confirmation when no frontend base URL is configured (dev / API / tests).
+    redir = _panel_redirect(platform, ok=True)
+    if redir is not None:
+        return redir
     return CallbackResponse(status="connected", account_id=str(account.id))
