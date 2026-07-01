@@ -12,6 +12,7 @@ import {
   type AuditGrade,
 } from '@/lib/audit-api';
 import { parseApiError } from '@/lib/parseApiError';
+import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './audit.module.css';
 
 // --- Helpers ---
@@ -87,6 +88,17 @@ function ScoreRing({ score, grade }: ScoreRingProps) {
       </div>
     </div>
   );
+}
+
+function severityLabel(severity: AuditCheck['severity']): string {
+  switch (severity) {
+    case 'pass':
+      return 'Geçti';
+    case 'warn':
+      return 'Uyarı';
+    case 'fail':
+      return 'Sorun';
+  }
 }
 
 // --- Severity icon ---
@@ -169,6 +181,13 @@ function CategoryCard({ category }: { category: AuditCategory }) {
       </div>
     </div>
   );
+}
+
+// yyyy-mm-dd for filenames, based on the local date.
+function todayForFilename(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 // --- Loading skeleton ---
@@ -273,6 +292,33 @@ export default function AuditPage() {
               </div>
 
               <div className={styles.heroActions}>
+                <button
+                  className={styles.csvBtn}
+                  onClick={() =>
+                    downloadRowsAsCsv(
+                      data.categories.flatMap((cat) =>
+                        cat.checks.map((check) => ({
+                          kategori: cat.label,
+                          durum: severityLabel(check.severity),
+                          kontrol: check.title,
+                          bulgu: check.finding,
+                          oneri: check.recommendation,
+                        })),
+                      ),
+                      `audit-${todayForFilename()}.csv`,
+                      [
+                        { key: 'kategori', label: 'Kategori' },
+                        { key: 'durum', label: 'Durum' },
+                        { key: 'kontrol', label: 'Kontrol' },
+                        { key: 'bulgu', label: 'Bulgu' },
+                        { key: 'oneri', label: 'Öneri' },
+                      ],
+                    )
+                  }
+                  disabled={data.categories.every((c) => c.checks.length === 0)}
+                >
+                  CSV İndir
+                </button>
                 <button
                   className={styles.rescanBtn}
                   onClick={fetchAudit}

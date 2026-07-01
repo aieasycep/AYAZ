@@ -31,6 +31,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
 import SectionCard from '@/components/SectionCard';
 import { parseApiError } from '@/lib/parseApiError';
+import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './insights.module.css';
 
 // --- Label helpers ---
@@ -76,6 +77,14 @@ function fmtDate(iso: string | null): string {
     month: '2-digit',
     year: 'numeric',
   });
+}
+
+// yyyy-mm-dd for filenames, based on the local date (matches "today" as the
+// user sees it, avoids UTC-shift surprises around midnight).
+function todayForFilename(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 // --- Fix action label helpers ---
@@ -533,13 +542,52 @@ export default function InsightsPage() {
               Tüm kanallarınızdaki önemli değişimleri ve fırsatları takip edin.
             </p>
           </div>
-          <button
-            className={styles.refreshBtn}
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating ? 'Yenileniyor...' : 'İçgörüleri Yenile'}
-          </button>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <button
+              className={styles.csvBtn}
+              onClick={() =>
+                downloadRowsAsCsv(
+                  insights.map((ins) => ({
+                    onem: severityLabel(ins.severity),
+                    baslik: ins.title,
+                    aciklama: ins.body,
+                    metrik: ins.metric ?? '',
+                    kanal: ins.channel ?? '',
+                    varlik: ins.entity_name ?? '',
+                    donem_baslangic: fmtDate(ins.period_start),
+                    donem_bitis: fmtDate(ins.period_end),
+                    durum: ins.status,
+                    skor: ins.score,
+                    uygulandi: ins.applied_at ? 'Evet' : 'Hayır',
+                  })),
+                  `insights-${todayForFilename()}.csv`,
+                  [
+                    { key: 'onem', label: 'Önem' },
+                    { key: 'baslik', label: 'Başlık' },
+                    { key: 'aciklama', label: 'Açıklama' },
+                    { key: 'metrik', label: 'Metrik' },
+                    { key: 'kanal', label: 'Kanal' },
+                    { key: 'varlik', label: 'Varlık' },
+                    { key: 'donem_baslangic', label: 'Dönem Başlangıç' },
+                    { key: 'donem_bitis', label: 'Dönem Bitiş' },
+                    { key: 'durum', label: 'Durum' },
+                    { key: 'skor', label: 'Skor' },
+                    { key: 'uygulandi', label: 'Uygulandı' },
+                  ],
+                )
+              }
+              disabled={insights.length === 0}
+            >
+              CSV İndir
+            </button>
+            <button
+              className={styles.refreshBtn}
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              {generating ? 'Yenileniyor...' : 'İçgörüleri Yenile'}
+            </button>
+          </div>
         </div>
 
         {/* Insights section */}

@@ -5,6 +5,7 @@ import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import { getFunnel, type FunnelOverview, type FunnelStage } from '@/lib/funnel-api';
 import { parseApiError } from '@/lib/parseApiError';
+import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './funnel.module.css';
 
 // Below this many total events, percentages are statistically noisy enough
@@ -236,9 +237,38 @@ export default function FunnelPage() {
             <SectionCard
               title="Müşteri Yolculuğu"
               right={
-                <span className={styles.periodLabel}>
-                  {data.period.date_from} &mdash; {data.period.date_to}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                  <span className={styles.periodLabel}>
+                    {data.period.date_from} &mdash; {data.period.date_to}
+                  </span>
+                  <button
+                    className={styles.csvBtn}
+                    onClick={() =>
+                      downloadRowsAsCsv(
+                        data.stages.map((s) => ({
+                          adim: s.label,
+                          sayi: s.count,
+                          giristen_pay_yuzde: s.share_of_entry_pct,
+                          oncekinden_donusum_yuzde: s.conversion_from_prev_pct,
+                          dusus_sayisi: s.dropoff_count,
+                          dusus_yuzde: s.dropoff_pct,
+                        })),
+                        `funnel-${data.period.date_from}-${data.period.date_to}.csv`,
+                        [
+                          { key: 'adim', label: 'Adım' },
+                          { key: 'sayi', label: 'Sayı' },
+                          { key: 'giristen_pay_yuzde', label: 'Girişten Pay %' },
+                          { key: 'oncekinden_donusum_yuzde', label: 'Önceki Adımdan Dönüşüm %' },
+                          { key: 'dusus_sayisi', label: 'Düşüş Sayısı' },
+                          { key: 'dusus_yuzde', label: 'Düşüş %' },
+                        ],
+                      )
+                    }
+                    disabled={data.stages.length === 0}
+                  >
+                    CSV İndir
+                  </button>
+                </div>
               }
             >
               <div className={styles.funnelWrap}>

@@ -16,6 +16,7 @@ import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import type { ChannelRow } from '@/lib/api';
 import { parseApiError } from '@/lib/parseApiError';
+import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './report-builder.module.css';
 
 // --- Date helpers ---
@@ -388,7 +389,46 @@ export default function ReportBuilderPage() {
             )}
 
             {/* Channel table */}
-            <SectionCard title="Kanala Göre Performans">
+            <SectionCard
+              title="Kanala Göre Performans"
+              right={
+                <button
+                  className={styles.csvBtn}
+                  onClick={() =>
+                    downloadRowsAsCsv(
+                      channelRows.map((r) => ({
+                        kanal: r.channel,
+                        harcama: r.spend,
+                        gosterim: r.impressions,
+                        tiklama: r.clicks,
+                        donusum: r.conversions,
+                        donusum_degeri: r.conversion_value,
+                        roas: r.roas,
+                        cpc: r.cpc,
+                        cpa: r.cpa,
+                        ctr: r.ctr,
+                      })),
+                      `report-builder-${dateFrom}-${dateTo}.csv`,
+                      [
+                        { key: 'kanal', label: 'Kanal' },
+                        { key: 'harcama', label: 'Harcama' },
+                        { key: 'gosterim', label: 'Gösterim' },
+                        { key: 'tiklama', label: 'Tıklama' },
+                        { key: 'donusum', label: 'Dönüşüm' },
+                        { key: 'donusum_degeri', label: 'Dönüşüm Değeri' },
+                        { key: 'roas', label: 'ROAS' },
+                        { key: 'cpc', label: 'CPC' },
+                        { key: 'cpa', label: 'CPA' },
+                        { key: 'ctr', label: 'CTR' },
+                      ],
+                    )
+                  }
+                  disabled={channelRows.length === 0}
+                >
+                  CSV İndir
+                </button>
+              }
+            >
               <ChannelTable
                 rows={channelRows}
                 loading={false}

@@ -192,6 +192,7 @@
 .heroActions {
   display: flex;
   align-items: flex-start;
+  gap: 0.625rem;
   padding-top: 0.25rem;
 }
 
@@ -213,6 +214,31 @@
 }
 
 .rescanBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Small secondary action button (e.g. CSV export) next to the rescan button */
+
+.csvBtn {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  padding: 0.5rem 1.125rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.csvBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.csvBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

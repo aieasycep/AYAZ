@@ -481,6 +481,31 @@
   color: var(--color-primary);
 }
 
+/* Small secondary action button (e.g. CSV export) inside a section header */
+
+.csvBtn {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.csvBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.csvBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Responsive tweaks */
 
 @media (max-width: 768px) {

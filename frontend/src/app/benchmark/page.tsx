@@ -12,6 +12,7 @@ import {
   type BenchPosition,
 } from '@/lib/benchmark-api';
 import { parseApiError } from '@/lib/parseApiError';
+import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './benchmark.module.css';
 
 // --- Formatters ---
@@ -395,6 +396,31 @@ export default function BenchmarkPage() {
             <div className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <span className={styles.sectionTitle}>Kanal Kıyaslaması</span>
+                <button
+                  className={styles.csvBtn}
+                  onClick={() =>
+                    downloadRowsAsCsv(
+                      data.channels.map((ch) => ({
+                        kanal: ch.label,
+                        roas: ch.roas,
+                        roas_konumu: POSITION_LABELS[ch.roas_position],
+                        ctr: ch.ctr,
+                        ctr_konumu: POSITION_LABELS[ch.ctr_position],
+                      })),
+                      `benchmark-${data.period.date_from}-${data.period.date_to}.csv`,
+                      [
+                        { key: 'kanal', label: 'Kanal' },
+                        { key: 'roas', label: 'ROAS' },
+                        { key: 'roas_konumu', label: 'ROAS Konumu' },
+                        { key: 'ctr', label: 'CTR' },
+                        { key: 'ctr_konumu', label: 'CTR Konumu' },
+                      ],
+                    )
+                  }
+                  disabled={data.channels.length === 0}
+                >
+                  CSV İndir
+                </button>
               </div>
               <ChannelsSection channels={data.channels} />
             </div>
