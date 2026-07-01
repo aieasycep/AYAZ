@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken, downloadCsv } from '@/lib/api';
 import {
@@ -23,6 +23,7 @@ import DateRangePresets, {
   type PresetKey,
 } from '@/components/DateRangePresets';
 import { parseApiError } from '@/lib/parseApiError';
+import { applyFocus, filterCampaignsByName } from '@/lib/ads-focus';
 import styles from './ads.module.css';
 
 // --- Date helpers ---
@@ -165,6 +166,22 @@ export default function AdsPage() {
   useEffect(() => {
     if (!getToken()) router.replace('/login');
   }, [router]);
+
+  // Insight → action bridge: read ?focus=<campaign name> on mount.
+  // useSearchParams is intentionally avoided (CSR-bailout build warning risk);
+  // this mirrors the window.location.search pattern used on /integrations.
+  const [focusQuery, setFocusQuery] = useState('');
+  const [focusedCampaignId, setFocusedCampaignId] = useState<string | null>(null);
+  const [campaignSearch, setCampaignSearch] = useState('');
+  const focusedRowRef = useRef<HTMLTableRowElement | null>(null);
+
+  useEffect(() => {
+    const focus = new URLSearchParams(window.location.search).get('focus');
+    if (focus) {
+      setFocusQuery(focus);
+      setCampaignSearch(focus);
+    }
+  }, []);
 
   // Filters & dates
   const defaults = getDefaultDates();
@@ -313,7 +330,31 @@ export default function AdsPage() {
     );
   }
 
-  const sortedCampaigns = sortCampaigns(campaigns, sortConfig);
+  // Client-side name filter (seeded from ?focus= on mount, editable after)
+  // runs before sort/focus so search + sort + highlight all compose cleanly.
+  const searchedCampaigns = filterCampaignsByName(campaigns, campaignSearch);
+  const sortedCampaigns = sortCampaigns(searchedCampaigns, sortConfig);
+
+  // Re-apply the focus highlight/reorder against the currently visible
+  // (searched + sorted) list so the matched campaign always surfaces first.
+  const { campaigns: focusedCampaigns, matchedId } = applyFocus(
+    sortedCampaigns,
+    focusQuery,
+  );
+
+  useEffect(() => {
+    if (matchedId !== focusedCampaignId) {
+      setFocusedCampaignId(matchedId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedId]);
+
+  // Scroll the focused row into view once it's rendered.
+  useEffect(() => {
+    if (focusedCampaignId && focusedRowRef.current) {
+      focusedRowRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [focusedCampaignId, campaignsLoading]);
 
   // CSV export state
   const [csvLoading, setCsvLoading] = useState(false);
@@ -398,6 +439,23 @@ export default function AdsPage() {
               />
             </div>
 
+            {/* Campaign name search — client-side filter; seeded by ?focus= */}
+            <div className={styles.presetsRow}>
+              <div className={styles.filterGroup}>
+                <label className={styles.filterLabel} htmlFor="ads-campaign-search">
+                  Kampanya ara
+                </label>
+                <input
+                  id="ads-campaign-search"
+                  type="text"
+                  className={styles.dateInput}
+                  placeholder="Kampanya adına göre filtrele..."
+                  value={campaignSearch}
+                  onChange={(e) => setCampaignSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className={styles.dateGroup}>
               <label className={styles.dateLabel} htmlFor="ads-from">
                 Başlangıç
@@ -469,7 +527,7 @@ export default function AdsPage() {
                 fetchCampaigns(appliedFrom, appliedTo, appliedChannel, appliedStatus)
               }
             />
-          ) : sortedCampaigns.length === 0 ? (
+          ) : focusedCampaigns.length === 0 ? (
             <EmptyState
               title="Kampanya bulunamadı"
               description="Bu filtreler için kampanya bulunamadı."
@@ -516,9 +574,10 @@ export default function AdsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedCampaigns.map((c, idx) => {
-                    const isLast = idx === sortedCampaigns.length - 1;
+                  {focusedCampaigns.map((c, idx) => {
+                    const isLast = idx === focusedCampaigns.length - 1;
                     const isExpanded = expandedId === c.campaign_id;
+                    const isFocused = focusedCampaignId === c.campaign_id;
                     const detail = detailMap[c.campaign_id];
                     const detailLoading = detailLoadingMap[c.campaign_id] ?? false;
                     const detailError = detailErrorMap[c.campaign_id] ?? null;
@@ -527,7 +586,8 @@ export default function AdsPage() {
                       <>
                         <tr
                           key={c.campaign_id}
-                          className={`${styles.campaignRow} ${isExpanded ? styles.campaignRowExpanded : ''} ${isLast && !isExpanded ? styles.campaignRowLast : ''}`}
+                          ref={isFocused ? focusedRowRef : undefined}
+                          className={`${styles.campaignRow} ${isExpanded ? styles.campaignRowExpanded : ''} ${isLast && !isExpanded ? styles.campaignRowLast : ''} ${isFocused ? styles.rowFocused : ''}`}
                           onClick={() => toggleCampaign(c.campaign_id)}
                         >
                           <td className={styles.td}>

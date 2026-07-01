@@ -16,6 +16,7 @@ import {
   type RecommendationCategory,
 } from '@/lib/recommendations-api';
 import { parseApiError } from '@/lib/parseApiError';
+import { buildRecActionHref } from '@/lib/recommendations-focus';
 import styles from './recommendations.module.css';
 
 // --- Helpers ---
@@ -87,6 +88,7 @@ function formatTRDate(iso: string): string {
     return iso;
   }
 }
+
 
 // --- Weekly Strategy hero ---
 
@@ -207,7 +209,7 @@ function RecCard({ rec, onStatusChange }: RecCardProps) {
 
       {/* Actions */}
       <div className={styles.recCardActions}>
-        <Link href={rec.action_href} className={styles.actionLinkBtn}>
+        <Link href={buildRecActionHref(rec)} className={styles.actionLinkBtn}>
           {rec.action_label}{/* arrow is added by CSS ::after */}
         </Link>
 

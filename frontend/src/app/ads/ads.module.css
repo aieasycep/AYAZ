@@ -275,6 +275,16 @@
   border-bottom: none;
 }
 
+/* Insight → action bridge: highlight the campaign matched via ?focus= */
+.rowFocused {
+  background: rgba(59, 91, 219, 0.09);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.rowFocused:hover {
+  background: rgba(59, 91, 219, 0.13);
+}
+
 /* Status badge */
 
 .badge {

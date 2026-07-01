@@ -10,6 +10,7 @@ import {
   type CcModules,
 } from '@/lib/command-center-api';
 import { parseApiError } from '@/lib/parseApiError';
+import { buildAttentionHref } from '@/lib/command-center-focus';
 import styles from './command-center.module.css';
 
 // --- Formatters ---
@@ -153,7 +154,7 @@ function AttentionFeed({ items }: { items: AttentionItem[] }) {
       {items.map((item, idx) => (
         <Link
           key={idx}
-          href={item.link}
+          href={buildAttentionHref(item)}
           className={styles.attentionItem}
         >
           <span
