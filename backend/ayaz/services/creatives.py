@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.analytics import DimAd, DimAdSet, DimCampaign, DimChannel, FactDailyMetrics
 from ayaz.services.metrics import compute_derived_metrics
+from ayaz.services.trformat import tr_roas, tr_tl
 
 # Sentinel value used for campaign-level / unattributed rows; excluded from
 # ad-level analysis because they are not real creatives.
@@ -164,7 +165,7 @@ def _build_commentary(ads: list[dict], top: list[dict], bottom: list[dict]) -> s
     if top:
         best = top[0]
         parts.append(
-            f"'{best['ad_name']}' reklamı {best['roas']:.2f}x ROAS ile en verimli kreatif."
+            f"'{best['ad_name']}' reklamı {tr_roas(best['roas'])} ROAS ile en verimli kreatif."
         )
 
     if bottom:
@@ -172,20 +173,20 @@ def _build_commentary(ads: list[dict], top: list[dict], bottom: list[dict]) -> s
         spend_val = worst["spend"]
         if worst["conversions"] == 0.0:
             parts.append(
-                f"'{worst['ad_name']}' reklamı ₺{spend_val:.2f} harcadı, "
+                f"'{worst['ad_name']}' reklamı {tr_tl(spend_val, 2)} harcadı, "
                 f"dönüşüm yok — durdurmayı değerlendirin."
             )
         else:
             roas_val = worst["roas"]
             parts.append(
-                f"'{worst['ad_name']}' reklamı ₺{spend_val:.2f} harcadı, "
-                f"ROAS yalnızca {roas_val:.2f}x — bütçeyi gözden geçirin."
+                f"'{worst['ad_name']}' reklamı {tr_tl(spend_val, 2)} harcadı, "
+                f"ROAS yalnızca {tr_roas(roas_val)} — bütçeyi gözden geçirin."
             )
 
     if len(ads) > 1:
         total_spend = sum(a["spend"] for a in ads)
         parts.append(
-            f"Toplam {len(ads)} reklam analiz edildi, toplam harcama ₺{total_spend:.2f}."
+            f"Toplam {len(ads)} reklam analiz edildi, toplam harcama {tr_tl(total_spend, 2)}."
         )
 
     return " ".join(parts)

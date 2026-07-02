@@ -58,6 +58,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from ayaz.services.trformat import tr_num, tr_pct
+
 log = logging.getLogger(__name__)
 
 # ── Derece bantları ────────────────────────────────────────────────────────────
@@ -201,8 +203,8 @@ def _dim_donusum(db: Session, tenant_id: uuid.UUID) -> dict[str, Any]:
             "score": score,
             "status": "ok",
             "detail": (
-                f"Reklam dönüşüm oranı: %{conv_rate:.2f} "
-                f"(referans %{excellent_pct:.0f}=100) → {score}/100"
+                f"Reklam dönüşüm oranı: {tr_pct(conv_rate, 2)} "
+                f"(referans {tr_pct(excellent_pct, 0)}=100) → {score}/100"
             ),
         }
     except Exception:
@@ -307,8 +309,8 @@ def _dim_butce_disiplini(db: Session, tenant_id: uuid.UUID, as_of: date) -> dict
             "score": score,
             "status": "ok",
             "detail": (
-                f"Harcama temposu %{pace_pct:.1f}, zaman temposu %{time_pace_pct:.1f} "
-                f"(fark {diff:.1f} puan)"
+                f"Harcama temposu {tr_pct(pace_pct)}, zaman temposu {tr_pct(time_pace_pct)} "
+                f"(fark {tr_num(diff, 1)} puan)"
             ),
         }
     except Exception:

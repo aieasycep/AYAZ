@@ -46,6 +46,7 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.copilot import Conversation, Message
 from ayaz.services.copilot_tools import TOOL_SPECS, build_tenant_tool_specs, dispatch
+from ayaz.services.trformat import tr_int, tr_pct, tr_roas, tr_tl
 
 logger = logging.getLogger(__name__)
 
@@ -169,18 +170,18 @@ def _summarise_performance(result: dict) -> str:
     ctr = totals.get("ctr", 0) * 100
 
     lines = [
-        f"Seçilen dönemde toplam harcama: {spend:,.2f}, "
-        f"ROAS: {roas:.2f}x, "
-        f"tıklama: {clicks:,.0f}, "
-        f"dönüşüm: {conversions:,.0f}, "
-        f"CTR: %{ctr:.2f}."
+        f"Seçilen dönemde toplam harcama: {tr_tl(spend, 2)}, "
+        f"ROAS: {tr_roas(roas)}, "
+        f"tıklama: {tr_int(clicks)}, "
+        f"dönüşüm: {tr_int(conversions)}, "
+        f"CTR: {tr_pct(ctr, 2)}."
     ]
     if by_channel:
         top = sorted(by_channel, key=lambda c: c.get("spend", 0), reverse=True)
         top_ch = top[0]
         lines.append(
             f"En yüksek harcama kanalı: {top_ch['channel']} "
-            f"({top_ch['spend']:,.2f} harcama, {top_ch['roas']:.2f}x ROAS)."
+            f"({tr_tl(top_ch['spend'], 2)} harcama, {tr_roas(top_ch['roas'])} ROAS)."
         )
     return " ".join(lines)
 
@@ -193,8 +194,8 @@ def _summarise_campaigns(result: dict) -> str:
     return (
         f"Toplam {len(campaigns)} kampanya bulunuyor. "
         f"En yüksek harcamalı kampanya: '{top['campaign_name']}' "
-        f"({top['channel']}, harcama: {top['spend']:,.2f}, "
-        f"ROAS: {top['roas']:.2f}x, dönüşüm: {top['conversions']:,.0f})."
+        f"({top['channel']}, harcama: {tr_tl(top['spend'], 2)}, "
+        f"ROAS: {tr_roas(top['roas'])}, dönüşüm: {tr_int(top['conversions'])})."
     )
 
 
@@ -325,14 +326,14 @@ def _summarise_funnel(result: dict) -> str:
 
     parts = [
         f"Dönüşüm hunisi: {entry_count:,} giriş → {final_count:,} satın alma "
-        f"(%{overall_pct:.1f} genel dönüşüm)."
+        f"({tr_pct(overall_pct)} genel dönüşüm)."
     ]
     if biggest_dropoff:
         from_label = biggest_dropoff.get("from_label", "?")
         to_label = biggest_dropoff.get("to_label", "?")
         dropoff_pct = biggest_dropoff.get("dropoff_pct", 0.0)
         parts.append(
-            f"En büyük düşüş: {from_label} → {to_label} (%{dropoff_pct:.1f})."
+            f"En büyük düşüş: {from_label} → {to_label} ({tr_pct(dropoff_pct)})."
         )
     return " ".join(parts)
 
@@ -355,7 +356,7 @@ def _summarise_consent(result: dict) -> str:
         return "KVKK rıza verileri için henüz kayıtlı olay bulunamadı."
 
     parts = [
-        f"KVKK rıza oranı %{consent_rate:.1f}; "
+        f"KVKK rıza oranı {tr_pct(consent_rate)}; "
         f"uyum skoru {score}/100 ({grade_tr})."
     ]
     if skipped:
@@ -383,7 +384,7 @@ def _summarise_benchmark(result: dict) -> str:
             "average": "ortalama",
             "weak": "zayıf",
         }.get(roas_metric.get("position", ""), "")
-        parts.append(f"ROAS {val:.2f}x ({position_tr}).")
+        parts.append(f"ROAS {tr_roas(val)} ({position_tr}).")
 
     return " ".join(parts)
 

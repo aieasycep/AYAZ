@@ -642,9 +642,9 @@ class TestCommentary:
             "/api/v1/creatives/performance", params=_DATE_PARAMS
         )
         commentary = resp.json()["commentary"]
-        # ROAS=10.00x should appear as "10.00x"
-        assert "10.00x" in commentary, (
-            f"Commentary should include ROAS '10.00x': {commentary}"
+        # ROAS=10.00x should appear in Turkish decimal format as "10,00x"
+        assert "10,00x" in commentary, (
+            f"Commentary should include ROAS '10,00x': {commentary}"
         )
 
     def test_commentary_mentions_durdur_for_zero_conversions(
