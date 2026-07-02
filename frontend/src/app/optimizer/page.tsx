@@ -52,10 +52,11 @@ function fmtRoas(n: number): string {
 
 function fmtPct(n: number): string {
   return (
+    '%' +
     (n * 100).toLocaleString('tr-TR', {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
-    }) + '%'
+    })
   );
 }
 

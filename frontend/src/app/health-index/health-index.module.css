@@ -153,6 +153,14 @@
   gap: 0.625rem;
 }
 
+.heroDesc {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  max-width: 46ch;
+  margin: 0;
+}
+
 .gradeBadge {
   font-size: 0.7rem;
   font-weight: 700;

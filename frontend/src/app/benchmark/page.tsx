@@ -30,10 +30,11 @@ function fmtValue(value: number, unit: '%' | '₺' | 'x'): string {
   }
   if (unit === '%') {
     return (
+      '%' +
       value.toLocaleString('tr-TR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-      }) + '%'
+      })
     );
   }
   // 'x'
@@ -50,7 +51,7 @@ function fmtShort(value: number, unit: '%' | '₺' | 'x'): string {
     return '₺' + value.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
   }
   if (unit === '%') {
-    return value.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + '%';
+    return '%' + value.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
   }
   return value.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + 'x';
 }

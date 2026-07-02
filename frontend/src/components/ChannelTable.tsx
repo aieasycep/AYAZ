@@ -24,10 +24,10 @@ function fmtNum(n: number): string {
 }
 
 function fmtPct(n: number): string {
-  return (n * 100).toLocaleString('tr-TR', {
+  return '%' + (n * 100).toLocaleString('tr-TR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }) + '%';
+  });
 }
 
 function fmtRoas(n: number): string {
@@ -60,7 +60,7 @@ export default function ChannelTable({ rows, loading, error }: ChannelTableProps
   }
 
   return (
-    <div className={styles.wrap}>
+    <div className={`${styles.wrap} table-scroll-hint`}>
       <table className={styles.table}>
         <thead>
           <tr>

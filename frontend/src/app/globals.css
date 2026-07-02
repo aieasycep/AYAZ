@@ -395,3 +395,45 @@ textarea:focus-visible,
     padding-left: 0 !important;
   }
 }
+
+/* ============================================================
+   Yatay kaydırma ipucu — geniş tablolar için
+   Mobilde tablo kapsayıcıdan taştığında sağ kenarda gölge belirir;
+   sona kaydırılınca kaybolur (saf CSS "scroll shadow" tekniği:
+   surface renkli maskeler local, gölgeler scroll attachment'lı).
+   Kullanım: tablo sarmalayıcıya (overflow-x:auto) ek olarak
+   class="table-scroll-hint" verin. Satır arka planları şeffaf
+   olmalı ki gölge görünebilsin.
+   ============================================================ */
+
+.table-scroll-hint {
+  background:
+    linear-gradient(to right, var(--color-surface) 35%, transparent) left / 44px 100%,
+    linear-gradient(to left, var(--color-surface) 35%, transparent) right / 44px 100%,
+    radial-gradient(farthest-side at 0 50%, rgba(15, 20, 40, 0.22), transparent) left / 16px 100%,
+    radial-gradient(farthest-side at 100% 50%, rgba(15, 20, 40, 0.22), transparent) right / 16px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
+[data-theme='dark'] .table-scroll-hint {
+  background:
+    linear-gradient(to right, var(--color-surface) 35%, transparent) left / 44px 100%,
+    linear-gradient(to left, var(--color-surface) 35%, transparent) right / 44px 100%,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.55), transparent) left / 16px 100%,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.55), transparent) right / 16px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='system'] .table-scroll-hint {
+    background:
+      linear-gradient(to right, var(--color-surface) 35%, transparent) left / 44px 100%,
+      linear-gradient(to left, var(--color-surface) 35%, transparent) right / 44px 100%,
+      radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.55), transparent) left / 16px 100%,
+      radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.55), transparent) right / 16px 100%;
+    background-repeat: no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+}

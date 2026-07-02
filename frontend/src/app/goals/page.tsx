@@ -18,6 +18,7 @@ import {
 } from '@/lib/goals-api';
 import AppNav from '@/components/AppNav';
 import SuggestionsStrip from '@/components/SuggestionsStrip';
+import { channelLabel } from '@/lib/channels';
 import styles from './goals.module.css';
 
 // --- Formatters ---
@@ -97,6 +98,17 @@ function toISODate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// "2026-07-01" → "1 Tem 2026" — kart üzerinde ham ISO tarih göstermemek için.
+function fmtDateTR(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('tr-TR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 function getDefaultPeriodDates() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -149,10 +161,10 @@ function GoalCard({ goal, onDelete }: GoalCardProps) {
           <div className={styles.goalMetricRow}>
             <span className={styles.goalMetricTag}>{metricLabel(goal.metric)}</span>
             {goal.channel && (
-              <span className={styles.goalChannel}>{goal.channel}</span>
+              <span className={styles.goalChannel}>{channelLabel(goal.channel)}</span>
             )}
             <span className={styles.goalPeriod}>
-              {goal.period_start} – {goal.period_end}
+              {fmtDateTR(goal.period_start)} – {fmtDateTR(goal.period_end)}
             </span>
           </div>
         </div>

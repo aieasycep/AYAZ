@@ -34,10 +34,10 @@ function fmtDate(iso: string): string {
 
 function fmtPct(pct: number): string {
   const abs = Math.abs(pct);
-  return abs.toLocaleString('tr-TR', {
+  return '%' + abs.toLocaleString('tr-TR', {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
-  }) + '%';
+  });
 }
 
 function fmtNum(n: number): string {

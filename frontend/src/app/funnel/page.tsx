@@ -16,10 +16,11 @@ const SMALL_SAMPLE_THRESHOLD = 100;
 
 function fmtPct(value: number): string {
   return (
+    '%' +
     value.toLocaleString('tr-TR', {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
-    }) + '%'
+    })
   );
 }
 
