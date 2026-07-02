@@ -77,3 +77,32 @@ Ana zayıflık iki kümede toplanıyor: **(1) Sayı/dil yerelleştirmesi** — A
 | Koyu tema | Örneklenen ekranlarda sorun yok ✔ |
 
 *Denetim: Fable 5 — 9 mercek, ekran+kod çapraz doğrulama. Temmuz 2026.*
+
+---
+
+## Düzeltme Durumu (2 Temmuz 2026)
+
+Denetimdeki 23 bulgunun tamamı aynı gün 8 commit'te kapatıldı (PR #2).
+Her commit backend (2994) + frontend (595) test paketi ve production
+build ile doğrulandı; kritik ekranlar gerçek demo verisiyle yeniden
+görüntülenerek teyit edildi.
+
+| Commit | Kapsam |
+| --- | --- |
+| `85be511` | Hedef yüzdesi oran/yüzde karışıklığı; harcama hedefi yön semantiği; hedef notları gerçek Türkçe |
+| `a0429b8` | AI/şablon metinleri (brifing, narrator, otomasyon): TR karakter + TR sayı + UUID sızıntısı; ortak `trformat.py` |
+| `64f7109` | Ham kanal anahtarları (panel/reklam); delta renk sözleşmesi (`channels.ts` NEGATIVE_IS_GOOD); rozet adları; çip/başlık cilaları |
+| `e8c1cac` | Onboarding %100 CTA'ları; simülatör (tam sayı girdi, tutarlı delta, lejant, K ekseni); optimizer otomatik hesap |
+| `4f9e003` | Landing fiyat senkronu (5 plan, Önerilen=Pro); mobil tablo kaydırma gölgesi; hedef kartı TR tarih; yüzde önek standardı (13 ekran) |
+| `3ce4138` | Optimizer yüzde/kesir birim hatası (otomatik çalıştırmanın açığa çıkardığı gerçek 422); optimizer kanal etiketleri + TR gerekçe |
+| `e946374` | ads.py önerileri + fixes.py kök-neden şablonları TR biçim; yönetici içgörü çipi etiketi |
+| `add99b6` | Copilot özet cevapları, kreatif yorumu, sağlık endeksi notları TR biçim |
+
+**Bilinçli ertelenenler (orta vadeli, yapısal):** Yönetici ↔ Komuta
+Merkezi üst yarı birleştirmesi; özel Türkçe date-picker (native input
+tarayıcı diline bağlı — `html lang="tr"` doğrulandı, gerçek TR
+kullanıcıda tarih TR biçimde görünür).
+
+**Not:** Demo verisindeki eski biçimli *saklanan* içgörü/brifing
+kayıtları tekilleştirme nedeniyle yeniden yazılmaz; yeni üretilen tüm
+metinler düzeltilmiş şablonlardan çıkar.
