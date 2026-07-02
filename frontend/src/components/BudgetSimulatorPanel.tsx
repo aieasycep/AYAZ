@@ -10,7 +10,6 @@ import Link from 'next/link';
 import {
   BarChart,
   Bar,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,7 +17,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { channelColor } from '@/lib/chartColors';
 import {
   getBaseline,
   simulate,
@@ -86,14 +84,23 @@ function fmtSpendDeltaPct(pct: number): string {
 // Delta badge
 // ---------------------------------------------------------------------------
 
-function DeltaBadge({ pct }: { pct: number | null | undefined }) {
+function DeltaBadge({
+  pct,
+  neutralTone = false,
+}: {
+  pct: number | null | undefined;
+  // Harcama gibi "iyi/kötü" yönü olmayan metriklerde ok yönü korunur ama
+  // renk nötr kalır — harcama artışı kullanıcının kendi senaryo girdisidir.
+  neutralTone?: boolean;
+}) {
   const { text, dir } = fmtDeltaPct(pct);
-  const cls =
-    dir === 'up'
-      ? styles.deltaUp
-      : dir === 'down'
-      ? styles.deltaDown
-      : styles.deltaNeutral;
+  const cls = neutralTone
+    ? styles.deltaNeutral
+    : dir === 'up'
+    ? styles.deltaUp
+    : dir === 'down'
+    ? styles.deltaDown
+    : styles.deltaNeutral;
   return <span className={`${styles.deltaBadge} ${cls}`}>{text}</span>;
 }
 
@@ -138,10 +145,11 @@ export default function BudgetSimulatorPanel() {
     try {
       const data = await getBaseline(30);
       setBaseline(data);
-      // Pre-fill allocations from baseline
+      // Pre-fill allocations from baseline — rounded to whole lira so the
+      // number inputs don't show raw values like "161460.59".
       const init: Record<string, number> = {};
       for (const ch of data.channels) {
-        init[ch.key] = ch.spend;
+        init[ch.key] = Math.round(ch.spend);
       }
       setAllocations(init);
     } catch (err: unknown) {
@@ -196,7 +204,7 @@ export default function BudgetSimulatorPanel() {
     if (!baseline) return;
     const init: Record<string, number> = {};
     for (const ch of baseline.channels) {
-      init[ch.key] = ch.spend;
+      init[ch.key] = Math.round(ch.spend);
     }
     setAllocations(init);
   }
@@ -216,7 +224,7 @@ export default function BudgetSimulatorPanel() {
   }
 
   function handleInputChange(key: string, value: number) {
-    const clamped = Math.max(0, value);
+    const clamped = Math.max(0, Math.round(value));
     setAllocations((prev) => ({ ...prev, [key]: clamped }));
   }
 
@@ -358,7 +366,17 @@ export default function BudgetSimulatorPanel() {
                     <div className={styles.kpiValue}>
                       {fmtCurrency(simResult.projected_totals.spend)}
                     </div>
-                    <DeltaBadge pct={null} />
+                    <DeltaBadge
+                      pct={
+                        simResult.baseline_totals.spend > 0
+                          ? ((simResult.projected_totals.spend -
+                              simResult.baseline_totals.spend) /
+                              simResult.baseline_totals.spend) *
+                            100
+                          : null
+                      }
+                      neutralTone
+                    />
                   </div>
 
                   <div className={styles.kpiCard}>
@@ -454,7 +472,7 @@ export default function BudgetSimulatorPanel() {
                       width={40}
                       tickFormatter={(v: number) =>
                         v >= 1000
-                          ? `${(v / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 1 })}B`
+                          ? `${(v / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 1 })}K`
                           : String(v)
                       }
                     />
@@ -474,32 +492,22 @@ export default function BudgetSimulatorPanel() {
                     <Legend
                       wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
                     />
+                    {/* Tek renk çifti (baz = nötr gri, senaryo = marka rengi):
+                        lejanttaki kareler çubuklarla birebir eşleşir. Kanal
+                        ayrımını X ekseni etiketi zaten veriyor. */}
                     <Bar
                       dataKey="Baz Dönüşüm"
+                      fill="var(--color-text-muted)"
+                      fillOpacity={0.45}
                       radius={[4, 4, 0, 0]}
                       isAnimationActive={false}
-                    >
-                      {chartData.map((entry) => (
-                        <Cell
-                          key={`base-${entry.channelKey}`}
-                          fill={channelColor(entry.channelKey)}
-                          fillOpacity={0.35}
-                        />
-                      ))}
-                    </Bar>
+                    />
                     <Bar
                       dataKey="Senaryo Dönüşüm"
+                      fill="var(--color-primary)"
                       radius={[4, 4, 0, 0]}
                       isAnimationActive={false}
-                    >
-                      {chartData.map((entry) => (
-                        <Cell
-                          key={`scenario-${entry.channelKey}`}
-                          fill={channelColor(entry.channelKey)}
-                          fillOpacity={1}
-                        />
-                      ))}
-                    </Bar>
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

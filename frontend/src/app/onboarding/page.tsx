@@ -78,6 +78,17 @@ function CelebrationCard() {
       <div className={styles.celebrationSubtitle}>
         AYAZ artık tam kapasitesiyle çalışıyor. Verileri takip edin, raporları inceleyin.
       </div>
+      <div className={styles.celebrationActions}>
+        <Link href="/dashboard" className={styles.ctaBtn}>
+          Panele Git
+        </Link>
+        <Link
+          href="/reports"
+          className={`${styles.ctaBtn} ${styles.ctaBtnGhost}`}
+        >
+          Raporları İncele
+        </Link>
+      </div>
     </div>
   );
 }

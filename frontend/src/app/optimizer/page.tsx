@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
 import {
@@ -168,6 +168,16 @@ export default function OptimizerPage() {
     },
     [],
   );
+
+  // İlk açılışta varsayılan parametrelerle otomatik hesapla: kullanıcı ekrana
+  // boş bir önizleme yerine gerçek sonuçla karşılansın. Oturum yoksa login
+  // yönlendirmesi devreye girer, istek atılmaz.
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    autoRanRef.current = true;
+    if (getToken()) runOptimization(dateFrom, dateTo, maxShiftPct);
+  }, [runOptimization, dateFrom, dateTo, maxShiftPct]);
 
   function handleCalculate() {
     runOptimization(dateFrom, dateTo, maxShiftPct);
