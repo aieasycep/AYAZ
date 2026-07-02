@@ -66,6 +66,7 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.analytics import DimChannel, FactDailyMetrics
 from ayaz.services.metrics import roas as _roas
+from ayaz.services.trformat import tr_roas, tr_tl
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,7 @@ class _ChannelAgg(NamedTuple):
     """Internal aggregation row for one channel."""
 
     channel: str
+    label: str  # human-readable DimChannel.label — used in user-facing text
     spend: Decimal
     conversions: Decimal
     conversion_value: Decimal
@@ -123,6 +125,7 @@ def _query_channel_aggregates(
     rows = db.execute(
         select(
             DimChannel.key.label("channel_key"),
+            DimChannel.label.label("channel_label"),
             func.sum(
                 func.coalesce(
                     FactDailyMetrics.cost_base_ccy,
@@ -138,7 +141,7 @@ def _query_channel_aggregates(
             FactDailyMetrics.date_key >= date_from,
             FactDailyMetrics.date_key <= date_to,
         )
-        .group_by(DimChannel.key)
+        .group_by(DimChannel.key, DimChannel.label)
         .order_by(DimChannel.key)
     ).mappings().all()
 
@@ -157,6 +160,7 @@ def _query_channel_aggregates(
         aggs.append(
             _ChannelAgg(
                 channel=str(row["channel_key"]),
+                label=str(row["channel_label"] or row["channel_key"]),
                 spend=spend,
                 conversions=conversions,
                 conversion_value=conv_value,
@@ -362,11 +366,11 @@ def suggest_reallocation(
             projected_conv_delta = Decimal(0)
 
         rationale_tr = (
-            f"'{donor.channel}' kanalının ROAS değeri {float(donor.roas):.2f}x, "
-            f"'{recipient.channel}' kanalının ise {float(recipient.roas):.2f}x. "
-            f"Bu bütçenin bir kısmını ({float(amount):.2f}) yüksek verimli kanala "
-            f"taşımak tahminen {float(projected_cv_delta):.2f} tutarında ek dönüşüm "
-            f"değeri kazandırabilir."
+            f"{donor.label} kanalının ROAS değeri {tr_roas(float(donor.roas))}, "
+            f"{recipient.label} kanalının ise {tr_roas(float(recipient.roas))}. "
+            f"Bu bütçenin bir kısmını ({tr_tl(float(amount))}) yüksek verimli "
+            f"kanala taşımak tahminen {tr_tl(float(projected_cv_delta))} tutarında "
+            f"ek dönüşüm değeri kazandırabilir."
         )
 
         suggestions.append(

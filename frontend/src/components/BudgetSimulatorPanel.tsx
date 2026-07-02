@@ -65,6 +65,9 @@ function fmtDeltaPct(pct: number | null | undefined): {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   });
+  // Görüntüde "%0,0"a yuvarlanan farklar ok göstermesin (girdi yuvarlamasından
+  // gelen ±%0,0001 gibi artıklar aksi hâlde "▲ %0,0" üretir).
+  if (Math.abs(pct) < 0.05) return { text: `%${abs}`, dir: 'neutral' };
   if (pct > 0) return { text: `▲ %${abs}`, dir: 'up' };
   if (pct < 0) return { text: `▼ %${abs}`, dir: 'down' };
   return { text: `%${abs}`, dir: 'neutral' };
