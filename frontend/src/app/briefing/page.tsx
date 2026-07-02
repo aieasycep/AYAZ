@@ -257,7 +257,12 @@ export default function BriefingPage() {
     value: number;
     prev: number;
     pct: number;
-  }> = deltaEntries.map(([key, v]) => ({ key, ...v }));
+  }> = deltaEntries.map(([key, v]) =>
+    // Dönüşüm bir adet metriğidir — ondalıklı gösterim (212,53) anlamsız.
+    key === 'conversions'
+      ? { key, value: Math.round(v.value), prev: Math.round(v.prev), pct: v.pct }
+      : { key, ...v },
+  );
 
   return (
     <div className={styles.shell}>
@@ -465,7 +470,7 @@ export default function BriefingPage() {
 
         <div className="print-hide">
           <SuggestionsStrip
-            title="İçerik önerileri"
+            title="İlgili ekranlar"
             suggestions={[
               { label: 'Kampanya özeti', href: '/ads' },
               { label: 'İçgörüler ve uyarılar', href: '/insights' },

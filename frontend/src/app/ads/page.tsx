@@ -24,6 +24,7 @@ import DateRangePresets, {
 } from '@/components/DateRangePresets';
 import { parseApiError } from '@/lib/parseApiError';
 import { applyFocus, filterCampaignsByName } from '@/lib/ads-focus';
+import { channelLabel } from '@/lib/channels';
 import styles from './ads.module.css';
 
 // --- Date helpers ---
@@ -593,7 +594,7 @@ export default function AdsPage() {
                           <td className={styles.td}>
                             {c.campaign_name}
                           </td>
-                          <td className={styles.td}>{c.channel}</td>
+                          <td className={styles.td}>{channelLabel(c.channel)}</td>
                           <td className={styles.td}>
                             <span
                               className={`${styles.badge} ${statusBadgeClass(c.status)}`}

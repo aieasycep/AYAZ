@@ -172,9 +172,9 @@ function RecCard({ rec, onStatusChange }: RecCardProps) {
             {rec.category_label || CATEGORY_LABELS[rec.category] || rec.category}
           </span>
           <span className={`${styles.impactChip} ${impactClass(rec.impact)}`}>
-            {rec.impact_label}
+            Etki: {rec.impact_label}
           </span>
-          <span className={styles.effortChip}>{rec.effort_label}</span>
+          <span className={styles.effortChip}>Efor: {rec.effort_label}</span>
           {!isOpen && (
             <span
               className={`${styles.statusPill} ${statusPillClass(rec.status)}`}

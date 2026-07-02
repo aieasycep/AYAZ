@@ -54,12 +54,14 @@ function fmtDelta(pct: number | null): {
 
 // --- Delta badge ---
 
-function DeltaBadge({ pct }: { pct: number | null }) {
+function DeltaBadge({ pct, goodWhenDown }: { pct: number | null; goodWhenDown?: boolean }) {
   const { text, dir } = fmtDelta(pct);
+  // Maliyet metriklerinde artış kötüdür: renk yönü ters çevrilir (ok yönü kalır).
+  const effDir = goodWhenDown && dir !== 'neutral' ? (dir === 'up' ? 'down' : 'up') : dir;
   const cls =
-    dir === 'up'
+    effDir === 'up'
       ? styles.deltaUp
-      : dir === 'down'
+      : effDir === 'down'
       ? styles.deltaDown
       : styles.deltaNeutral;
   return <span className={`${styles.deltaBadge} ${cls}`}>{text}</span>;
@@ -71,10 +73,11 @@ interface KpiCardProps {
   label: string;
   value: string;
   delta: number | null;
+  goodWhenDown?: boolean;
   highlight?: boolean;
 }
 
-function KpiCard({ label, value, delta, highlight }: KpiCardProps) {
+function KpiCard({ label, value, delta, highlight, goodWhenDown }: KpiCardProps) {
   return (
     <div
       className={styles.kpiCard}
@@ -85,7 +88,7 @@ function KpiCard({ label, value, delta, highlight }: KpiCardProps) {
         {value}
       </div>
       <div className={styles.kpiDeltaRow}>
-        <DeltaBadge pct={delta} />
+        <DeltaBadge pct={delta} goodWhenDown={goodWhenDown} />
         <span className={styles.deltaLabel}>önceki döneme göre</span>
       </div>
     </div>
@@ -668,6 +671,7 @@ export default function CommandCenterPage() {
             <div className={styles.kpiGrid}>
               <KpiCard
                 label="Toplam Harcama"
+                goodWhenDown
                 value={fmtCurrency(data.kpis.spend)}
                 delta={data.kpis.deltas.spend_pct}
               />
@@ -684,7 +688,7 @@ export default function CommandCenterPage() {
               />
               <KpiCard
                 label="Dönüşüm"
-                value={fmtNumber(data.kpis.conversions)}
+                value={fmtNumber(Math.round(data.kpis.conversions))}
                 delta={data.kpis.deltas.conversions_pct}
               />
             </div>

@@ -1108,7 +1108,7 @@ function SourceDetailPanel({ source: initialSource, onSourceUpdated }: { source:
 
           <CookieConsentCard source={source} onSaved={handleSourceSaved} />
 
-          <SectionCard title="Hedefler (Destinations)">
+          <SectionCard title="Hedefler">
             {destLoading ? (
               <div className={styles.stateBoxSm}><span className={styles.muted}>Hedefler yükleniyor...</span></div>
             ) : destError ? (

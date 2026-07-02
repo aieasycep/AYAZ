@@ -358,7 +358,7 @@ export default function DashboardPage() {
               onClick={handleCsvExport}
               disabled={csvLoading}
             >
-              {csvLoading ? 'Indiriliyor...' : 'CSV Indir'}
+              {csvLoading ? 'İndiriliyor...' : 'CSV İndir'}
             </button>
             {csvError && (
               <span className={styles.csvError}>{csvError}</span>

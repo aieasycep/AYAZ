@@ -9,6 +9,7 @@ import {
 } from '@/lib/api';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
 import { parseApiError } from '@/lib/parseApiError';
+import { deltaIsGood } from '@/lib/channels';
 import styles from './TopMovers.module.css';
 
 // ---------------------------------------------------------------------------
@@ -99,10 +100,12 @@ function MoverRowItem({ mover, metric }: MoverRowProps) {
   const formattedPrevious = formatValue(metric, mover.previous);
   const pctStr = formatDeltaPct(mover.delta_pct);
 
+  // Renk, metriğin anlamına göre: harcama artışı kötü (kırmızı), diğerlerinde iyi.
+  const good = deltaIsGood(metric, mover.delta_pct);
   const badgeClass =
-    mover.delta_pct === null
+    good === null
       ? styles.deltaBadgeNeutral
-      : mover.direction === 'up'
+      : good
         ? styles.deltaBadgeUp
         : styles.deltaBadgeDown;
 

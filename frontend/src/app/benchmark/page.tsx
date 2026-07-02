@@ -422,7 +422,7 @@ export default function BenchmarkPage() {
                     <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>
                       ·
                     </span>
-                    <span className={`${styles.chip} ${styles.chipWeak}`}>
+                    <span className={`${styles.chip} ${data.summary_counts.weak === 0 ? styles.chipNeutral : styles.chipWeak}`}>
                       Zayıf {data.summary_counts.weak}
                     </span>
                   </div>

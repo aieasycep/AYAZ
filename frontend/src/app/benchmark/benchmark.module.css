@@ -98,6 +98,11 @@
   color: var(--color-warning-text);
 }
 
+.chipNeutral {
+  background: var(--color-surface-2, rgba(0,0,0,0.05));
+  color: var(--color-text-muted);
+}
+
 .chipWeak {
   background: var(--color-critical-bg);
   color: var(--color-critical-text);
@@ -274,9 +279,9 @@
   font-size: var(--text-sm);
   font-weight: var(--fw-semibold);
   color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  
+  
+  
 }
 
 .metricHint {

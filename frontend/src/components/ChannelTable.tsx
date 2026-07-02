@@ -1,6 +1,7 @@
 'use client';
 
 import type { ChannelRow } from '@/lib/api';
+import { channelLabel } from '@/lib/channels';
 import styles from './ChannelTable.module.css';
 
 interface ChannelTableProps {
@@ -76,7 +77,7 @@ export default function ChannelTable({ rows, loading, error }: ChannelTableProps
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.channel ?? i} className={styles.row}>
-              <td className={`${styles.td} ${styles.channelCell}`}>{row.channel}</td>
+              <td className={`${styles.td} ${styles.channelCell}`}>{channelLabel(row.channel)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtCurrency(row.spend)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtNum(row.impressions)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtNum(row.clicks)}</td>
