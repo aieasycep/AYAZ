@@ -167,7 +167,7 @@ class TemplateNarrator(InsightNarrator):
         )
         body = (
             f"{channel.replace('_', ' ').title()} kanalında tıklama oranı (CTR) "
-            f"önceki dönemin {prior}% seviyesinden {current}%'e geriledi ({pct} düşüş). "
+            f"önceki dönemin %{prior} seviyesinden %{current}'e geriledi ({pct} düşüş). "
             f"Reklam metinlerinin ve görsellerin eskimiş veya hedef kitleyle "
             f"uyumsuz hale gelmiş olması olası bir nedendir. "
             f"A/B testi ile yeni reklam varyantları oluşturmanızı, "

@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.analytics import DimCampaign, DimChannel, FactDailyMetrics
 from ayaz.services.metrics import compute_derived_metrics, effective_spend
+from ayaz.services.trformat import tr_pct, tr_roas, tr_tl
 from ayaz.services.insights import (
     DailyPoint,
     DetectorResult,
@@ -473,35 +474,35 @@ def _build_turkish_message(result: DetectorResult, campaign_name: str) -> str:
     data = result.data
 
     if category == "roas_drop":
-        pct = round(data.get("pct_drop", 0) * 100, 1)
-        current = round(data.get("current_roas", 0), 2)
+        pct = tr_pct(data.get("pct_drop", 0) * 100)
+        current = tr_roas(data.get("current_roas", 0))
         return (
-            f"'{campaign_name}' kampanyasında ROAS %{pct} düştü "
-            f"(şu an {current}x). Bütçeyi gözden geçirin veya kampanyayı duraklatın."
+            f"'{campaign_name}' kampanyasında ROAS {pct} düştü "
+            f"(şu an {current}). Bütçeyi gözden geçirin veya kampanyayı duraklatın."
         )
     if category == "spend_spike":
-        pct = round(data.get("pct_rise", 0) * 100, 1)
+        pct = tr_pct(data.get("pct_rise", 0) * 100)
         return (
-            f"'{campaign_name}' kampanyasında harcama %{pct} arttı. "
+            f"'{campaign_name}' kampanyasında harcama {pct} arttı. "
             "Bütçe limitinizi ve teklif stratejinizi kontrol edin."
         )
     if category == "zero_conversions":
-        spend = round(data.get("spend", 0), 2)
+        spend = tr_tl(data.get("spend", 0))
         return (
             f"'{campaign_name}' kampanyası {spend} harcama yaptı "
             "fakat hiç dönüşüm gerçekleşmedi. "
             "Piksel/dönüşüm izlemeyi ve açılış sayfasını kontrol edin."
         )
     if category == "ctr_drop":
-        pct = round(data.get("pct_drop", 0) * 100, 1)
+        pct = tr_pct(data.get("pct_drop", 0) * 100)
         return (
-            f"'{campaign_name}' kampanyasında tıklama oranı (CTR) %{pct} düştü. "
+            f"'{campaign_name}' kampanyasında tıklama oranı (CTR) {pct} düştü. "
             "Kreatifi ve hedeflemeyi yenileyin."
         )
     if category == "cpc_rise":
-        pct = round(data.get("pct_rise", 0) * 100, 1)
+        pct = tr_pct(data.get("pct_rise", 0) * 100)
         return (
-            f"'{campaign_name}' kampanyasında tıklama başına maliyet (CPC) %{pct} yükseldi. "
+            f"'{campaign_name}' kampanyasında tıklama başına maliyet (CPC) {pct} yükseldi. "
             "Teklif stratejinizi ve rekabeti gözden geçirin."
         )
     if category == "anomaly":

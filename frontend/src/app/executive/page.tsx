@@ -22,6 +22,7 @@ import {
   type ChannelRoi,
 } from '@/lib/executive-api';
 import { channelColor } from '@/lib/chartColors';
+import { channelLabel } from '@/lib/channels';
 import { parseApiError } from '@/lib/parseApiError';
 import styles from './executive.module.css';
 
@@ -330,7 +331,7 @@ function InsightsSection({ insights }: { insights: ExecInsight[] }) {
           <div className={styles.insightContent}>
             <div className={styles.insightTitle}>{ins.title}</div>
             {ins.channel && (
-              <div className={styles.insightChannel}>{ins.channel}</div>
+              <div className={styles.insightChannel}>{channelLabel(ins.channel)}</div>
             )}
           </div>
         </div>
