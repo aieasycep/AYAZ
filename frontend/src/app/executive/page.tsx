@@ -71,10 +71,19 @@ function DeltaBadge({ pct }: { pct: number | null }) {
 
 // --- Goal status badge ---
 
+// Aynı durum sözlüğü Hedefler ve Brifing ekranlarıyla aynı olmalı
+// (at_risk -> "Risk Altında"); backend anahtarları: on_track/at_risk/off_track.
 const GOAL_STATUS_LABELS: Record<string, string> = {
   on_track: 'Yolunda',
-  at_risk: 'Riskli',
-  behind: 'Geride',
+  at_risk: 'Risk Altında',
+  off_track: 'Geride',
+};
+
+const GOAL_METRIC_LABELS: Record<string, string> = {
+  roas: 'ROAS',
+  spend: 'Harcama',
+  conversions: 'Dönüşüm',
+  conversion_value: 'Dönüşüm Değeri',
 };
 
 function goalStatusClass(status: string): string {
@@ -83,7 +92,7 @@ function goalStatusClass(status: string): string {
       return styles.goalStatusOnTrack;
     case 'at_risk':
       return styles.goalStatusAtRisk;
-    case 'behind':
+    case 'off_track':
       return styles.goalStatusBehind;
     default:
       return styles.goalStatusDefault;
@@ -264,7 +273,7 @@ function GoalsSection({ goals }: { goals: ExecGoal[] }) {
           <div key={`${goal.name}-${idx}`} className={styles.goalRow}>
             <div style={{ flex: '1 1 120px', minWidth: 0 }}>
               <div className={styles.goalName}>{goal.name}</div>
-              <div className={styles.goalMetric}>{goal.metric}</div>
+              <div className={styles.goalMetric}>{GOAL_METRIC_LABELS[goal.metric] ?? goal.metric}</div>
             </div>
             <div className={styles.goalProgress}>
               <div className={styles.goalProgressTrack}>
@@ -278,7 +287,7 @@ function GoalsSection({ goals }: { goals: ExecGoal[] }) {
                   {fmtNumber(Math.round(goal.current_value))}
                 </span>
                 <span>
-                  %{clampedPct.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} / Hedef{' '}
+                  %{goal.pct_to_target.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} / Hedef{' '}
                   {fmtNumber(Math.round(goal.target_value))}
                 </span>
               </div>

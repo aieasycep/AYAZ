@@ -389,9 +389,10 @@ def _from_goals(db: Session, tenant_id: uuid.UUID, states: dict) -> list[dict]:
     try:
         result = _get_goal_progress(db, tenant_id)
         goals = result.get("goals", [])
+        # pct_to_target is a 0..1+ ratio from the goal service.
         at_risk = [
             g for g in goals
-            if g.get("status") in ("at_risk", "off_track") and (g.get("pct_to_target") or 0) < 100
+            if g.get("status") in ("at_risk", "off_track") and (g.get("pct_to_target") or 0) < 1.0
         ]
         if at_risk:
             key = "goal:behind_pace"
@@ -399,9 +400,12 @@ def _from_goals(db: Session, tenant_id: uuid.UUID, states: dict) -> list[dict]:
             if len(at_risk) > 3:
                 names += f" ve {len(at_risk) - 3} diğeri"
             best = at_risk[0]
-            pct = best.get("pct_to_target", 0) or 0
+            pct = ((best.get("pct_to_target", 0) or 0)) * 100
             target = best.get("target_value", 0) or 0
             current = best.get("current_value", 0) or 0
+            # Turkish thousands separator (dot) for the inline numbers.
+            cur_txt = f"{current:,.0f}".replace(",", ".")
+            tgt_txt = f"{target:,.0f}".replace(",", ".")
             recs.append(_rec(
                 key=key,
                 category="goal",
@@ -410,7 +414,7 @@ def _from_goals(db: Session, tenant_id: uuid.UUID, states: dict) -> list[dict]:
                 rationale=(
                     f"{len(at_risk)} hedef hedefin gerisinde: {names}. "
                     f"'{best['name']}': %{pct:.0f} tamamlandı "
-                    f"(mevcut {current:,.0f} / hedef {target:,.0f})."
+                    f"(mevcut {cur_txt} / hedef {tgt_txt})."
                 ),
                 impact="high",
                 effort="medium",

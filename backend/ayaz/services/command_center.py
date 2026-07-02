@@ -81,6 +81,16 @@ def _is_at_risk(goal: dict) -> bool:
     return status not in _ON_TRACK_STATUSES
 
 
+def _goal_with_pct(goal: dict) -> dict:
+    """Normalize a goal-service dict (0..1+ ratio) to the percent scale
+    ``_is_at_risk`` expects."""
+    try:
+        ratio = float(goal.get("pct_to_target") or 0)
+    except (TypeError, ValueError):
+        ratio = 0.0
+    return {**goal, "pct_to_target": ratio * 100}
+
+
 # ── Budget pacing helper ───────────────────────────────────────────────────────
 
 
@@ -183,7 +193,7 @@ def _build_attention(
 
     # ── 5. At-risk goals ──────────────────────────────────────────────────────
     goals_list = goals_data.get("goals") or []
-    at_risk_count = sum(1 for g in goals_list if _is_at_risk(g))
+    at_risk_count = sum(1 for g in goals_list if _is_at_risk(_goal_with_pct(g)))
     if at_risk_count > 0:
         items.append({
             "severity": "warning",
@@ -300,7 +310,7 @@ def _build_modules(
 
     # Goals
     goals_list = goals_data.get("goals") or []
-    at_risk_count = sum(1 for g in goals_list if _is_at_risk(g))
+    at_risk_count = sum(1 for g in goals_list if _is_at_risk(_goal_with_pct(g)))
     goals_block = {
         "total": len(goals_list),
         "at_risk": at_risk_count,

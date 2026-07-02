@@ -181,7 +181,9 @@ def build_overview(
             "metric": g["metric"],
             "current_value": g["current_value"],
             "target_value": g["target_value"],
-            "pct_to_target": g["pct_to_target"],
+            # Goal service returns a 0..1+ ratio; the executive payload exposes
+            # a 0-100+ percent so the UI can render bars/labels directly.
+            "pct_to_target": round((g["pct_to_target"] or 0) * 100, 1),
             "status": g["status"],
         }
         for g in raw_goals[:5]
