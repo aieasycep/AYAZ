@@ -65,14 +65,17 @@ class InsightNarrator(ABC):
 # ── Template narrator (deterministic, no network) ─────────────────────────────
 
 
+from ayaz.services.trformat import tr_num, tr_pct
+
+
 def _fmt_pct(fraction: float) -> str:
-    """Format a fraction as a percentage string, e.g. 0.25 -> '%25'."""
-    return f"%{fraction * 100:.1f}"
+    """Format a fraction as a Turkish percentage string, e.g. 0.25 -> '%25,0'."""
+    return tr_pct(fraction * 100)
 
 
 def _fmt_num(value: float, decimals: int = 2) -> str:
-    """Format a float with the given number of decimal places."""
-    return f"{value:.{decimals}f}"
+    """Format a float with Turkish separators (ondalık virgül)."""
+    return tr_num(value, decimals)
 
 
 class TemplateNarrator(InsightNarrator):
@@ -226,32 +229,32 @@ class TemplateNarrator(InsightNarrator):
             current = _fmt_num(data.get("current_roas", 0))
             prior = _fmt_num(data.get("prior_roas", 0))
             title = (
-                f"\U0001f389 {channel.replace('_', ' ').title()} kanalinda ROAS "
-                f"{pct} yukseldi"
+                f"\U0001f389 {channel.replace('_', ' ').title()} kanalında ROAS "
+                f"{pct} yükseldi"
             )
             body = (
-                f"{channel.replace('_', ' ').title()} kanalinda reklam harcama getirisi "
-                f"(ROAS) onceki doneme kiyasla {pct} oraninda artti "
-                f"(onceki: {prior}x, guncel: {current}x). "
-                f"Bu olumlu gelisme; kampanya optimizasyonlarinin, hedef kitle "
-                f"iyilestirmelerinin veya sezon etkisinin sonucu olabilir. "
-                f"Basarili stratejileri diger kanallara veya kampanyalara tasimayi "
-                f"degerlendiriniz ve bu performansi surdurmek icin butce artisini gozden geciriniz."
+                f"{channel.replace('_', ' ').title()} kanalında reklam harcama getirisi "
+                f"(ROAS) önceki döneme kıyasla {pct} oranında arttı "
+                f"(önceki: {prior}x, güncel: {current}x). "
+                f"Bu olumlu gelişme; kampanya optimizasyonlarının, hedef kitle "
+                f"iyileştirmelerinin veya sezon etkisinin sonucu olabilir. "
+                f"Başarılı stratejileri diğer kanallara veya kampanyalara taşımayı "
+                f"değerlendirin ve bu performansı sürdürmek için bütçe artışını gözden geçirin."
             )
         else:
             current = _fmt_num(data.get("current_conversions", 0), decimals=0)
             prior = _fmt_num(data.get("prior_conversions", 0), decimals=0)
             title = (
-                f"\U0001f389 {channel.replace('_', ' ').title()} kanalinda "
-                f"donusumler {pct} yukseldi"
+                f"\U0001f389 {channel.replace('_', ' ').title()} kanalında "
+                f"dönüşümler {pct} yükseldi"
             )
             body = (
-                f"{channel.replace('_', ' ').title()} kanalinda donusum sayisi "
-                f"onceki doneme kiyasla {pct} artti "
-                f"(onceki: {prior}, guncel: {current}). "
-                f"Bu hafta donusumler belirgin sekilde yukseldi — bu olumlu ivmeyi "
-                f"korumak icin yuksek performansli reklam gruplarinin butcesini "
-                f"artirmayi degerlendiriniz."
+                f"{channel.replace('_', ' ').title()} kanalında dönüşüm sayısı "
+                f"önceki döneme kıyasla {pct} arttı "
+                f"(önceki: {prior}, güncel: {current}). "
+                f"Bu hafta dönüşümler belirgin şekilde yükseldi — bu olumlu ivmeyi "
+                f"korumak için yüksek performanslı reklam gruplarının bütçesini "
+                f"artırmayı değerlendirin."
             )
         return title, body
 

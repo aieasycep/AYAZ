@@ -264,6 +264,9 @@ def _goals_status(
 # ── Headline narrators ────────────────────────────────────────────────────────
 
 
+from ayaz.services.trformat import tr_pct, tr_roas, tr_tl
+
+
 def _build_deterministic_headline(
     performance_delta: dict,
     top_insights: list[dict],
@@ -295,7 +298,7 @@ def _build_deterministic_headline(
             campaign = top_recommendation.get("campaign_name", "")
             rec_part = f" En kritik kampanya: '{campaign}'. Öneri: {action}."
         return (
-            f"Dun ROAS %{drop_display} dustu (simdiki: {round(yest_roas, 2)}x)."
+            f"Dün ROAS {tr_pct(drop_display)} düştü (şimdiki: {tr_roas(yest_roas)})."
             f"{rec_part}"
         )
 
@@ -303,8 +306,8 @@ def _build_deterministic_headline(
     if spend_pct >= 0.20:
         spike_display = round(spend_pct * 100, 1)
         return (
-            f"Dun harcama %{spike_display} artti "
-            f"(toplam: {round(yest_spend, 2)}). Butce sinirlari kontrol edilmeli."
+            f"Dün harcama {tr_pct(spike_display)} arttı "
+            f"(toplam: {tr_tl(yest_spend)}). Bütçe sınırları kontrol edilmeli."
         )
 
     # 3. Critical insight
@@ -322,8 +325,8 @@ def _build_deterministic_headline(
         name = off_track.get("name", "hedef")
         pct = round(off_track.get("pct_to_target", 0) * 100, 1)
         return (
-            f"'{name}' hedefinin %{pct}'ine ulasildi — hedefe yetismek icin"
-            f" hizlanmak gerekiyor."
+            f"'{name}' hedefinde ilerleme {tr_pct(pct)} — hedefe yetişmek için"
+            f" hızlanmak gerekiyor."
         )
 
     # 5. Fallback: generic positive/neutral summary
@@ -331,18 +334,18 @@ def _build_deterministic_headline(
         roas_display = round(abs(roas_pct * 100), 1)
         if roas_pct > 0:
             return (
-                f"Dun performans istikrardi: ROAS %{roas_display} yukseldi"
-                f" ({round(yest_roas, 2)}x). Devam edin!"
+                f"Dün performans istikrarlıydı: ROAS {tr_pct(roas_display)} yükseldi"
+                f" ({tr_roas(yest_roas)}). Devam edin!"
             )
         return (
-            f"Dun performans: ROAS {round(yest_roas, 2)}x, "
-            f"harcama {round(yest_spend, 2)}. Dikkat gerektiren sinyal yok."
+            f"Dün performans: ROAS {tr_roas(yest_roas)}, "
+            f"harcama {tr_tl(yest_spend)}. Dikkat gerektiren sinyal yok."
         )
 
     drop_display = abs(round(roas_pct * 100, 1))
     return (
-        f"Dun ROAS %{drop_display} geriledi ({round(yest_roas, 2)}x); "
-        f"kampanya ayarlarinizi gozden gecirin."
+        f"Dün ROAS {tr_pct(drop_display)} geriledi ({tr_roas(yest_roas)}); "
+        f"kampanya ayarlarınızı gözden geçirin."
     )
 
 

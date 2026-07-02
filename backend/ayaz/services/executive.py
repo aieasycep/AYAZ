@@ -254,6 +254,9 @@ def _strongest_channel_label(channels: list[dict]) -> str:
     return str(best["label"])
 
 
+from ayaz.services.trformat import tr_pct, tr_roas, tr_tl
+
+
 def _build_headline(
     *,
     date_from: date,
@@ -272,9 +275,9 @@ def _build_headline(
 
     num_days = (date_to - date_from).days + 1
 
-    spend_str = f"₺{curr['spend']:,.0f}"
-    revenue_str = f"₺{curr['revenue']:,.0f}"
-    roas_str = f"{curr['roas']:.2f}x"
+    spend_str = tr_tl(curr["spend"])
+    revenue_str = tr_tl(curr["revenue"])
+    roas_str = tr_roas(curr["roas"])
 
     # "En güçlü kanal" is a performance claim -> rank by ROAS, not spend, so
     # it never contradicts a ROAS-sorted ROI table elsewhere in the UI.
@@ -286,7 +289,7 @@ def _build_headline(
         direction = "arttı" if roas_pct >= 0 else "azaldı"
         abs_pct = abs(roas_pct)
         mom_clause = (
-            f" ROAS geçen döneme göre %{abs_pct:.1f} {direction}."
+            f" ROAS geçen döneme göre {tr_pct(abs_pct)} {direction}."
         )
     else:
         mom_clause = ""
