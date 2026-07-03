@@ -494,7 +494,7 @@ export default function AdsPage() {
                 <option value="">Tüm Kanallar</option>
                 {allChannels.map((ch) => (
                   <option key={ch} value={ch}>
-                    {ch}
+                    {channelLabel(ch)}
                   </option>
                 ))}
               </select>

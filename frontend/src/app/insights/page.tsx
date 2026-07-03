@@ -553,7 +553,7 @@ export default function InsightsPage() {
                     baslik: ins.title,
                     aciklama: ins.body,
                     metrik: ins.metric ?? '',
-                    kanal: ins.channel ?? '',
+                    kanal: channelLabel(ins.channel),
                     varlik: ins.entity_name ?? '',
                     donem_baslangic: fmtDate(ins.period_start),
                     donem_bitis: fmtDate(ins.period_end),

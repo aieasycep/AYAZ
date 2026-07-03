@@ -46,6 +46,7 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.copilot import Conversation, Message
 from ayaz.services.copilot_tools import TOOL_SPECS, build_tenant_tool_specs, dispatch
+from ayaz.services.channels import channel_label
 from ayaz.services.trformat import tr_int, tr_pct, tr_roas, tr_tl
 
 logger = logging.getLogger(__name__)
@@ -180,7 +181,7 @@ def _summarise_performance(result: dict) -> str:
         top = sorted(by_channel, key=lambda c: c.get("spend", 0), reverse=True)
         top_ch = top[0]
         lines.append(
-            f"En yüksek harcama kanalı: {top_ch['channel']} "
+            f"En yüksek harcama kanalı: {channel_label(top_ch['channel'])} "
             f"({tr_tl(top_ch['spend'], 2)} harcama, {tr_roas(top_ch['roas'])} ROAS)."
         )
     return " ".join(lines)
@@ -194,7 +195,7 @@ def _summarise_campaigns(result: dict) -> str:
     return (
         f"Toplam {len(campaigns)} kampanya bulunuyor. "
         f"En yüksek harcamalı kampanya: '{top['campaign_name']}' "
-        f"({top['channel']}, harcama: {tr_tl(top['spend'], 2)}, "
+        f"({channel_label(top['channel'])}, harcama: {tr_tl(top['spend'], 2)}, "
         f"ROAS: {tr_roas(top['roas'])}, dönüşüm: {tr_int(top['conversions'])})."
     )
 
@@ -215,7 +216,7 @@ def _summarise_insights(result: dict) -> str:
         return "Şu an aktif içgörü bulunamadı."
     lines = [f"Son {len(insights)} içgörü:"]
     for ins in insights[:3]:
-        lines.append(f"• [{ins['severity'].upper()}] {ins['title']} ({ins['channel'] or 'genel'}).")
+        lines.append(f"• [{ins['severity'].upper()}] {ins['title']} ({channel_label(ins['channel'])}).")
     return " ".join(lines)
 
 
@@ -309,8 +310,8 @@ def _summarise_executive(result: dict) -> str:
     if not kpis:
         return "Bu dönemde yeterli veri yok."
     return (
-        f"Son 30 gün: harcama {kpis.get('spend', 0):,.0f}, "
-        f"gelir {kpis.get('revenue', 0):,.0f}, ROAS {kpis.get('roas', 0)}x."
+        f"Son 30 gün: harcama {tr_tl(kpis.get('spend', 0))}, "
+        f"gelir {tr_tl(kpis.get('revenue', 0))}, ROAS {tr_roas(float(kpis.get('roas', 0) or 0))}."
     )
 
 

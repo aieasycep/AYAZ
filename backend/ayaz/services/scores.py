@@ -75,6 +75,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from ayaz.services.trformat import tr_num, tr_pct, tr_roas
+
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 # Sensitivity: how much relative change maps to full score swing.
@@ -204,18 +206,18 @@ def _score_efficiency(curr: dict[str, float], base: dict[str, float]) -> dict:
         roas_pct = _fmt_pct(roas_ratio)
         cpa_pct = _fmt_pct(cpa_inv_ratio)  # cpa_inv_ratio > 1 means CPA went DOWN
         basis = (
-            f"ROAS {curr_roas:.2f}x · önceki dönem {base_roas:.2f}x ({roas_pct}) · "
-            f"CPA {curr_cpa:.2f} · önceki {base_cpa:.2f} ({cpa_pct})"
+            f"ROAS {tr_roas(curr_roas)} · önceki dönem {tr_roas(base_roas)} ({roas_pct}) · "
+            f"CPA {tr_num(curr_cpa)} · önceki {tr_num(base_cpa)} ({cpa_pct})"
         )
     elif has_roas:
         combined_ratio = roas_ratio
         basis = (
-            f"ROAS {curr_roas:.2f}x · önceki dönem {base_roas:.2f}x ({_fmt_pct(roas_ratio)})"
+            f"ROAS {tr_roas(curr_roas)} · önceki dönem {tr_roas(base_roas)} ({_fmt_pct(roas_ratio)})"
         )
     else:
         combined_ratio = cpa_inv_ratio
         basis = (
-            f"CPA {curr_cpa:.2f} · önceki dönem {base_cpa:.2f} ({_fmt_pct(cpa_inv_ratio)})"
+            f"CPA {tr_num(curr_cpa)} · önceki dönem {tr_num(base_cpa)} ({_fmt_pct(cpa_inv_ratio)})"
         )
 
     score = _ratio_to_score(combined_ratio)
@@ -251,7 +253,7 @@ def _score_engagement(curr: dict[str, float], base: dict[str, float]) -> dict:
     ratio = curr_ctr / base_ctr
     score = _ratio_to_score(ratio)
     basis = (
-        f"CTR {curr_ctr * 100:.2f}% · önceki dönem {base_ctr * 100:.2f}% ({_fmt_pct(ratio)})"
+        f"CTR {tr_pct(curr_ctr * 100, 2)} · önceki dönem {tr_pct(base_ctr * 100, 2)} ({_fmt_pct(ratio)})"
     )
     return {
         "key": "engagement",
@@ -295,8 +297,8 @@ def _score_conversion(curr: dict[str, float], base: dict[str, float]) -> dict:
     ratio = curr_cvr / base_cvr
     score = _ratio_to_score(ratio)
     basis = (
-        f"Dönüşüm oranı {curr_cvr * 100:.2f}% · "
-        f"önceki dönem {base_cvr * 100:.2f}% ({_fmt_pct(ratio)})"
+        f"Dönüşüm oranı {tr_pct(curr_cvr * 100, 2)} · "
+        f"önceki dönem {tr_pct(base_cvr * 100, 2)} ({_fmt_pct(ratio)})"
     )
     return {
         "key": "conversion",

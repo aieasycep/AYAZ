@@ -53,7 +53,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from ayaz.services.trformat import tr_int, tr_roas, tr_tl
+from ayaz.services.trformat import tr_int, tr_pct, tr_roas, tr_tl
 
 log = logging.getLogger(__name__)
 
@@ -323,12 +323,12 @@ def _from_benchmark(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date
                     category_label="Sektör Kıyaslaması",
                     title="ROAS sektör ortalamasının altında",
                     rationale=(
-                        f"Hesap genelinde ROAS {roas_val:.2f}x — sektör referansının "
-                        f"alt sınırı {ref_low:.1f}x. Reklam optimizasyonu önerilir."
+                        f"Hesap genelinde ROAS {tr_roas(roas_val)} — sektör referansının "
+                        f"alt sınırı {tr_roas(ref_low)}. Reklam optimizasyonu önerilir."
                     ),
                     impact="medium",
                     effort="medium",
-                    metric={"label": "ROAS", "value": f"{roas_val:.2f}x"},
+                    metric={"label": "ROAS", "value": tr_roas(roas_val)},
                     action_label="Kıyaslama raporunu aç",
                     action_href="/benchmark",
                     state=states.get(key),
@@ -343,8 +343,8 @@ def _from_benchmark(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date
                     category_label="Sektör Kıyaslaması",
                     title="Tıklama oranı (TO) sektör ortalamasının altında",
                     rationale=(
-                        f"Hesap genelinde CTR %{ctr_val:.2f} — sektör referansının "
-                        f"alt sınırı %{ref_low:.1f}. Kreatif yenilenmesi önerilir."
+                        f"Hesap genelinde CTR {tr_pct(ctr_val, 2)} — sektör referansının "
+                        f"alt sınırı {tr_pct(ref_low, 1)}. Kreatif yenilenmesi önerilir."
                     ),
                     impact="medium",
                     effort="medium",
