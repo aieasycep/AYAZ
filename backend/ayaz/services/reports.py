@@ -47,6 +47,7 @@ from sqlalchemy.orm import Session
 from ayaz.models.analytics import DimChannel, FactDailyMetrics
 from ayaz.models.reports import ReportDefinition, ReportSchedule
 from ayaz.services.metrics import compute_derived_metrics
+from ayaz.services.trformat import tr_num, tr_pct
 
 logger = logging.getLogger(__name__)
 
@@ -369,8 +370,12 @@ _SEVERITY_BADGE = {
 
 
 def _fmt(value: float, decimals: int = 2) -> str:
-    """Format a float to a fixed number of decimal places."""
-    return f"{value:,.{decimals}f}"
+    """Format a float with Turkish separators (binlik=nokta, ondalık=virgül).
+
+    The white-label report is customer-facing (HTML/PDF), so numbers must
+    follow TR convention — ``398.123,50`` not the EN ``398,123.50``.
+    """
+    return tr_num(value, decimals)
 
 
 def _esc(text: str) -> str:
@@ -481,7 +486,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
             ("Tiklama", _fmt(totals.get("clicks", 0), 0)),
             ("Donusum", _fmt(totals.get("conversions", 0), 0)),
             ("Donusum Degeri", _fmt(totals.get("conversion_value", 0))),
-            ("CTR", f"{totals.get('ctr', 0) * 100:.2f}%"),
+            ("CTR", tr_pct(totals.get("ctr", 0) * 100, 2)),
             ("CPC", _fmt(totals.get("cpc", 0))),
             ("CPA", _fmt(totals.get("cpa", 0))),
             ("ROAS", _fmt(totals.get("roas", 0))),
@@ -529,7 +534,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
                 f"background:{bg};padding:9px 12px;"
                 f"font-size:13px;border-bottom:1px solid #eee;"
             )
-            ctr_pct = "{:.2f}%".format(ch.get("ctr", 0) * 100)
+            ctr_pct = tr_pct(ch.get("ctr", 0) * 100, 2)
             cells = [
                 f"<td style='{td}'><strong>{_esc(ch['channel'])}</strong></td>",
                 f"<td style='{td}'>{_esc(_fmt(ch.get('spend', 0)))}</td>",

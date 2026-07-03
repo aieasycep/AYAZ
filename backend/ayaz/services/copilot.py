@@ -325,7 +325,7 @@ def _summarise_funnel(result: dict) -> str:
         return "Dönüşüm hunisi için henüz yeterli veri bulunamadı."
 
     parts = [
-        f"Dönüşüm hunisi: {entry_count:,} giriş → {final_count:,} satın alma "
+        f"Dönüşüm hunisi: {tr_int(entry_count)} giriş → {tr_int(final_count)} satın alma "
         f"({tr_pct(overall_pct)} genel dönüşüm)."
     ]
     if biggest_dropoff:
@@ -360,7 +360,7 @@ def _summarise_consent(result: dict) -> str:
         f"uyum skoru {score}/100 ({grade_tr})."
     ]
     if skipped:
-        parts.append(f"{skipped:,} olay rıza olmadığı için iletilmedi.")
+        parts.append(f"{tr_int(skipped)} olay rıza olmadığı için iletilmedi.")
     return " ".join(parts)
 
 
@@ -1096,7 +1096,7 @@ def _short_summary(tool_name: str, result: dict) -> str:
         return f"Hata: {result['error']}"
     if tool_name == "get_performance_summary":
         spend = result.get("totals", {}).get("spend", 0)
-        return f"Toplam harcama: {spend:,.2f}"
+        return f"Toplam harcama: {tr_tl(spend, 2)}"
     if tool_name == "get_timeseries":
         pts = result.get("points", [])
         return f"{result.get('metric', '?')} için {len(pts)} günlük veri"
