@@ -271,7 +271,11 @@ def _build_recommendation(
     over_display = _tr_pct(max(0.0, pct - 100.0))
 
     # Spend goals are budget targets: exceeding the target is an overrun.
-    if metric == "spend" and pct_to_target > 1.0:
+    # The strong warning uses the same tolerance band as _classify_status
+    # (SPEND_AT_RISK_OVERRUN) so the badge and the message never contradict:
+    # a ≤5 % realized overrun keeps the goal on_track, and alarming copy next
+    # to a green "Yolunda" badge would read as a bug.
+    if metric == "spend" and pct_to_target > SPEND_AT_RISK_OVERRUN:
         if days_remaining <= 0:
             return (
                 f"Dönem sona erdi. Bütçe %{over_display} aşıldı "

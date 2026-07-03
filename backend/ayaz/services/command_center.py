@@ -76,7 +76,10 @@ def _is_at_risk(goal: dict) -> bool:
         pct_float = float(pct) if pct is not None else 0.0
     except (TypeError, ValueError):
         pct_float = 0.0
-    if pct_float >= 100:
+    # ">= 100 means achieved" only holds for growth goals. Spend goals are
+    # budgets: a realized 120 % is exactly the risk, so the shortcut must not
+    # swallow them.
+    if pct_float >= 100 and (goal.get("metric") or "") != "spend":
         return False
     return status not in _ON_TRACK_STATUSES
 

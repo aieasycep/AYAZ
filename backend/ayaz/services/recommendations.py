@@ -391,11 +391,55 @@ def _from_goals(db: Session, tenant_id: uuid.UUID, states: dict) -> list[dict]:
     try:
         result = _get_goal_progress(db, tenant_id)
         goals = result.get("goals", [])
-        # pct_to_target is a 0..1+ ratio from the goal service.
-        at_risk = [
-            g for g in goals
-            if g.get("status") in ("at_risk", "off_track") and (g.get("pct_to_target") or 0) < 1.0
+
+        # pct_to_target is a 0..1+ ratio from the goal service. Spend goals
+        # flagged for OVERRUN pacing must not land in the "behind" card —
+        # "hedefin gerisinde / hızlan" would be the opposite of the right
+        # advice. They get their own budget-overrun recommendation below.
+        def _spend_overrun(g: dict) -> bool:
+            if g.get("metric") != "spend":
+                return False
+            target = g.get("target_value") or 0
+            forecast = g.get("forecast_value") or 0
+            return bool(target) and (forecast / target) > 1.05
+
+        flagged = [
+            g for g in goals if g.get("status") in ("at_risk", "off_track")
         ]
+        overrun = [g for g in flagged if _spend_overrun(g)]
+        at_risk = [
+            g for g in flagged
+            if not _spend_overrun(g) and (g.get("pct_to_target") or 0) < 1.0
+        ]
+
+        if overrun:
+            key = "goal:budget_overrun"
+            names = ", ".join(f"'{g['name']}'" for g in overrun[:3])
+            if len(overrun) > 3:
+                names += f" ve {len(overrun) - 3} diğeri"
+            worst = overrun[0]
+            w_target = worst.get("target_value", 0) or 0
+            w_forecast = worst.get("forecast_value", 0) or 0
+            over_pct = (w_forecast / w_target * 100 - 100) if w_target else 0
+            recs.append(_rec(
+                key=key,
+                category="goal",
+                category_label="Hedefler",
+                title="Bütçe hedefi aşım riskinde",
+                rationale=(
+                    f"{len(overrun)} bütçe hedefi aşım temposunda: {names}. "
+                    f"'{worst['name']}': bu hızla dönem sonunda hedef "
+                    f"%{over_pct:.0f} aşılacak (tahmin {tr_tl(w_forecast)} / "
+                    f"hedef {tr_tl(w_target)}). Harcama hızını düşürün."
+                ),
+                impact="high",
+                effort="medium",
+                metric={"label": "Tahmini Aşım", "value": f"%{over_pct:.0f}"},
+                action_label="Hedefleri incele",
+                action_href="/goals",
+                state=states.get(key),
+            ))
+
         if at_risk:
             key = "goal:behind_pace"
             names = ", ".join(f"'{g['name']}'" for g in at_risk[:3])

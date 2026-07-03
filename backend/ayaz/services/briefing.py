@@ -324,6 +324,22 @@ def _build_deterministic_headline(
     if off_track:
         name = off_track.get("name", "hedef")
         pct = round(off_track.get("pct_to_target", 0) * 100, 1)
+        # Spend goals are budgets: off_track can mean overrun pacing, and the
+        # right advice is slowing down — never "speed up to catch the target".
+        if off_track.get("metric") == "spend":
+            target = off_track.get("target_value", 0) or 0
+            forecast = off_track.get("forecast_value", 0) or 0
+            ratio = (forecast / target) if target else 0.0
+            if ratio > 1.0:
+                over_display = round((ratio - 1.0) * 100, 1)
+                return (
+                    f"'{name}' bütçe hedefi aşım riskinde — bu hızla dönem sonunda"
+                    f" hedef {tr_pct(over_display)} aşılacak. Harcama hızını düşürün."
+                )
+            return (
+                f"'{name}' bütçe hedefinde kullanım geride (tamamlanan: {tr_pct(pct)})"
+                f" — bütçe planını gözden geçirin."
+            )
         return (
             f"'{name}' hedefinde ilerleme {tr_pct(pct)} — hedefe yetişmek için"
             f" hızlanmak gerekiyor."
