@@ -367,12 +367,12 @@ def _from_benchmark(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date
                     category_label="Sektör Kıyaslaması",
                     title=f"{ch_label} ROAS'ı sektör ortalamasının altında",
                     rationale=(
-                        f"{ch_label} kanalının ROAS'ı {ch_roas:.2f}x — sektör "
+                        f"{ch_label} kanalının ROAS'ı {tr_roas(ch_roas)} — sektör "
                         "referans alt sınırının (2.0x) altında. Kanal optimizasyonu önerilir."
                     ),
                     impact="medium",
                     effort="medium",
-                    metric={"label": f"{ch_label} ROAS", "value": f"{ch_roas:.2f}x"},
+                    metric={"label": f"{ch_label} ROAS", "value": tr_roas(ch_roas)},
                     action_label="Kıyaslama raporunu aç",
                     action_href="/benchmark",
                     state=states.get(key),
@@ -849,8 +849,8 @@ class _ClaudeStrategyGenerator:
         prompt = (
             f"Bir dijital pazarlama platformunun haftalık Türkçe strateji özetini yaz. "
             f"Referans haftası: {_week_label(ref)}. "
-            f"Son 30 gün KPI'ları: harcama=₺{kpis.get('spend', 0):,.0f}, "
-            f"ROAS={kpis.get('roas', 0):.2f}x, dönüşüm={kpis.get('conversions', 0):,.0f}. "
+            f"Son 30 gün KPI'ları: harcama={tr_tl(kpis.get('spend', 0))}, "
+            f"ROAS={tr_roas(float(kpis.get('roas', 0) or 0))}, dönüşüm={tr_int(kpis.get('conversions', 0))}. "
             f"Açık öneri sayısı: {summary.get('open', 0)} (yüksek etkili: {summary.get('high_impact_open', 0)}). "
             f"En kritik öneriler: {json.dumps([{'title': r['title'], 'category': r['category_label'], 'impact': r['impact']} for r in open_recs[:3]], ensure_ascii=False)}. "
             "Şu alanları Türkçe ve doğal bir dille doldurarak JSON formatında yanıtla: "

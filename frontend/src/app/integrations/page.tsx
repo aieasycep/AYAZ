@@ -795,7 +795,7 @@ export default function IntegrationsPage() {
                   {connectedCount}/{totalCount}
                 </span>
               </span>
-              <span className={styles.progressCount}>{pct}%</span>
+              <span className={styles.progressCount}>%{pct}</span>
             </div>
             <div className={styles.progressTrack}>
               <div className={styles.progressFill} style={{ width: `${pct}%` }} />

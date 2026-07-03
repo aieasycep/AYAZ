@@ -37,6 +37,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ayaz.models.notifications import Notification
+from ayaz.services.trformat import tr_pct
 from ayaz.models.oltp import ConnectedAccount, SyncStatus
 from ayaz.services.billing import PLANS, entitlements
 
@@ -298,7 +299,7 @@ def check_and_notify(
         if not _recent_notif_exists(db, tenant_id, ref, notify_window_hours):
             used = report.data_sources_used
             mx = report.data_sources_max
-            pct_str = f"{report.data_sources_pct:.0f}%" if report.data_sources_pct is not None else ""
+            pct_str = tr_pct(report.data_sources_pct, 0) if report.data_sources_pct is not None else ""
             _create_notif(
                 db,
                 tenant_id=tenant_id,
