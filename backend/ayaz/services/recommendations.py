@@ -53,6 +53,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from ayaz.services.trformat import tr_int, tr_roas, tr_tl
+
 log = logging.getLogger(__name__)
 
 # ── Turkish month name map ─────────────────────────────────────────────────────
@@ -263,7 +265,7 @@ def _from_budget(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date | 
                 rationale=(
                     f"Bütçenin %{overall_pace:.0f}'i harcandı ancak ayın yalnızca "
                     f"%{time_pace:.0f}'i geçti. Gerçekleşen harcama "
-                    f"₺{actual_spend:,.0f} / Planlanan ₺{planned_total:,.0f}. "
+                    f"{tr_tl(actual_spend)} / Planlanan {tr_tl(planned_total)}. "
                     "Bütçe erken tükenebilir."
                 ),
                 impact="high",
@@ -283,7 +285,7 @@ def _from_budget(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date | 
                 rationale=(
                     f"Ayın %{time_pace:.0f}'i geçmesine rağmen bütçenin yalnızca "
                     f"%{overall_pace:.0f}'i kullanıldı. Gerçekleşen harcama "
-                    f"₺{actual_spend:,.0f} / Planlanan ₺{planned_total:,.0f}. "
+                    f"{tr_tl(actual_spend)} / Planlanan {tr_tl(planned_total)}. "
                     "Bütçe tam kullanılmayabilir."
                 ),
                 impact="medium",
@@ -707,8 +709,8 @@ def _template_strategy(
 
     if spend > 0:
         narrative = (
-            f"Son 30 günde toplam ₺{spend:,.0f} harcama ile {conversions:,.0f} dönüşüm "
-            f"sağlandı; ortalama ROAS {roas:.2f}x olarak gerçekleşti. "
+            f"Son 30 günde toplam {tr_tl(spend)} harcama ile {tr_int(conversions)} dönüşüm "
+            f"sağlandı; ortalama ROAS {tr_roas(roas)} olarak gerçekleşti. "
         )
     else:
         narrative = "Reklam performans verisi henüz oluşmamış. "

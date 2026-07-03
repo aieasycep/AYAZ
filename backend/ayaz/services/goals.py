@@ -283,6 +283,22 @@ def _build_recommendation(
             f"Günlük harcama hızını düşürün veya bütçe hedefini güncelleyin."
         )
 
+    # Mid-period pacing overrun: the realized total is still under target but
+    # the forecast says the budget will blow past it. Without this branch the
+    # goal lands in the generic "you're behind, spend more" message below —
+    # the exact opposite of the right advice for a budget at overrun risk.
+    if (
+        metric == "spend"
+        and target_value > 0.0
+        and forecast_value / target_value > SPEND_AT_RISK_OVERRUN
+    ):
+        forecast_over = _tr_pct(max(0.0, forecast_value / target_value * 100.0 - 100.0))
+        return (
+            f"Bu hızla dönem sonunda bütçe %{forecast_over} aşılacak "
+            f"(tahmin: {_tr_num(forecast_value, 0)}, hedef: {_tr_num(target_value, 0)}). "
+            f"Günlük harcama hızını düşürün veya bütçe hedefini güncelleyin."
+        )
+
     if status == "on_track":
         if metric == "spend":
             return f"Bütçe hedefiyle uyumlu ilerliyor (kullanılan: %{_tr_pct(pct)})."

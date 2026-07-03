@@ -264,7 +264,7 @@ def _summarise_budget(result: dict) -> str:
     }.get(result.get("objective", ""), result.get("objective", ""))
     parts = [
         f"En güncel plan: '{result.get('name')}' ({result.get('period_month')}), "
-        f"toplam {result.get('total_budget', 0):,.0f} {result.get('currency', 'TRY')}, "
+        f"toplam {tr_int(result.get('total_budget', 0))} {result.get('currency', 'TRY')}, "
         f"{obj_label} dağılım."
     ]
     top = result.get("top_platforms", [])
@@ -278,8 +278,8 @@ def _summarise_budget(result: dict) -> str:
     proj = result.get("projection", {})
     if proj.get("expected_revenue"):
         parts.append(
-            f"Beklenen gelir: {proj['expected_revenue']:,.0f}, "
-            f"ROAS: {proj.get('expected_roas', 0)}x."
+            f"Beklenen gelir: {tr_int(proj['expected_revenue'])}, "
+            f"ROAS: {tr_roas(float(proj.get('expected_roas', 0) or 0))}."
         )
     return " ".join(parts)
 
