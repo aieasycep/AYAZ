@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
+import { channelLabel } from '@/lib/channels';
 import {
   getInsights,
   patchInsight,
@@ -676,7 +677,7 @@ export default function InsightsPage() {
                         <span className={styles.metaChip}>{ins.metric}</span>
                       )}
                       {ins.channel && (
-                        <span className={styles.metaChip}>{ins.channel}</span>
+                        <span className={styles.metaChip}>{channelLabel(ins.channel)}</span>
                       )}
                       {ins.entity_name && (
                         <span className={styles.metaChip}>

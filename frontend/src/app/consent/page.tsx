@@ -157,7 +157,7 @@ function SignalCard({ signal }: { signal: ConsentSignal }) {
   return (
     <div className={styles.signalCard}>
       <div className={styles.signalLabel}>{signal.label}</div>
-      <div className={styles.signalRate}>{signal.grant_rate_pct.toFixed(1)}%</div>
+      <div className={styles.signalRate}>%{signal.grant_rate_pct.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
       <div className={styles.progressTrack}>
         <div
           className={progressFillClass(signal.grant_rate_pct)}
@@ -522,7 +522,7 @@ export default function ConsentPage() {
                 >
                   <div className={styles.heroStatLabel}>Rıza Oranı</div>
                   <div className={styles.heroStatValue}>
-                    {data.summary.consent_rate_pct.toFixed(1)}%
+                    %{data.summary.consent_rate_pct.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                   </div>
                   <div className={styles.progressTrack}>
                     <div

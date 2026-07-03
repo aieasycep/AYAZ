@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
+import { channelLabel } from '@/lib/channels';
 import {
   getContentPosts,
   createContentPost,
@@ -864,7 +865,7 @@ function CreativePickerModal({ onClose, onCreated }: CreativePickerProps) {
                 <div className={styles.creativeInfo}>
                   <span className={styles.creativeName}>{ad.ad_name}</span>
                   <span className={styles.creativeMeta}>
-                    {ad.channel} · ROAS {ad.roas.toFixed(2)}x
+                    {channelLabel(ad.channel)} · ROAS {ad.roas.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x
                   </span>
                 </div>
                 <button

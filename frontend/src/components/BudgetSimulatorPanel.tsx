@@ -538,12 +538,11 @@ export default function BudgetSimulatorPanel() {
                   <tbody>
                     {simResult.channels.map((ch) => {
                       const deltaPct = ch.spend_delta_pct;
-                      const deltaClass =
-                        deltaPct > 0
-                          ? styles.deltaPositive
-                          : deltaPct < 0
-                          ? styles.deltaNegativeText
-                          : '';
+                      // "Baz Farkı" kullanıcının kendi senaryo girdisidir
+                      // (bütçeyi bilinçli kaydırıyor) — harcama artışı "iyi/kötü"
+                      // değil; yön zaten +/- işaretinde görünüyor. Yeşil/kırmızı
+                      // yerine nötr ton (Harcama KPI kartıyla tutarlı).
+                      const deltaClass = '';
                       return (
                         <tr key={ch.key}>
                           <td>
