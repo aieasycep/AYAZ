@@ -615,6 +615,26 @@ class TestBuildOverview:
         assert goal["target_value"] == pytest.approx(3.5)
         assert "status" in goal
 
+    def test_goal_pct_to_target_is_percent_scaled(self, db_session: Session) -> None:
+        """Executive exposes pct_to_target on the 0-100+ PERCENT scale — the goal
+        service's 0..1+ ratio multiplied by 100. Locks the ratio→percent
+        conversion so the CMO progress bars never regress to the ~0% bug."""
+        from ayaz.services.copilot_tools import _get_goal_progress
+
+        tenant = _make_tenant(db_session)
+        _seed_two_channel_warehouse(
+            db_session, tenant, self._date_from, self._date_to
+        )
+        _seed_goal(db_session, tenant, self._date_from, self._date_to)
+
+        raw = _get_goal_progress(db_session, tenant.id)["goals"][0]
+        ratio = raw["pct_to_target"] or 0.0
+
+        result = build_overview(db_session, tenant.id, self._date_from, self._date_to)
+        exec_goal = result["goals"][0]
+
+        assert exec_goal["pct_to_target"] == pytest.approx(round(ratio * 100, 1))
+
     def test_insights_surface(self, db_session: Session) -> None:
         tenant = _make_tenant(db_session)
         _seed_two_channel_warehouse(
