@@ -589,7 +589,7 @@ class TestRenderReportHtml:
     def test_contains_spend_value(self) -> None:
         payload = self._make_payload(spend=225.0)
         html_str = render_report_html(payload, payload["branding"])
-        assert "225.00" in html_str
+        assert "225,00" in html_str  # TR biçim (binlik nokta, ondalık virgül)
 
     def test_contains_channel_names(self) -> None:
         payload = self._make_payload()
@@ -731,7 +731,7 @@ class TestShareAndPublicEndpoint:
             f"/api/v1/reports/public/{token}",
             params={"date_from": "2024-03-15", "date_to": "2024-03-16"},
         )
-        assert "225.00" in resp.text
+        assert "225,00" in resp.text  # TR biçim
 
     def test_public_link_increments_view_count(self, client: TestClient) -> None:
         def_id = self._create_def(client)
