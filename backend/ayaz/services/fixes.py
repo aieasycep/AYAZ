@@ -40,6 +40,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ayaz.models.insights import Insight
+from ayaz.services.channels import channel_label
 from ayaz.services.trformat import tr_num, tr_pct
 
 
@@ -91,10 +92,14 @@ class ApplyResult:
 
 
 def _channel_display(channel: str | None) -> str:
-    """Slug → human-readable label for user-facing text (meta_ads → Meta Ads)."""
+    """Slug → human-readable label for user-facing text (meta_ads → Meta Ads).
+
+    Delegates to the shared channel_label map (single source), which fixes
+    casing the naive .title() got wrong (e.g. tiktok_ads → 'TikTok Ads').
+    """
     if not channel:
         return "belirtilmemiş kanal"
-    return channel.replace("_", " ").title()
+    return channel_label(channel)
 
 
 def _num(value: object, decimals: int = 2) -> str:

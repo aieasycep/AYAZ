@@ -468,7 +468,10 @@ def detect_spend_spike(
         recent = sorted_pts[-recent_days:]
         prior = sorted_pts[-2 * recent_days:-recent_days]
 
-        if not prior:
+        # Additive sums are only comparable over EQUAL-length windows.
+        # sorted_pts has no zero-fill, so a short prior window would make the
+        # recent sum look inflated → a false signal. Require both full windows.
+        if len(recent) < recent_days or len(prior) < recent_days:
             continue
 
         _, _, r_spend, _, _ = _sum_period(recent)
@@ -716,7 +719,10 @@ def detect_conversion_rate_drop(
         recent = sorted_pts[-recent_days:]
         prior = sorted_pts[-2 * recent_days:-recent_days]
 
-        if not prior:
+        # Additive sums are only comparable over EQUAL-length windows.
+        # sorted_pts has no zero-fill, so a short prior window would make the
+        # recent sum look inflated → a false signal. Require both full windows.
+        if len(recent) < recent_days or len(prior) < recent_days:
             continue
 
         _, r_clk, _, r_conv, _ = _sum_period(recent)

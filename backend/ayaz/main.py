@@ -102,6 +102,67 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Türkçe request-validation hataları ──────────────────────────────────────────
+# FastAPI'nin otomatik gövde/parametre doğrulaması İngilizce Pydantic mesajları
+# üretir ("Field required", "Input should be a valid integer"). Türk kullanıcıya
+# bunlar gösterilmemeli; frontend parseApiError detail[0].msg'i ekrana basıyor.
+# Bu işleyici SADECE otomatik doğrulama hatalarını (RequestValidationError)
+# çevirir; kod içinde elle atılan Türkçe HTTPException(422, detail=[...]) çağrıları
+# ayrı yoldan geçtiği için etkilenmez.
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from starlette.requests import Request  # noqa: E402
+
+_TR_VALIDATION_MESSAGES: dict[str, str] = {
+    "missing": "Bu alan zorunludur.",
+    "string_too_short": "Çok kısa bir değer girdiniz.",
+    "string_too_long": "Çok uzun bir değer girdiniz.",
+    "string_type": "Metin değeri bekleniyor.",
+    "int_parsing": "Geçerli bir tam sayı girin.",
+    "int_type": "Sayısal bir değer bekleniyor.",
+    "float_parsing": "Geçerli bir sayı girin.",
+    "bool_parsing": "Geçerli bir evet/hayır değeri bekleniyor.",
+    "greater_than": "Değer çok küçük.",
+    "greater_than_equal": "Değer izin verilenin altında.",
+    "less_than": "Değer çok büyük.",
+    "less_than_equal": "Değer izin verilenin üstünde.",
+    "value_error": "Geçersiz değer.",
+    "enum": "Geçersiz seçenek.",
+    "date_parsing": "Geçerli bir tarih girin.",
+    "date_from_datetime_parsing": "Geçerli bir tarih girin.",
+    "datetime_parsing": "Geçerli bir tarih/saat girin.",
+    "json_invalid": "Gönderilen veri okunamadı.",
+    "uuid_parsing": "Geçersiz kimlik değeri.",
+}
+_TR_VALIDATION_FALLBACK = "Gönderilen bilgilerde bir sorun var. Lütfen alanları kontrol edin."
+
+
+def _tr_validation_msg(err: dict) -> str:
+    """Turkish message for one Pydantic error.
+
+    ``value_error`` / ``assertion_error`` carry a CUSTOM message a validator
+    raised (usually already Turkish and specific, e.g. "Geçersiz saat
+    dilimi") — pass it through, stripping Pydantic's "Value error, " prefix.
+    All other types are Pydantic's built-in English messages → translate.
+    """
+    etype = err.get("type", "")
+    if etype in ("value_error", "assertion_error"):
+        raw = str(err.get("msg", "")).strip()
+        for prefix in ("Value error, ", "Assertion failed, "):
+            if raw.startswith(prefix):
+                raw = raw[len(prefix):].strip()
+        return raw or _TR_VALIDATION_MESSAGES.get(etype, _TR_VALIDATION_FALLBACK)
+    return _TR_VALIDATION_MESSAGES.get(etype, _TR_VALIDATION_FALLBACK)
+
+
+@app.exception_handler(RequestValidationError)
+async def _tr_validation_handler(request: Request, exc: RequestValidationError):
+    tr_errors = [
+        {"loc": e.get("loc"), "msg": _tr_validation_msg(e), "type": e.get("type", "")}
+        for e in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": tr_errors})
+
+
 # ── Routers ───────────────────────────────────────────────────────────────────
 _PREFIX = "/api/v1"
 
