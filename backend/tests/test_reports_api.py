@@ -579,7 +579,7 @@ class TestRenderReportHtml:
     def test_contains_turkish_label_donusum(self) -> None:
         payload = self._make_payload()
         html_str = render_report_html(payload, payload["branding"])
-        assert "Donusum" in html_str
+        assert "Dönüşüm" in html_str  # proper Turkish diacritics
 
     def test_contains_turkish_label_kanal(self) -> None:
         payload = self._make_payload()
@@ -594,8 +594,9 @@ class TestRenderReportHtml:
     def test_contains_channel_names(self) -> None:
         payload = self._make_payload()
         html_str = render_report_html(payload, payload["branding"])
-        assert "sample" in html_str
-        assert "google_ads" in html_str
+        # Channels render via channel_label() — readable labels, not raw slugs
+        assert "Örnek Kaynak" in html_str
+        assert "Google Ads" in html_str
 
     def test_contains_insights_title(self) -> None:
         payload = self._make_payload()

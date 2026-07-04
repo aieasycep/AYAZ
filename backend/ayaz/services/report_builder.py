@@ -37,6 +37,9 @@ from __future__ import annotations
 import json
 import logging
 import re
+
+from ayaz.services.channels import channel_label
+from ayaz.services.trdate import tr_date
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
@@ -193,13 +196,13 @@ def _build_title(
 ) -> str:
     """Generate a concise Turkish report title from the parsed intent."""
     ch_part = (
-        " vs ".join(c.replace("_", " ").title() for c in channels)
+        " vs ".join(channel_label(c) for c in channels)
         if channels
         else "Tüm Kanallar"
     )
     days = (date_to - date_from).days + 1
     if days <= 1:
-        period_part = f"{date_from.isoformat()} Günü"
+        period_part = f"{tr_date(date_from)} Günü"
     elif days == 30:
         period_part = "Son 30 Gün"
     elif days == 7:
@@ -207,7 +210,7 @@ def _build_title(
     elif days == 90:
         period_part = "Son 90 Gün"
     else:
-        period_part = f"{date_from.isoformat()} – {date_to.isoformat()}"
+        period_part = f"{tr_date(date_from)} – {tr_date(date_to)}"
     suffix = " Karşılaştırması" if comparison else " Raporu"
     return f"{ch_part} {period_part}{suffix}"
 

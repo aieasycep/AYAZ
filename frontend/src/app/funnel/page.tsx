@@ -7,6 +7,7 @@ import { getFunnel, type FunnelOverview, type FunnelStage } from '@/lib/funnel-a
 import { parseApiError } from '@/lib/parseApiError';
 import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './funnel.module.css';
+import { formatDateRangeTR } from '@/lib/formatDate';
 
 // Below this many total events, percentages are statistically noisy enough
 // that a single event can swing a stage's conversion rate by several points.
@@ -240,7 +241,7 @@ export default function FunnelPage() {
               right={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                   <span className={styles.periodLabel}>
-                    {data.period.date_from} &mdash; {data.period.date_to}
+                    {formatDateRangeTR(data.period.date_from, data.period.date_to)}
                   </span>
                   <button
                     className={styles.csvBtn}

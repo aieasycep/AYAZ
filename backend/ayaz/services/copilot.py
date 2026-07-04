@@ -47,6 +47,7 @@ from sqlalchemy.orm import Session
 from ayaz.models.copilot import Conversation, Message
 from ayaz.services.copilot_tools import TOOL_SPECS, build_tenant_tool_specs, dispatch
 from ayaz.services.channels import channel_label
+from ayaz.services.trdate import TR_MONTHS_FULL
 from ayaz.services.trformat import tr_int, tr_pct, tr_roas, tr_tl
 
 logger = logging.getLogger(__name__)
@@ -616,7 +617,7 @@ def _handle_create_goal_intent(
     last_day = calendar.monthrange(today.year, today.month)[1]
     period_end = today.replace(day=last_day).isoformat()
 
-    goal_name = f"{metric.upper()} Hedefi — {today.strftime('%B %Y')}"
+    goal_name = f"{metric.upper()} Hedefi — {TR_MONTHS_FULL[today.month]} {today.year}"
     dispatch_args: dict = {
         "name": goal_name,
         "metric": metric,

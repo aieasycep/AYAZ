@@ -25,6 +25,7 @@ import { channelColor } from '@/lib/chartColors';
 import { channelLabel } from '@/lib/channels';
 import { parseApiError } from '@/lib/parseApiError';
 import styles from './executive.module.css';
+import { formatDateRangeTR } from '@/lib/formatDate';
 
 // --- Formatters ---
 
@@ -445,7 +446,7 @@ export default function ExecutivePage() {
               <div className={styles.sectionHeader}>
                 <span className={styles.sectionTitle}>Kanal ROI</span>
                 <span className={styles.periodLabel}>
-                  {data.period.date_from} — {data.period.date_to}
+                  {formatDateRangeTR(data.period.date_from, data.period.date_to)}
                 </span>
               </div>
               {data.channels.length === 0 ? (

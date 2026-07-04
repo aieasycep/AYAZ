@@ -15,6 +15,7 @@ import {
 import { parseApiError } from '@/lib/parseApiError';
 import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './benchmark.module.css';
+import { formatDateRangeTR } from '@/lib/formatDate';
 
 // --- Formatters ---
 
@@ -444,7 +445,7 @@ export default function BenchmarkPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                     <ZoneLegend />
                     <span className={styles.periodLabel}>
-                      {data.period.date_from} — {data.period.date_to}
+                      {formatDateRangeTR(data.period.date_from, data.period.date_to)}
                     </span>
                   </div>
                 </div>

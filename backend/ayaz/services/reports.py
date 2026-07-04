@@ -37,7 +37,7 @@ from __future__ import annotations
 import html
 import logging
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -47,6 +47,8 @@ from sqlalchemy.orm import Session
 from ayaz.models.analytics import DimChannel, FactDailyMetrics
 from ayaz.models.reports import ReportDefinition, ReportSchedule
 from ayaz.services.metrics import compute_derived_metrics
+from ayaz.services.channels import channel_label
+from ayaz.services.trdate import tr_date_short, tr_datetime
 from ayaz.services.trformat import tr_num, tr_pct
 
 logger = logging.getLogger(__name__)
@@ -378,6 +380,7 @@ def _fmt(value: float, decimals: int = 2) -> str:
     return tr_num(value, decimals)
 
 
+
 def _esc(text: str) -> str:
     """HTML-escape a string for safe embedding."""
     return html.escape(str(text))
@@ -459,10 +462,10 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
     logo_url = branding.get("logo_url") or ""
     primary_color = _esc(branding.get("primary_color") or "#1A73E8")
 
-    date_from = _esc(payload.get("date_from", ""))
-    date_to = _esc(payload.get("date_to", ""))
+    date_from = _esc(tr_date_short(payload.get("date_from", "")))
+    date_to = _esc(tr_date_short(payload.get("date_to", "")))
     report_name = _esc(payload.get("report_name", "Rapor"))
-    generated_at = _esc(payload.get("generated_at", ""))
+    generated_at = _esc(tr_datetime(payload.get("generated_at", "")))
     sections: list[str] = payload.get("sections", [])
     totals: dict[str, float] = payload.get("totals", {})
     by_channel: list[dict] = payload.get("by_channel", [])
@@ -483,9 +486,9 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         kpi_items = [
             ("Harcama", _fmt(totals.get("spend", 0))),
             ("Gösterim", _fmt(totals.get("impressions", 0), 0)),
-            ("Tiklama", _fmt(totals.get("clicks", 0), 0)),
-            ("Donusum", _fmt(totals.get("conversions", 0), 0)),
-            ("Donusum Degeri", _fmt(totals.get("conversion_value", 0))),
+            ("Tıklama", _fmt(totals.get("clicks", 0), 0)),
+            ("Dönüşüm", _fmt(totals.get("conversions", 0), 0)),
+            ("Dönüşüm Değeri", _fmt(totals.get("conversion_value", 0))),
             ("CTR", tr_pct(totals.get("ctr", 0) * 100, 2)),
             ("CPC", _fmt(totals.get("cpc", 0))),
             ("CPA", _fmt(totals.get("cpa", 0))),
@@ -506,7 +509,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         kpi_cards_html = (
             f'<section style="margin-bottom:36px;">'
             f'<h2 style="font-size:16px;font-weight:600;color:#333;margin-bottom:14px;">'
-            f"Ozet Metrikler</h2>"
+            f"Özet Metrikler</h2>"
             f'<div style="display:flex;flex-wrap:wrap;gap:12px;">'
             + "".join(cards)
             + "</div></section>"
@@ -516,8 +519,8 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
     channel_table_html = ""
     if "by_channel" in sections and by_channel:
         header_cells = [
-            "Kanal", "Harcama", "Gosurim", "Tiklama",
-            "Donusum", "Donusum Degeri", "CTR", "CPC", "CPA", "ROAS",
+            "Kanal", "Harcama", "Gösterim", "Tıklama",
+            "Dönüşüm", "Dönüşüm Değeri", "CTR", "CPC", "CPA", "ROAS",
         ]
         th_style = (
             f"background:{primary_color};color:#fff;padding:10px 12px;"
@@ -536,7 +539,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
             )
             ctr_pct = tr_pct(ch.get("ctr", 0) * 100, 2)
             cells = [
-                f"<td style='{td}'><strong>{_esc(ch['channel'])}</strong></td>",
+                f"<td style='{td}'><strong>{_esc(channel_label(ch['channel']))}</strong></td>",
                 f"<td style='{td}'>{_esc(_fmt(ch.get('spend', 0)))}</td>",
                 f"<td style='{td}'>{_esc(_fmt(ch.get('impressions', 0), 0))}</td>",
                 f"<td style='{td}'>{_esc(_fmt(ch.get('clicks', 0), 0))}</td>",
@@ -552,7 +555,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         channel_table_html = (
             f'<section style="margin-bottom:36px;overflow-x:auto;">'
             f'<h2 style="font-size:16px;font-weight:600;color:#333;margin-bottom:14px;">'
-            f"Kanala Gore Performans</h2>"
+            f"Kanala Göre Performans</h2>"
             f'<table style="width:100%;border-collapse:collapse;font-family:sans-serif;">'
             f"<thead><tr>{header_row}</tr></thead>"
             f"<tbody>{''.join(body_rows)}</tbody>"
@@ -566,7 +569,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         timeseries_html = (
             f'<section style="margin-bottom:36px;">'
             f'<h2 style="font-size:16px;font-weight:600;color:#333;margin-bottom:14px;">'
-            f"Gunluk Harcama Trendi</h2>"
+            f"Günlük Harcama Trendi</h2>"
             f"{chart_svg}"
             f"</section>"
         )
@@ -597,7 +600,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         insights_html = (
             f'<section style="margin-bottom:36px;">'
             f'<h2 style="font-size:16px;font-weight:600;color:#333;margin-bottom:14px;">'
-            f"Onemli Bulgular</h2>"
+            f"Önemli Bulgular</h2>"
             + "".join(insight_items)
             + "</section>"
         )
@@ -630,8 +633,8 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
     {logo_html}
     <h1>{brand_name} — {report_name}</h1>
     <div class="meta">
-      Donem: {date_from} / {date_to} &nbsp;&bull;&nbsp;
-      Olusturulma: {generated_at}
+      Dönem: {date_from} / {date_to} &nbsp;&bull;&nbsp;
+      Oluşturulma: {generated_at}
     </div>
   </div>
 
@@ -641,7 +644,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
   {insights_html}
 
   <div class="report-footer">
-    Bu rapor {brand_name} tarafindan olusturulmustur. &copy; {brand_name}
+    Bu rapor {brand_name} tarafından oluşturulmuştur. &copy; {brand_name}
   </div>
 
 </div>
