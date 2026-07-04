@@ -487,6 +487,7 @@ export default function AutomationPage() {
                       className={styles.fieldInput}
                       type="text"
                       placeholder="ör. ROAS Düşüş Alarmı"
+                      aria-label="Kural Adı"
                       value={form.name}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, name: e.target.value }))
@@ -499,6 +500,7 @@ export default function AutomationPage() {
                     <label className={styles.fieldLabel}>Kapsam</label>
                     <select
                       className={styles.fieldSelect}
+                      aria-label="Kapsam"
                       value={form.scope}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -530,6 +532,7 @@ export default function AutomationPage() {
                             ? 'ör. Google Ads'
                             : 'ör. Yaz Kampanyası'
                         }
+                        aria-label="Kapsam filtresi"
                         value={form.scope_filter}
                         onChange={(e) =>
                           setForm((f) => ({
@@ -546,6 +549,7 @@ export default function AutomationPage() {
                     <label className={styles.fieldLabel}>Metrik</label>
                     <select
                       className={styles.fieldSelect}
+                      aria-label="Metrik"
                       value={form.metric}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -568,6 +572,7 @@ export default function AutomationPage() {
                     <label className={styles.fieldLabel}>Koşul</label>
                     <select
                       className={styles.fieldSelect}
+                      aria-label="Koşul"
                       value={form.comparator}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -600,6 +605,7 @@ export default function AutomationPage() {
                         step="any"
                         min="0"
                         placeholder="ör. 20"
+                        aria-label="Eşik değeri"
                         value={form.threshold}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, threshold: e.target.value }))
@@ -617,6 +623,7 @@ export default function AutomationPage() {
                       min="1"
                       step="1"
                       placeholder="ör. 7"
+                      aria-label="Pencere (gün)"
                       value={form.window_days}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, window_days: e.target.value }))
@@ -629,6 +636,7 @@ export default function AutomationPage() {
                     <label className={styles.fieldLabel}>Aksiyon</label>
                     <select
                       className={styles.fieldSelect}
+                      aria-label="Aksiyon"
                       value={form.action}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -657,6 +665,7 @@ export default function AutomationPage() {
                         className={styles.fieldInput}
                         type="text"
                         placeholder="ali@firma.com, ayse@firma.com"
+                        aria-label="E-posta alıcıları"
                         value={form.recipients}
                         onChange={(e) =>
                           setForm((f) => ({
@@ -678,6 +687,7 @@ export default function AutomationPage() {
                         className={styles.fieldInput}
                         type="text"
                         placeholder="https://hooks.slack.com/..."
+                        aria-label="Slack webhook adresi"
                         value={form.webhook}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, webhook: e.target.value }))
@@ -697,6 +707,7 @@ export default function AutomationPage() {
                         className={styles.fieldInput}
                         type="text"
                         placeholder="ör. Ekip liderine bildirin"
+                        aria-label="Bildirim mesajı"
                         value={form.message}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, message: e.target.value }))

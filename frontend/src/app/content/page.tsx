@@ -187,8 +187,9 @@ function ComposerModal({ post, onClose, onSaved }: ComposerProps) {
           <div className={styles.composerBody}>
             {/* Başlık */}
             <div className={styles.field}>
-              <label className={styles.label}>Başlık</label>
+              <label className={styles.label} htmlFor="composer-title">Başlık</label>
               <input
+                id="composer-title"
                 className={styles.input}
                 placeholder="İçerik başlığını girin"
                 value={title}
@@ -200,8 +201,9 @@ function ComposerModal({ post, onClose, onSaved }: ComposerProps) {
 
             {/* Açıklama */}
             <div className={styles.field}>
-              <label className={styles.label}>Açıklama</label>
+              <label className={styles.label} htmlFor="composer-body">Açıklama</label>
               <textarea
+                id="composer-body"
                 className={styles.textarea}
                 placeholder="İçerik metni veya açıklama..."
                 value={body}
@@ -276,8 +278,9 @@ function ComposerModal({ post, onClose, onSaved }: ComposerProps) {
 
             {/* Yayın Tarihi */}
             <div className={styles.field}>
-              <label className={styles.label}>Yayın Tarihi (opsiyonel)</label>
+              <label className={styles.label} htmlFor="composer-scheduled">Yayın Tarihi (opsiyonel)</label>
               <input
+                id="composer-scheduled"
                 className={styles.input}
                 type="datetime-local"
                 value={scheduledAt}
@@ -288,8 +291,9 @@ function ComposerModal({ post, onClose, onSaved }: ComposerProps) {
 
             {/* Görsel URL */}
             <div className={styles.field}>
-              <label className={styles.label}>Görsel URL (opsiyonel)</label>
+              <label className={styles.label} htmlFor="composer-media">Görsel URL (opsiyonel)</label>
               <input
+                id="composer-media"
                 className={styles.input}
                 placeholder="https://..."
                 value={mediaUrl}
@@ -378,8 +382,9 @@ function ScheduleModal({ post, onClose, onScheduled }: ScheduleModalProps) {
         <form onSubmit={handleSubmit}>
           <div className={styles.scheduleBody}>
             <div className={styles.field}>
-              <label className={styles.label}>Yayın Tarihi</label>
+              <label className={styles.label} htmlFor="schedule-datetime">Yayın Tarihi</label>
               <input
+                id="schedule-datetime"
                 className={styles.input}
                 type="datetime-local"
                 value={scheduledAt}
@@ -461,8 +466,9 @@ function RejectModal({ post, onClose, onRejected }: RejectModalProps) {
         <form onSubmit={handleSubmit}>
           <div className={styles.rejectBody}>
             <div className={styles.field}>
-              <label className={styles.label}>Red Notu (opsiyonel)</label>
+              <label className={styles.label} htmlFor="reject-note">Red Notu (opsiyonel)</label>
               <textarea
+                id="reject-note"
                 className={styles.textarea}
                 placeholder="Reddetme gerekçenizi yazın..."
                 value={note}

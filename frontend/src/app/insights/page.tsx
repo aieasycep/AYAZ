@@ -837,6 +837,7 @@ export default function InsightsPage() {
                           className={styles.fieldInput}
                           type="text"
                           placeholder="ör. CPC %20 Düşüş"
+                          aria-label="Kural Adı"
                           value={ruleForm.name}
                           onChange={(e) =>
                             setRuleForm((f) => ({ ...f, name: e.target.value }))
@@ -850,6 +851,7 @@ export default function InsightsPage() {
                           className={styles.fieldInput}
                           type="text"
                           placeholder="ör. cpc, spend, roas"
+                          aria-label="Metrik"
                           value={ruleForm.metric}
                           onChange={(e) =>
                             setRuleForm((f) => ({ ...f, metric: e.target.value }))
@@ -861,6 +863,7 @@ export default function InsightsPage() {
                         <label className={styles.fieldLabel}>Karşılaştırıcı</label>
                         <select
                           className={styles.fieldSelect}
+                          aria-label="Karşılaştırıcı"
                           value={ruleForm.comparator}
                           onChange={(e) =>
                             setRuleForm((f) => ({
@@ -885,6 +888,7 @@ export default function InsightsPage() {
                             type="number"
                             step="any"
                             placeholder="ör. 20"
+                            aria-label="Eşik Değeri"
                             value={ruleForm.threshold}
                             onChange={(e) =>
                               setRuleForm((f) => ({
@@ -900,6 +904,7 @@ export default function InsightsPage() {
                         <label className={styles.fieldLabel}>Bildirim</label>
                         <select
                           className={styles.fieldSelect}
+                          aria-label="Bildirim türü"
                           value={ruleForm.delivery}
                           onChange={(e) =>
                             setRuleForm((f) => ({
@@ -929,6 +934,7 @@ export default function InsightsPage() {
                                 ? 'ornek@sirket.com'
                                 : 'https://hooks.slack.com/...'
                             }
+                            aria-label="Bildirim hedefi"
                             value={ruleForm.destination}
                             onChange={(e) =>
                               setRuleForm((f) => ({
