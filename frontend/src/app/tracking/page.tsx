@@ -549,7 +549,7 @@ function EventDistributionPanel({ sourceId, stats, loading, error, onStatsRefetc
     setEnabledOverrides((prev) => ({ ...prev, [name]: newEnabled }));
     setTogglingEvents((prev) => new Set(prev).add(name));
     try { await toggleEventConfig(sourceId, name, newEnabled); onStatsRefetch(); }
-    catch { setEnabledOverrides((prev) => ({ ...prev, [name]: !newEnabled })); }
+    catch (err) { setEnabledOverrides((prev) => ({ ...prev, [name]: !newEnabled })); alert(parseApiError(err)); }
     finally {
       setTogglingEvents((prev) => { const n = new Set(prev); n.delete(name); return n; });
     }
@@ -1044,7 +1044,7 @@ function SourceDetailPanel({ source: initialSource, onSourceUpdated }: { source:
   async function handleDeleteDest(id: string) {
     setDeletingDestId(id);
     try { await deleteDestination(id); await fetchDestinations(); }
-    catch { /* non-fatal */ }
+    catch (err) { alert(parseApiError(err)); }
     finally { setDeletingDestId(null); }
   }
 

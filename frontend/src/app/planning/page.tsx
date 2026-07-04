@@ -653,8 +653,8 @@ export default function PlanningPage() {
     try {
       await deleteBudgetPlan(id);
       setPlans((prev) => prev.filter((p) => p.id !== id));
-    } catch {
-      // non-fatal
+    } catch (err) {
+      alert(parseApiError(err));
     } finally {
       setDeletingId(null);
     }

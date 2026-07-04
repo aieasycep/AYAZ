@@ -669,11 +669,12 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
     try {
       const updated = await patchChannelRule(rule.id, { is_paused: newPaused });
       setRules((prev) => prev.map((r) => (r.id === rule.id ? updated : r)));
-    } catch {
+    } catch (err) {
       // Revert on failure
       setRules((prev) =>
         prev.map((r) => (r.id === rule.id ? { ...r, is_paused: rule.is_paused } : r))
       );
+      alert(parseApiError(err));
     }
   }
 
@@ -759,8 +760,9 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       setDeletingId(null);
       setImpact(null);
       await runLint();
-    } catch {
+    } catch (err) {
       setDeletingId(null);
+      alert(parseApiError(err));
     }
   }
 
@@ -1455,8 +1457,8 @@ export default function FeedsPage() {
     try {
       const updated = await syncFeedSource(source.id);
       setSources((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    } catch {
-      // non-fatal — user can retry
+    } catch (err) {
+      alert(parseApiError(err));
     } finally {
       setSyncing((prev) => ({ ...prev, [source.id]: false }));
     }

@@ -8,6 +8,7 @@ import {
   setToken,
   type Workspace,
 } from '@/lib/workspaces-api';
+import { parseApiError } from '@/lib/parseApiError';
 import styles from './WorkspaceSwitcher.module.css';
 
 export default function WorkspaceSwitcher() {
@@ -53,8 +54,9 @@ export default function WorkspaceSwitcher() {
       setToken(res.access_token);
       // Reload to re-initialise all data under the new tenant context
       window.location.href = '/dashboard';
-    } catch {
+    } catch (err) {
       setSwitching(false);
+      alert(parseApiError(err));
     }
   }
 
