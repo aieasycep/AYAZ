@@ -128,7 +128,7 @@ def build_report_endpoint(
     # 422 on empty prompt
     if not body.prompt or not body.prompt.strip():
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="prompt must not be empty",
         )
 

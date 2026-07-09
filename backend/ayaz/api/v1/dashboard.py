@@ -493,7 +493,7 @@ def summary(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
 
@@ -556,12 +556,12 @@ def timeseries(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
     if metric not in _TIMESERIES_METRICS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Unsupported metric {metric!r}. "
                 f"Choose from: {sorted(_TIMESERIES_METRICS)}"
@@ -664,17 +664,17 @@ def top_movers(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
     if dimension not in ("channel", "campaign"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="dimension must be 'channel' or 'campaign'",
         )
     if metric not in _TOP_MOVERS_METRICS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Unsupported metric {metric!r}. "
                 f"Choose from: {sorted(_TOP_MOVERS_METRICS)}"
@@ -777,7 +777,7 @@ def scores(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
 
@@ -871,7 +871,7 @@ def export_dashboard(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
 

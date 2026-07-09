@@ -415,7 +415,7 @@ def preview_definition(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
     obj = _require_definition(definition_id, membership.tenant_id, db)

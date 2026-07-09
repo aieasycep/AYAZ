@@ -213,7 +213,7 @@ def metric_drill_down(
     """
     if metric not in _ALLOWED_METRICS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Geçersiz metrik: {metric!r}. "
                 f"İzin verilenler: {sorted(_ALLOWED_METRICS)}"
@@ -221,7 +221,7 @@ def metric_drill_down(
         )
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from, date_to'dan önce olmalı.",
         )
 

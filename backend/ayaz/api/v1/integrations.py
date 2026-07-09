@@ -542,7 +542,7 @@ def create_integration_request(
     integration_key = payload.get("integration_key", "")
     if not integration_key:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="integration_key is required.",
         )
 
@@ -600,7 +600,7 @@ def connect_api_key(
         normalized = instance.validate_credentials(payload)
     except (ValueError, NotImplementedError) as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Anahtar reddedildi: {exc}",
         )
 

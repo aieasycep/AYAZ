@@ -455,7 +455,7 @@ def react_to_insight(
     # Validate reaction value
     if body.reaction is not None and body.reaction not in ("up", "down"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Geçersiz reaksiyon: {body.reaction!r}. İzin verilenler: 'up', 'down' veya null.",
         )
     insight = _get_insight_or_404(db, insight_id, membership.tenant_id)
@@ -646,7 +646,7 @@ def apply_insight_fix(
     )
     if body.action_type not in _ALLOWED:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Geçersiz eylem türü: {body.action_type!r}. "
                 f"İzin verilenler: {sorted(_ALLOWED)}"
