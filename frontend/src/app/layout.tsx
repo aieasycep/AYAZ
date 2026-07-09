@@ -57,7 +57,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="tr">
+    <html lang="tr" suppressHydrationWarning>
+      {/* suppressHydrationWarning: THEME_SCRIPT <html>'e data-theme'i hydration'dan
+          önce ekler (FOUC önleme); sunucu/istemci attribute farkı beklenir ve React
+          uyarısı bastırılır — yalnız bu <html> öğesini kapsar. */}
       <head>
         {/* FOUC prevention: set data-theme before first paint */}
         {/* eslint-disable-next-line react/no-danger */}
