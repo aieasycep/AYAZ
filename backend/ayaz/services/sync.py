@@ -55,8 +55,23 @@ from ayaz.models.analytics import (
     FactDailyMetrics,
 )
 from ayaz.models.oltp import ConnectedAccount, SyncStatus
+from ayaz.services.channels import channel_label
 
 logger = logging.getLogger(__name__)
+
+
+def _channel_display_label(platform_key: str) -> str:
+    """Kanal anahtarı → dim_channel.label için insan-okur etiket.
+
+    Tek-kaynak ``channel_label`` haritasını kullanır (``tiktok_ads`` →
+    "TikTok Ads", ``linkedin_ads`` → "LinkedIn Ads"). Haritada olmayan
+    (gerçekten bilinmeyen) anahtarlar için naif başlık-biçimine düşer
+    (``foo_bar`` → "Foo Bar") — ham anahtarın panoya sızmaması için.
+    """
+    label = channel_label(platform_key)
+    if label == platform_key:  # bilinmeyen anahtar → daha okunur yedek
+        return platform_key.replace("_", " ").title()
+    return label
 
 
 # ── Operator-level credential injection ────────────────────────────────────────
@@ -337,13 +352,18 @@ def _get_or_create_channel(db: Session, platform_key: str) -> DimChannel:
     channel = db.scalar(
         select(DimChannel).where(DimChannel.key == platform_key)
     )
+    canonical_label = _channel_display_label(platform_key)
     if channel is None:
         channel = DimChannel(
             key=platform_key,
-            label=platform_key.replace("_", " ").title(),
+            label=canonical_label,
         )
         db.add(channel)
         db.flush()
+    elif channel.label != canonical_label:
+        # Eski satır naif ".title()" ile yazılmış olabilir ("Tiktok Ads")
+        # → tek-kaynak etikete kendiliğinden hizala.
+        channel.label = canonical_label
     return channel
 
 

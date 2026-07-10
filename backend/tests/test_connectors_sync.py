@@ -1066,3 +1066,48 @@ def test_discover_lists_accounts(ctx) -> None:
     assert isinstance(body, list)
     assert len(body) >= 1
     assert "id" in body[0]
+
+
+# ── dim_channel etiket kanonikleştirme (kanal-etiketi tek-kaynak) ─────────────
+
+
+def test_get_or_create_channel_uses_canonical_label(db_session) -> None:
+    """Yeni dim_channel satırı naif .title() yerine channel_label haritasını kullanır.
+
+    Regresyon: 'tiktok_ads' → 'Tiktok Ads' (yanlış) yerine 'TikTok Ads';
+    'linkedin_ads' → 'LinkedIn Ads'. Executive panosu + bütçe simülatörü bu
+    DB label'ını doğrudan gösterdiği için ham/yanlış etiket kullanıcıya sızardı.
+    """
+    from ayaz.services.sync import _get_or_create_channel
+
+    ch = _get_or_create_channel(db_session, "tiktok_ads")
+    assert ch.label == "TikTok Ads"
+
+    ch2 = _get_or_create_channel(db_session, "linkedin_ads")
+    assert ch2.label == "LinkedIn Ads"
+
+    # 'sample' → tek-kaynak Türkçe etiket
+    ch3 = _get_or_create_channel(db_session, "sample")
+    assert ch3.label == "Örnek Kaynak"
+
+
+def test_get_or_create_channel_self_heals_stale_label(db_session) -> None:
+    """Eski naif .title() etiketiyle yazılmış satır bir sonraki çağrıda düzelir."""
+    from ayaz.models.analytics import DimChannel
+    from ayaz.services.sync import _get_or_create_channel
+
+    stale = DimChannel(key="tiktok_ads", label="Tiktok Ads")  # eski naif biçim
+    db_session.add(stale)
+    db_session.flush()
+
+    healed = _get_or_create_channel(db_session, "tiktok_ads")
+    assert healed.id == stale.id  # aynı satır (yeni satır yaratılmadı)
+    assert healed.label == "TikTok Ads"
+
+
+def test_get_or_create_channel_unknown_key_falls_back_to_title(db_session) -> None:
+    """Haritada olmayan gerçekten bilinmeyen anahtar başlık-biçimine düşer."""
+    from ayaz.services.sync import _get_or_create_channel
+
+    ch = _get_or_create_channel(db_session, "brand_new_source")
+    assert ch.label == "Brand New Source"
