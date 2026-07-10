@@ -250,7 +250,7 @@ class TestSignStateAndParseState:
         aid = str(uuid.uuid4())
         tid = str(uuid.uuid4())
         # Patch time to produce an already-expired token
-        fake_past = int(time.time()) - 700  # 700 seconds ago (TTL is 600)
+        fake_past = int(time.time()) - 2000  # 2000s ago (TTL is 1800 = 30 min)
         with patch("ayaz.services.oauth_broker.time") as mock_time:
             mock_time.time.return_value = fake_past
             state = _sign_state(aid, tid)
