@@ -154,6 +154,18 @@ def test_sync_respects_days_window(ctx) -> None:
     assert resp.json()["status"] == "success"
 
 
+def test_sync_days_clamped_to_one_year(ctx) -> None:
+    """The backfill window is clamped to at most 365 days (12 months): an
+    over-large ``days`` must not be rejected, just capped — so a first sync can
+    reach up to a year back for accounts whose activity predates 30/90 days."""
+    client, _db, _tenant, account = ctx
+    resp = client.post(
+        f"/api/v1/connectors/accounts/{account.id}/sync", params={"days": 400}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "success"
+
+
 def test_patch_sets_external_account_id(ctx) -> None:
     client, db, _tenant, account = ctx
     resp = client.patch(

@@ -19,6 +19,7 @@ import AppNav from '@/components/AppNav';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
 import DateRangePresets, {
+  computePreset,
   detectPreset,
   type PresetKey,
 } from '@/components/DateRangePresets';
@@ -395,6 +396,18 @@ export default function AdsPage() {
   // Unique channels for filter dropdown (derived from fetched campaigns)
   const allChannels = Array.from(new Set(campaigns.map((c) => c.channel))).sort();
 
+  // Data connectors sometimes only have older data (e.g. an ad account with
+  // stale/historic campaigns). If the applied range doesn't yet reach back to
+  // the widest preset (Son 12 ay), nudge the user toward it instead of just
+  // showing an empty table. YYYY-MM-DD strings compare lexicographically.
+  const widestRangeFrom = computePreset('son12ay').from;
+  const canWidenRange = appliedFrom > widestRangeFrom;
+
+  function handleWidenRange() {
+    const { from, to } = computePreset('son12ay');
+    handlePresetSelect(from, to);
+  }
+
   return (
     <div className={styles.shell}>
       <AppNav />
@@ -532,7 +545,18 @@ export default function AdsPage() {
           ) : focusedCampaigns.length === 0 ? (
             <EmptyState
               title="Kampanya bulunamadı"
-              description="Bu filtreler için kampanya bulunamadı."
+              description={
+                canWidenRange
+                  ? 'Bu aralıkta kampanya yok. Verileriniz daha eski olabilir — "Son 12 ay"ı deneyin.'
+                  : 'Bu filtreler için kampanya bulunamadı.'
+              }
+              cta={
+                canWidenRange ? (
+                  <button className={styles.retryBtn} onClick={handleWidenRange}>
+                    Son 12 ayı göster
+                  </button>
+                ) : undefined
+              }
             />
           ) : (
             <ErrorBoundary label="Kampanya Tablosu">

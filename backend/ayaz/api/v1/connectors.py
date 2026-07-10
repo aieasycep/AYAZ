@@ -249,7 +249,7 @@ def sync_account(
     db: Session = Depends(get_db),
     membership: Membership = Depends(get_current_membership),
     vault: SecretsVault = Depends(_get_vault),
-    days: int = 30,
+    days: int = 90,
 ) -> SyncResultResponse:
     """Pull recent data for a connected account and upsert into the warehouse.
 
@@ -257,7 +257,10 @@ def sync_account(
     current deployment), scoped to the requesting tenant.  The stored OAuth
     credentials are loaded from the Vault and injected into the connector.
 
-    ``days`` bounds the backfill window (clamped to 1..90; default 30).
+    ``days`` bounds the backfill window (clamped to 1..365; default 90). The
+    upper bound matches the connectors' ``max_backfill_days`` so a first sync can
+    reach up to 12 months back — important when an account's most recent activity
+    predates the default 30-day window (older campaigns would otherwise look empty).
 
     Errors
     ------
@@ -277,7 +280,7 @@ def sync_account(
             detail="Hesap bulunamadı.",
         )
 
-    window = max(1, min(days, 90))
+    window = max(1, min(days, 365))
     until = datetime.now(timezone.utc).date()
     since = until - timedelta(days=window - 1)
 

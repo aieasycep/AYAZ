@@ -115,8 +115,11 @@ export interface SyncResult {
 /**
  * Trigger a synchronous data sync for one connected account.
  * Runs in the request (no background worker on the current deployment).
+ * Default mirrors the backend's default backfill window (90 days); callers
+ * doing a first-ever sync for an account should pass a larger window (e.g.
+ * 365) since the account may have no recent data yet.
  */
-export function syncAccount(accountId: string, days = 30): Promise<SyncResult> {
+export function syncAccount(accountId: string, days = 90): Promise<SyncResult> {
   return authFetch<SyncResult>(
     `/api/v1/connectors/accounts/${accountId}/sync?days=${days}`,
     { method: 'POST' },

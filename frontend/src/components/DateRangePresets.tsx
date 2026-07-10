@@ -13,7 +13,14 @@ export function toLocalISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export type PresetKey = 'son7' | 'son30' | 'son90' | 'buAy' | 'gecenAy';
+export type PresetKey =
+  | 'son7'
+  | 'son30'
+  | 'son90'
+  | 'son6ay'
+  | 'son12ay'
+  | 'buAy'
+  | 'gecenAy';
 
 export interface PresetRange {
   from: string;
@@ -39,6 +46,16 @@ export function computePreset(preset: PresetKey): PresetRange {
     case 'son90': {
       const from = new Date(today);
       from.setDate(from.getDate() - 89);
+      return { from: toLocalISODate(from), to: toLocalISODate(today) };
+    }
+    case 'son6ay': {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 179);
+      return { from: toLocalISODate(from), to: toLocalISODate(today) };
+    }
+    case 'son12ay': {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 364);
       return { from: toLocalISODate(from), to: toLocalISODate(today) };
     }
     case 'buAy': {
@@ -67,7 +84,15 @@ export function computePreset(preset: PresetKey): PresetRange {
  * Computed fresh each call so it always reflects "today".
  */
 export function detectPreset(from: string, to: string): PresetKey | null {
-  const presets: PresetKey[] = ['son7', 'son30', 'son90', 'buAy', 'gecenAy'];
+  const presets: PresetKey[] = [
+    'son7',
+    'son30',
+    'son90',
+    'son6ay',
+    'son12ay',
+    'buAy',
+    'gecenAy',
+  ];
   for (const key of presets) {
     const range = computePreset(key);
     if (range.from === from && range.to === to) return key;
@@ -83,6 +108,8 @@ const PRESETS: { key: PresetKey; label: string }[] = [
   { key: 'son7', label: 'Son 7 gün' },
   { key: 'son30', label: 'Son 30 gün' },
   { key: 'son90', label: 'Son 90 gün' },
+  { key: 'son6ay', label: 'Son 6 ay' },
+  { key: 'son12ay', label: 'Son 12 ay' },
   { key: 'buAy', label: 'Bu ay' },
   { key: 'gecenAy', label: 'Geçen ay' },
 ];

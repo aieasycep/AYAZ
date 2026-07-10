@@ -60,6 +60,18 @@ describe('computePreset', () => {
     expect(to).toBe('2026-03-15');
   });
 
+  it('son6ay — last 180 days inclusive (today − 179 through today)', () => {
+    const { from, to } = computePreset('son6ay');
+    expect(from).toBe('2025-09-17');
+    expect(to).toBe('2026-03-15');
+  });
+
+  it('son12ay — last 365 days inclusive (today − 364 through today)', () => {
+    const { from, to } = computePreset('son12ay');
+    expect(from).toBe('2025-03-16');
+    expect(to).toBe('2026-03-15');
+  });
+
   it('buAy — first of current month through today', () => {
     const { from, to } = computePreset('buAy');
     expect(from).toBe('2026-03-01');
@@ -100,6 +112,16 @@ describe('detectPreset', () => {
   it('returns the correct key for son30', () => {
     const { from, to } = computePreset('son30');
     expect(detectPreset(from, to)).toBe('son30');
+  });
+
+  it('returns the correct key for son6ay', () => {
+    const { from, to } = computePreset('son6ay');
+    expect(detectPreset(from, to)).toBe('son6ay');
+  });
+
+  it('returns the correct key for son12ay', () => {
+    const { from, to } = computePreset('son12ay');
+    expect(detectPreset(from, to)).toBe('son12ay');
   });
 
   it('returns the correct key for buAy', () => {

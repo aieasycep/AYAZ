@@ -225,11 +225,19 @@ export default function DataSourcesPanel() {
     }
   }
 
-  async function handleSync(accountId: string) {
+  async function handleSync(account: ConnectedAccount) {
+    const accountId = account.id;
+    // First-ever sync (no watermark yet) pulls a much wider backfill window
+    // so accounts whose only data is older than the usual 90-day window
+    // (e.g. a Google Ads account last active months ago) still get data on
+    // the very first sync. Already-synced accounts just need the recent
+    // window topped up.
+    const neverSynced = !account.watermark;
+    const days = neverSynced ? 365 : 90;
     setSyncing((prev) => ({ ...prev, [accountId]: true }));
     setSyncMsg(null);
     try {
-      const r = await syncAccount(accountId);
+      const r = await syncAccount(accountId, days);
       setSyncMsg({
         id: accountId,
         text: `Senkronize edildi — ${r.records_processed.toLocaleString('tr-TR')} kayıt işlendi (${r.inserted.toLocaleString('tr-TR')} yeni).`,
@@ -314,9 +322,13 @@ export default function DataSourcesPanel() {
                     </span>
                     <button
                       className={styles.resyncBtn}
-                      onClick={() => handleSync(acc.id)}
+                      onClick={() => handleSync(acc)}
                       disabled={isSyncing}
-                      title="Bu hesabın son 30 günlük verisini şimdi çek"
+                      title={
+                        acc.watermark
+                          ? 'Bu hesabın son 90 günlük verisini şimdi çek'
+                          : 'İlk senkronizasyon — daha eski veriye ulaşmak için son 365 günü çeker'
+                      }
                     >
                       {isSyncing ? 'Senkronize ediliyor...' : 'Senkronize et'}
                     </button>
