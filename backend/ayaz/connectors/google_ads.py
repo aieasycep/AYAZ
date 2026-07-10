@@ -45,7 +45,9 @@ Rate limits
 
 API version
 -----------
-Targets ``v18`` of the Google Ads REST API.  Update ``_API_VERSION`` to upgrade.
+Targets ``v23`` of the Google Ads REST API.  Update ``_API_VERSION`` to upgrade.
+NOTE: Google sunsets each version ~13 months after release; a sunset version
+returns HTTP 404 (not 401) on every endpoint.  Re-probe and bump when 404s appear.
 
 Google Ads API reference
 -----------
@@ -72,7 +74,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-_API_VERSION = "v18"
+_API_VERSION = "v23"
 _OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _OAUTH_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _OAUTH_SCOPE = "https://www.googleapis.com/auth/adwords"
