@@ -36,6 +36,7 @@ import time
 import urllib.parse
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -265,6 +266,40 @@ def parse_state(state: str) -> tuple[str, str]:
         raise ValueError(f"Invalid OAuth state token: missing key {exc}") from exc
 
 
+# ── Token expiry helper ───────────────────────────────────────────────────────
+
+
+def _with_absolute_expiry(data: dict[str, Any]) -> dict[str, Any]:
+    """Add an absolute ``token_expires_at`` (ISO-8601 UTC) to ``data`` in place,
+    computed from its ``expires_in`` (relative seconds), if present.
+
+    Every platform token endpoint returns a *relative* ``expires_in`` — that
+    number is only meaningful at the instant the HTTP response was received.
+    Once the token dict is persisted to the Vault and read back later (e.g. by
+    a sync task hours or days afterward), a relative value can no longer say
+    whether the token is still alive. Converting to an absolute timestamp here
+    — right where "now" is well-defined — lets any later caller (see
+    ``sync.py``'s Meta rolling-refresh) compare against ``datetime.now(UTC)``
+    directly.
+
+    Silently leaves ``data`` untouched if ``expires_in`` is absent or not a
+    valid number — defensive, since not every platform response guarantees
+    the field (e.g. system-user tokens, or a malformed response we'd rather
+    not crash the whole exchange over).
+    """
+    expires_in = data.get("expires_in")
+    if expires_in is None:
+        return data
+    try:
+        seconds = int(expires_in)
+    except (TypeError, ValueError):
+        return data
+    data["token_expires_at"] = (
+        datetime.now(timezone.utc) + timedelta(seconds=seconds)
+    ).isoformat()
+    return data
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
@@ -422,7 +457,7 @@ def exchange_code(
         if http_client is None:
             client.close()
 
-    return data
+    return _with_absolute_expiry(data)
 
 
 def _meta_exchange_long_lived_token(
@@ -562,7 +597,7 @@ def refresh(
         if http_client is None:
             client.close()
 
-    return data
+    return _with_absolute_expiry(data)
 
 
 def revoke(

@@ -26,21 +26,26 @@ kayıplı compaction seyrekleşir. Ana thread'i **sadece kararlara** ayır. Deta
   (headless/browser ile ekran görüntüsü). Test + gerçek davranışla doğrula.
 - TR iş mantığında Türkçe yorum; TR sayı/tarih/₺ biçimi.
 
-## Durum (2026-07-10)
+## Durum (2026-07-11)
 - Yerel/origin senkron. Modüller **M1–M10 + 7 farklılaştırıcı** hazır.
 - **Canlı ortamlar:** gerçek ürün ayaz-beryl.vercel.app (Vercel `ayaz` projesi, claude
   branch oto-deploy) + ayaz-backend.onrender.com. **Temiz test instance:**
-  ayaz-clean.vercel.app + ayaz-backend-clean.onrender.com (boş Neon DB). Detay hafızada:
-  [[ayaz-canli-deploy]], [[ayaz-google-oauth-kurulumu]].
-- **Google OAuth uçtan uca kuruldu ve KANITLANDI** (temiz instance): panelden "Google'ı
-  Bağla" → izin → token şifreli saklandı. Google Ads **developer token oluşturuldu**
-  (EYAYTECH MCC, Explorer erişimi). Bu turda push'lanan fix'ler: OAuth redirect base
-  (localhost→settings), state TTL 10→30dk, integrations redirect.
+  ayaz-clean.vercel.app + ayaz-backend-clean.onrender.com (boş Neon DB). ⚠️ ayaz-clean
+  frontend'i git-oto-deploy DEĞİL → `cd ~/AYAZ/frontend && vercel deploy --prod --yes`
+  gerekir. Detay hafızada: [[ayaz-canli-deploy]], [[ayaz-google-oauth-kurulumu]].
+- **🟢 GOOGLE ADS GERÇEK VERİ CANLI KANITLANDI** (temiz instance, 2026-07-11): panelde
+  ai@easycep.com → Cereyan_Easycep → 2 gerçek kampanya (₺116K+₺105K, 8.73x/49.21x ROAS).
+  Dev token Render env'de. **KRİTİK fix: Google Ads API v18→v23 (v18 sunset→404).** Sürüm
+  sunset dersi + envanter: [[ayaz-konektor-api-surumleri]].
+- **Meta Ads:** backend kod TAM hazır (uzun-ömürlü token 2-hop + hesap çözümü + v25.0 +
+  **60-gün rolling refresh durability**). Canlı kurulum kullanıcıda (FB Business app +
+  META_APP_ID/SECRET). Detay: [[ayaz-meta-oauth-kurulumu]].
+- **Bu oturumda ayrıca:** 12-ay backfill (sync days 90→365 + frontend Son 6/12 ay preset +
+  akıllı ilk-sync), report_builder UTC flake fix. Hepsi push'lı.
 
-## 🎯 SIRADAKI İŞ — Gerçek Google Ads verisi akışı
-**Backend kod fazı BİTTİ (2026-07-10, ekiple + adversarial review + E2E doğrulama).**
-Kalan tek şey kullanıcının elle yapacağı env adımı. Detay: hafıza
-[[ayaz-google-oauth-kurulumu]].
+## ✅ Gerçek Google Ads verisi akışı — CANLI KANITLANDI (2026-07-11)
+Backend kod + dev token env + canlı panel doğrulaması TAMAM (2 gerçek kampanya görüldü).
+Detay + görsel kanıt: hafıza [[ayaz-google-oauth-kurulumu]]. Kod özeti:
 
 **Bu oturumda yapılan (kod tarafı — tam test paketi yeşil):**
 - `config.py` → `google_ads_developer_token` alanı.
@@ -86,12 +91,12 @@ ID/Secret) → **Facebook Login** + **Marketing API** ürünlerini ekle → Redi
 `META_APP_SECRET`'i Render'a env koy (Google dev-token yöntemi). Gerçek müşteriler için:
 **Business Verification** (Google'da yok, sert ön-koşul) + **App Review** (`ads_read`).
 
-**⚠️ Meta SONRAKI FAZ — token durability (60 gün):** Meta uzun-ömürlü token ~60 günde ölür
-ve şu an `connected_accounts`/sync yolunda **periyodik yenileme YOK** (Google her sync'te
-kendini yeniliyor, Meta yenilemiyor). Kalıcı çözüm: (a) Business Manager'da **System User
-token** (süresiz — önerilen, kullanıcı kurulum adımı) VEYA (b) `token_expires_at` + sync-zamanı
-`fb_exchange_token` yenileme (kod, ama fb_exchange_token'ın süresiz uzatıp uzatmadığı canlı
-Meta'sız belirsiz). Near-term demo 60 gün çalışır; lansmandan önce çözülmeli.
+**Meta token durability (60 gün) — KOD ÇÖZÜLDÜ (2026-07-11, seçenek b):** `token_expires_at`
+saklanıyor + sync-zamanında 7 günden yakın expiry'de `oauth_broker.refresh("meta_ads")` ile
+rolling refresh + vault'a geri yazım (Google'ın her-sync self-heal deseninin Meta karşılığı).
+Operatör client_id/secret vault'a SIZMIYOR (enjeksiyon öncesi snapshot; explicit test). ⚠️ Yine
+de `fb_exchange_token`'ın süresiz uzatıp uzatmadığı canlı Meta'sız belirsiz — en sağlam yol hâlâ
+Business Manager **System User token** (süresiz, kullanıcı kurulum adımı, öneri).
 
 Ayrıca lansmanda: Google app'i **Yayınla + doğrula** (şimdi Testing modu, sadece elle
 eklenen test kullanıcıları bağlanabilir).

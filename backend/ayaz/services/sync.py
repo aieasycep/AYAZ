@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -55,6 +55,7 @@ from ayaz.models.analytics import (
     FactDailyMetrics,
 )
 from ayaz.models.oltp import ConnectedAccount, SyncStatus
+from ayaz.services import oauth_broker
 from ayaz.services.channels import channel_label
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,116 @@ def inject_operator_credentials(platform_key: str, secrets: dict[str, Any]) -> N
         # without a separate wiring change.
         secrets.setdefault("client_id", settings.meta_app_id)
         secrets.setdefault("client_secret", settings.meta_app_secret)
+
+
+# ── Meta Ads rolling token refresh ──────────────────────────────────────────────
+
+# Meta's long-lived user access token lives ~60 days and has NO refresh_token
+# grant (see oauth_broker.refresh()'s meta_ads branch) — unlike Google Ads,
+# whose connector re-derives a fresh access token from its refresh_token on
+# every sync, a Meta token left untouched will eventually just die with no
+# self-healing path. Refresh a bit before the real deadline so a slow/failed
+# sync cycle or two doesn't run out the clock.
+_META_TOKEN_REFRESH_THRESHOLD = timedelta(days=7)
+
+
+def _meta_token_needs_refresh(secrets: dict[str, Any]) -> bool:
+    """Return True if the Meta access token's expiry is unknown, unparsable,
+    or within ``_META_TOKEN_REFRESH_THRESHOLD`` of ``now``.
+
+    An absent/unparsable ``token_expires_at`` (e.g. a token stored before
+    this field existed, or a manually-seeded fixture) is treated as
+    "needs refresh" — proactively renewing is safe (Meta's fb_exchange_token
+    hop works on any still-valid token), whereas assuming an unknown-age
+    token is healthy is not.
+    """
+    raw = secrets.get("token_expires_at")
+    if not raw:
+        return True
+    try:
+        expires_at = datetime.fromisoformat(str(raw))
+    except ValueError:
+        return True
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    return (expires_at - datetime.now(timezone.utc)) < _META_TOKEN_REFRESH_THRESHOLD
+
+
+def _maybe_refresh_meta_token(
+    vault: Any,
+    connected_account_id: Any,
+    secrets: dict[str, Any],
+    vault_native_secrets: dict[str, Any],
+) -> None:
+    """Rolling refresh for Meta's long-lived access token — the Meta
+    counterpart of Google Ads' every-sync self-heal.
+
+    Called once per sync, BEFORE ``connector.authenticate()``, so a renewed
+    token (not the stale one) is what the connector actually uses this cycle.
+    No-ops immediately if there is no ``access_token`` to refresh (e.g. a
+    still-pending account) or if the current token is not yet close to expiry.
+
+    Persistence
+    -----------
+    The refreshed token fields are merged into TWO dicts:
+    - ``secrets`` — drives this sync's ``ConnectorConfig.extra`` (same dict
+      object; mutating in place is enough, no need to rebuild the config).
+    - ``vault_native_secrets`` — a snapshot taken by the caller BEFORE
+      ``inject_operator_credentials`` ran. This is what actually gets written
+      back via ``vault.put()``. Never persist ``secrets`` itself: it has the
+      operator-global ``client_id``/``client_secret`` mixed in by
+      ``inject_operator_credentials``, and those must never end up inside a
+      per-tenant Vault row (see that function's docstring).
+
+    Failure handling — best-effort, never raises
+    ----------------------------------------------
+    A refresh failure (network error, Meta rejects an already-dead token,
+    etc.) is logged and swallowed; ``secrets`` is left with its existing
+    access_token. Two outcomes follow, both correct with no special-casing
+    needed here:
+    - the old token is in fact still valid → this sync's authenticate()/
+      fetch() succeed normally, and the next sync will try refreshing again;
+    - the old token has actually died → authenticate()/fetch() fail against
+      the live Graph API on their own, landing the account in
+      ``sync_status=error`` — exactly the "needs reconnect" signal a user
+      should see, without this function needing to distinguish the two cases
+      itself.
+    """
+    access_token = secrets.get("access_token", "")
+    if not access_token or not _meta_token_needs_refresh(secrets):
+        return
+
+    try:
+        refreshed = oauth_broker.refresh("meta_ads", access_token)
+    except Exception:
+        logger.warning(
+            "[sync] Meta token refresh failed for account=%s; continuing "
+            "with the existing token (if it has actually expired, "
+            "authenticate()/fetch() will surface that naturally).",
+            connected_account_id,
+            exc_info=True,
+        )
+        return
+
+    secrets.update(refreshed)
+    vault_native_secrets.update(refreshed)
+    try:
+        vault.put(str(connected_account_id), vault_native_secrets)
+    except Exception:
+        logger.warning(
+            "[sync] Refreshed Meta token but failed to persist it to Vault "
+            "for account=%s; this sync uses it in-memory, but it will need "
+            "to be re-refreshed next sync.",
+            connected_account_id,
+            exc_info=True,
+        )
+    else:
+        logger.info(
+            "[sync] Refreshed Meta long-lived access token for account=%s "
+            "(new expiry=%s).",
+            connected_account_id,
+            refreshed.get("token_expires_at", "unknown"),
+        )
 
 
 # ── Google Ads target resolution ────────────────────────────────────────────────
@@ -615,9 +726,24 @@ def sync_connected_account(
             )
             secrets = {}
 
+    # Snapshot the vault-native secrets BEFORE operator-credential injection
+    # mutates ``secrets`` below — the Meta rolling-refresh persists THIS dict
+    # back to the Vault, never the operator-credential-mixed one (see
+    # ``_maybe_refresh_meta_token`` docstring).
+    vault_native_secrets: dict[str, Any] = dict(secrets)
+
     # Inject global (operator-level) platform credentials — see
     # ``inject_operator_credentials`` docstring for rationale.
     inject_operator_credentials(platform_key, secrets)
+
+    # Meta Ads: rolling refresh of the ~60-day long-lived user access token,
+    # before authenticate() so a renewed token is what this sync actually
+    # uses. No-op for every other platform (Google Ads self-heals inside its
+    # own connector via refresh_token on each authenticate() call instead).
+    if platform_key == "meta_ads" and vault is not None:
+        _maybe_refresh_meta_token(
+            vault, connected_account_id, secrets, vault_native_secrets
+        )
 
     config = ConnectorConfig(
         tenant_id=str(tenant_id),

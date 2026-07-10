@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi import FastAPI
@@ -1050,6 +1050,314 @@ def test_sync_meta_existing_external_account_id_sets_ad_account_id_secret(
     connector = captured["connector"]
     assert account.external_account_id == "9990001111"
     assert connector.config.extra["ad_account_id"] == "9990001111"
+    assert account.sync_status == SyncStatus.success
+
+
+# ── Meta Ads rolling token refresh (60-day token durability) ────────────────────
+
+
+def test_sync_meta_token_near_expiry_triggers_refresh_and_persists(
+    db_session, monkeypatch
+) -> None:
+    """A Meta access token whose ``token_expires_at`` is within the 7-day
+    rolling-refresh threshold must be refreshed via ``oauth_broker.refresh()``
+    BEFORE ``authenticate()``, with the renewed token both visible to this
+    sync's connector AND persisted back to the Vault (Meta has no
+    refresh_token grant — this is its self-heal equivalent to Google Ads'
+    every-``authenticate()`` refresh_token exchange). The operator-global
+    client_id/client_secret injected on top of the vault secrets must never
+    leak into what gets persisted."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(
+        db_session, external_account_id="5551112222"
+    )
+    vault = InMemoryVault()
+    near_expiry = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+    vault.put(
+        str(account.id),
+        {"access_token": "old_token", "token_expires_at": near_expiry},
+    )
+
+    refresh_calls: list[tuple[str, str]] = []
+
+    def fake_refresh(platform: str, refresh_token: str, **kwargs):
+        refresh_calls.append((platform, refresh_token))
+        return {
+            "access_token": "renewed_token",
+            "token_expires_at": (
+                datetime.now(timezone.utc) + timedelta(days=60)
+            ).isoformat(),
+        }
+
+    monkeypatch.setattr(sync_module.oauth_broker, "refresh", fake_refresh)
+
+    captured: dict[str, object] = {}
+
+    def fake_authenticate(self) -> None:
+        captured["connector"] = self
+        self._access_token = self._get_secret("access_token")
+
+    def fake_discover(self):
+        return [{"id": "5551112222", "name": "Acct", "currency": "TRY"}]
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    # refresh() called exactly once, with the OLD (pre-refresh) token.
+    assert refresh_calls == [("meta_ads", "old_token")]
+
+    # This sync's connector must authenticate with the NEW token, not the old one.
+    connector = captured["connector"]
+    assert connector.config.extra["access_token"] == "renewed_token"
+
+    # Persisted back to the Vault — the next sync (or any vault.get()) sees it too.
+    stored = vault.get(str(account.id))
+    assert stored["access_token"] == "renewed_token"
+    assert stored["token_expires_at"] != near_expiry
+    # Operator-global credentials must never leak into the per-tenant Vault row.
+    assert "client_id" not in stored
+    assert "client_secret" not in stored
+
+    assert account.sync_status == SyncStatus.success
+
+
+def test_sync_meta_token_far_from_expiry_skips_refresh(
+    db_session, monkeypatch
+) -> None:
+    """A Meta access token with an expiry comfortably outside the 7-day
+    threshold must NOT trigger a refresh — refresh() must not be called at
+    all, and the sync proceeds with the existing token unchanged."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(
+        db_session, external_account_id="5551112222"
+    )
+    vault = InMemoryVault()
+    far_expiry = (datetime.now(timezone.utc) + timedelta(days=45)).isoformat()
+    vault.put(
+        str(account.id),
+        {"access_token": "healthy_token", "token_expires_at": far_expiry},
+    )
+
+    refresh_calls: list[tuple[str, str]] = []
+
+    def fake_refresh(platform: str, refresh_token: str, **kwargs):
+        refresh_calls.append((platform, refresh_token))
+        return {"access_token": "should-not-be-used"}
+
+    monkeypatch.setattr(sync_module.oauth_broker, "refresh", fake_refresh)
+
+    def fake_authenticate(self) -> None:
+        self._access_token = self._get_secret("access_token")
+
+    def fake_discover(self):
+        return [{"id": "5551112222", "name": "Acct", "currency": "TRY"}]
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert refresh_calls == []
+    assert account.sync_status == SyncStatus.success
+
+
+def test_sync_meta_missing_expiry_triggers_refresh(
+    db_session, monkeypatch
+) -> None:
+    """A Meta token stored with no ``token_expires_at`` at all (e.g. one
+    persisted before this field existed) is an unknown-age token — treated as
+    "needs refresh" (safer to proactively renew than assume it is healthy)."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(
+        db_session, external_account_id="5551112222"
+    )
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"access_token": "legacy_token"})  # no token_expires_at
+
+    refresh_calls: list[tuple[str, str]] = []
+
+    def fake_refresh(platform: str, refresh_token: str, **kwargs):
+        refresh_calls.append((platform, refresh_token))
+        return {
+            "access_token": "renewed_token",
+            "token_expires_at": (
+                datetime.now(timezone.utc) + timedelta(days=60)
+            ).isoformat(),
+        }
+
+    monkeypatch.setattr(sync_module.oauth_broker, "refresh", fake_refresh)
+
+    def fake_authenticate(self) -> None:
+        self._access_token = self._get_secret("access_token")
+
+    def fake_discover(self):
+        return [{"id": "5551112222", "name": "Acct", "currency": "TRY"}]
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert refresh_calls == [("meta_ads", "legacy_token")]
+    assert account.sync_status == SyncStatus.success
+
+
+def test_sync_meta_refresh_failure_continues_with_existing_token(
+    db_session, monkeypatch
+) -> None:
+    """A ``refresh()`` failure (e.g. transient network error, or Meta
+    rejecting an already-dead token) must be swallowed — logged, not raised.
+    The sync proceeds with the OLD access_token already in the Vault: if it
+    is in fact still valid, the sync completes normally (this test's case,
+    via the empty-stream fake capabilities); if it had actually died,
+    authenticate()/fetch() would fail against the live API on their own,
+    landing the account in sync_status=error — but that natural failure is
+    NOT this function's job to simulate. No crash either way, and the Vault
+    is left completely untouched by the failed refresh attempt."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(
+        db_session, external_account_id="5551112222"
+    )
+    vault = InMemoryVault()
+    near_expiry = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    original_secrets = {
+        "access_token": "still_valid_token",
+        "token_expires_at": near_expiry,
+    }
+    vault.put(str(account.id), dict(original_secrets))
+
+    def fake_refresh(platform: str, refresh_token: str, **kwargs):
+        raise RuntimeError("boom — Graph API unreachable")
+
+    monkeypatch.setattr(sync_module.oauth_broker, "refresh", fake_refresh)
+
+    captured: dict[str, object] = {}
+
+    def fake_authenticate(self) -> None:
+        captured["connector"] = self
+        self._access_token = self._get_secret("access_token")
+
+    def fake_discover(self):
+        return [{"id": "5551112222", "name": "Acct", "currency": "TRY"}]
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    connector = captured["connector"]
+    assert connector.config.extra["access_token"] == "still_valid_token"
+    assert account.sync_status == SyncStatus.success
+
+    # Vault untouched — a failed refresh must not corrupt or clear stored secrets.
+    stored = vault.get(str(account.id))
+    assert stored == original_secrets
+
+
+def test_sync_google_ads_never_calls_meta_token_refresh(
+    db_session, monkeypatch
+) -> None:
+    """Regression guard: the Meta rolling-refresh logic is gated strictly on
+    ``platform_key == "meta_ads"`` — a google_ads sync must never call
+    ``oauth_broker.refresh()``, even if its vault secrets happen to contain a
+    ``token_expires_at``-shaped field. Google Ads' own token lifecycle is
+    handled entirely inside ``GoogleAdsConnector.authenticate()`` via its
+    refresh_token grant, not via this path."""
+    from ayaz.connectors.google_ads import GoogleAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+    monkeypatch.setattr(
+        sync_module.settings, "google_ads_developer_token", "GLOBAL_DEV_TOKEN"
+    )
+
+    tenant, account = _make_google_ads_tenant_account(
+        db_session, external_account_id="9998887777"
+    )
+    vault = InMemoryVault()
+    # Deliberately near-"expiry"-shaped to prove the guard is platform_key-based,
+    # not merely "does a token_expires_at-looking field exist".
+    vault.put(
+        str(account.id),
+        {
+            "refresh_token": "user_refresh_token",
+            "token_expires_at": (
+                datetime.now(timezone.utc) + timedelta(minutes=1)
+            ).isoformat(),
+        },
+    )
+
+    refresh_calls: list[object] = []
+
+    def fake_refresh(*args, **kwargs):
+        refresh_calls.append((args, kwargs))
+        return {}
+
+    monkeypatch.setattr(sync_module.oauth_broker, "refresh", fake_refresh)
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_list_accessible_customers(self):
+        return ["9998887777"]
+
+    def fake_list_child_customers(self, manager_id):
+        return [{"id": manager_id, "name": "Standalone Acct", "currency": "TRY"}]
+
+    monkeypatch.setattr(GoogleAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(
+        GoogleAdsConnector, "list_accessible_customers", fake_list_accessible_customers
+    )
+    monkeypatch.setattr(
+        GoogleAdsConnector, "list_child_customers", fake_list_child_customers
+    )
+    monkeypatch.setattr(GoogleAdsConnector, "capabilities", _fake_capabilities)
+
+    sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert refresh_calls == []
     assert account.sync_status == SyncStatus.success
 
 

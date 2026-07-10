@@ -17,6 +17,7 @@ No live network calls are made — all HTTP calls use an httpx mock transport.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -308,6 +309,45 @@ def test_exchange_code_meta_ads_hops_to_long_lived_token():
     assert str(hop2.url).split("?")[0] == meta_token_url
 
 
+def test_exchange_code_meta_ads_includes_absolute_token_expires_at():
+    """The long-lived token dict returned by exchange_code() must carry an
+    absolute ``token_expires_at`` (ISO-8601 UTC) computed from the LONG-LIVED
+    hop's ``expires_in`` (~60 days) — not the short-lived hop's ~1-2h value.
+    A relative ``expires_in`` alone is useless once persisted to the Vault
+    (see sync.py's Meta rolling-refresh, which reads this field back)."""
+    short_lived = {
+        "access_token": "short_lived_token_abc",
+        "token_type": "bearer",
+        "expires_in": 5400,  # ~1.5h — must NOT be what token_expires_at is based on
+    }
+    long_lived = {
+        "access_token": "long_lived_token_xyz",
+        "token_type": "bearer",
+        "expires_in": 5183944,  # ~60 days
+    }
+    client, _transport = _recording_http_client([short_lived, long_lived])
+
+    before = datetime.now(timezone.utc)
+    with patch("ayaz.services.oauth_broker.settings") as mock_settings:
+        mock_settings.meta_app_id = "meta-id"
+        mock_settings.meta_app_secret = "meta-secret"
+
+        result = exchange_code(
+            platform="meta_ads",
+            code="meta-code-abc",
+            redirect_uri="https://example.com/callback",
+            http_client=client,
+        )
+    after = datetime.now(timezone.utc)
+
+    assert "token_expires_at" in result
+    expires_at = datetime.fromisoformat(result["token_expires_at"])
+    # Must be based on the LONG-LIVED hop's expires_in (~60 days), within a
+    # generous tolerance for test execution time.
+    assert before + timedelta(seconds=5183944) - timedelta(seconds=5) <= expires_at
+    assert expires_at <= after + timedelta(seconds=5183944) + timedelta(seconds=5)
+
+
 def test_exchange_code_meta_ads_hop2_http_error_propagates():
     """Hop 1 (authorization_code) succeeds, but hop 2 (fb_exchange_token)
     comes back non-2xx (e.g. Meta rejects the short-lived token) —
@@ -551,6 +591,35 @@ def test_refresh_meta_missing_access_token_raises():
             )
 
     assert len(transport.requests) == 1
+
+
+def test_refresh_meta_includes_absolute_token_expires_at():
+    """refresh()'s Meta fb_exchange_token result must also carry an absolute
+    ``token_expires_at`` — sync.py's rolling refresh persists this field back
+    to the Vault so the NEXT sync can decide whether to renew again."""
+    response = {
+        "access_token": "re_extended_long_lived_token",
+        "token_type": "bearer",
+        "expires_in": 5184000,  # 60 days exactly
+    }
+    client, _transport = _recording_http_client([response])
+
+    before = datetime.now(timezone.utc)
+    with patch("ayaz.services.oauth_broker.settings") as mock_settings:
+        mock_settings.meta_app_id = "mid"
+        mock_settings.meta_app_secret = "msecret"
+
+        result = refresh(
+            platform="meta_ads",
+            refresh_token="current_long_lived_token",
+            http_client=client,
+        )
+    after = datetime.now(timezone.utc)
+
+    assert "token_expires_at" in result
+    expires_at = datetime.fromisoformat(result["token_expires_at"])
+    assert before + timedelta(seconds=5184000) - timedelta(seconds=5) <= expires_at
+    assert expires_at <= after + timedelta(seconds=5184000) + timedelta(seconds=5)
 
 
 def test_refresh_tiktok_unwraps_data_envelope():
