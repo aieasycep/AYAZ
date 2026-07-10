@@ -76,8 +76,8 @@ _PLATFORM_CONFIGS: dict[str, _PlatformOAuthConfig] = {
         scopes=["https://www.googleapis.com/auth/webmasters.readonly"],
     ),
     "meta_ads": _PlatformOAuthConfig(
-        authorize_url="https://www.facebook.com/v21.0/dialog/oauth",
-        token_url="https://graph.facebook.com/v21.0/oauth/access_token",
+        authorize_url="https://www.facebook.com/v25.0/dialog/oauth",
+        token_url="https://graph.facebook.com/v25.0/oauth/access_token",
         # Least privilege: AYAZ is read-only for Meta (see
         # MetaAdsConnector.capabilities().supports_write=False). "ads_management"
         # (write) is deliberately excluded to narrow the App Review scope —

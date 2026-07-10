@@ -43,7 +43,7 @@ Status values
 
 Platform values (EventDestination.platform)
 -------------------------------------------
-"meta_capi"       – Meta Conversions API (Graph API v21.0)
+"meta_capi"       – Meta Conversions API (Graph API v25.0)
 "tiktok_events"   – TikTok Events API (Business API v1.3)
 "ga4_mp"          – Google Analytics 4 Measurement Protocol
 """

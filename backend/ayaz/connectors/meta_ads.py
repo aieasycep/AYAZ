@@ -13,7 +13,7 @@ Required credentials (store in Vault; reference via ConnectorConfig.vault_secret
     The Meta ad account ID without the ``act_`` prefix (e.g. ``"123456789"``).
     The connector prepends ``act_`` when forming API URLs.
 ``api_version``  (optional)
-    Graph API version string, e.g. ``"v21.0"``.  Defaults to ``_API_VERSION``.
+    Graph API version string, e.g. ``"v25.0"``.  Defaults to ``_API_VERSION``.
 ``currency``  (optional)
     ISO-4217 currency code for the account (e.g. ``"USD"``).  Defaults to ``"USD"``.
     The ``spend`` field in the API is always in the account's currency.
@@ -58,7 +58,9 @@ Rate limits
 
 API version
 -----------
-Targets ``v21.0`` of the Graph API.  Update ``_API_VERSION`` to upgrade.
+Targets ``v25.0`` of the Graph API (latest GA, Feb 2026).  Update ``_API_VERSION``
+to upgrade.  Unlike Google Ads (which hard-404s a sunset version), Meta keeps old
+versions ~2 years and only warns — but bump periodically to stay well inside window.
 
 Meta Marketing API reference
 -----------------------------
@@ -85,7 +87,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-_API_VERSION = "v21.0"
+_API_VERSION = "v25.0"
 
 # Insights endpoint — formatted with api_version and act_{ad_account_id}
 _INSIGHTS_URL = "https://graph.facebook.com/{ver}/{account}/insights"
