@@ -360,6 +360,43 @@ def test_discover_raises_without_token(connector: MetaAdsConnector) -> None:
         connector.discover()
 
 
+# ── authenticate() — ad_account_id must NOT be required (chicken-and-egg) ─────
+
+
+def test_authenticate_succeeds_with_access_token_only() -> None:
+    """A user fresh out of the OAuth dialog has an access_token but has not
+    picked an ad account yet. authenticate() must succeed on access_token
+    alone so discover() (the account picker) can run — mirrors
+    GoogleAdsConnector.authenticate(), which does not require customer_id.
+    """
+    config = ConnectorConfig(
+        tenant_id="tenant-test-003",
+        connected_account_id="conn-meta-002",
+        external_account_id="",
+        platform_key="meta_ads",
+        vault_secret_ref="",
+        extra={"access_token": "EAABbbb...longlived"},
+    )
+    connector = MetaAdsConnector(config=config)
+    connector.authenticate()  # must not raise
+    assert connector._token() == "EAABbbb...longlived"
+
+
+def test_authenticate_raises_without_access_token() -> None:
+    """access_token is the one credential authenticate() still requires."""
+    config = ConnectorConfig(
+        tenant_id="tenant-test-004",
+        connected_account_id="conn-meta-003",
+        external_account_id="",
+        platform_key="meta_ads",
+        vault_secret_ref="",
+        extra={"ad_account_id": "123456789"},  # access_token missing on purpose
+    )
+    connector = MetaAdsConnector(config=config)
+    with pytest.raises(RuntimeError, match="Missing required credentials"):
+        connector.authenticate()
+
+
 # ── build_authorization_url() ─────────────────────────────────────────────────
 
 

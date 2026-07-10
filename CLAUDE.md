@@ -67,7 +67,32 @@ Kalan tek şey kullanıcının elle yapacağı env adımı. Detay: hafıza
 - **(Ops.) Redis/Celery:** clean backend REDIS_URL boş → arka plan (saatlik) sync koşmaz;
   senkron endpoint "şimdi senkronize et"i zaten karşılıyor. İstenirse Upstash Redis free bağla.
 
-Sonra: **Meta OAuth kurulumu** (Facebook giriş + Business Manager gerekiyor; aynı desen).
+## Meta (Facebook) Ads verisi akışı — backend kod fazı BİTTİ (2026-07-10)
+Google ile aynı olgunlukta; ekiple + adversarial review (2 bulgu) + gerçek E2E + tam paket
+yeşil. **Frontend agnostik — sıfır değişiklik.**
+- `meta_ads.authenticate()` artık sadece `access_token` ister (tavuk-yumurta çözüldü →
+  discover/hesap-seçici OAuth sonrası çalışır).
+- **OAuth broker uzun-ömürlü token 2-hop:** `exchange_code()` Meta için `authorization_code`
+  → sonra `fb_exchange_token` ile kısa-ömürlü (~1-2 saat) token'ı uzun-ömürlüye (~60 gün)
+  çevirir; `refresh()` de `fb_exchange_token` kullanır. Scope least-privilege:
+  `ads_read`+`business_management` (`ads_management` düşürüldü, read-only ürün).
+- `sync.py`: `resolve_meta_ads_targets()` (`/me/adaccounts`, düz — MCC yok) +
+  `_apply_meta_targeting()`; idle-guard platform-anahtarlı (`_ACCOUNT_ID_SECRET_KEY`) →
+  ad account çözülemezse fetch'e girmeden `idle` (Google'la ortak).
+
+**KALAN — kullanıcı / elle (Meta):** Facebook Developer hesabı → **Business tipi App** (App
+ID/Secret) → **Facebook Login** + **Marketing API** ürünlerini ekle → Redirect URI kaydet
+(`.../oauth/meta_ads/callback`) → kendini App Roles'e ekle (test için) → `META_APP_ID`/
+`META_APP_SECRET`'i Render'a env koy (Google dev-token yöntemi). Gerçek müşteriler için:
+**Business Verification** (Google'da yok, sert ön-koşul) + **App Review** (`ads_read`).
+
+**⚠️ Meta SONRAKI FAZ — token durability (60 gün):** Meta uzun-ömürlü token ~60 günde ölür
+ve şu an `connected_accounts`/sync yolunda **periyodik yenileme YOK** (Google her sync'te
+kendini yeniliyor, Meta yenilemiyor). Kalıcı çözüm: (a) Business Manager'da **System User
+token** (süresiz — önerilen, kullanıcı kurulum adımı) VEYA (b) `token_expires_at` + sync-zamanı
+`fb_exchange_token` yenileme (kod, ama fb_exchange_token'ın süresiz uzatıp uzatmadığı canlı
+Meta'sız belirsiz). Near-term demo 60 gün çalışır; lansmandan önce çözülmeli.
+
 Ayrıca lansmanda: Google app'i **Yayınla + doğrula** (şimdi Testing modu, sadece elle
 eklenen test kullanıcıları bağlanabilir).
 

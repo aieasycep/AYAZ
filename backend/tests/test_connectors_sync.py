@@ -735,6 +735,312 @@ def test_sync_endpoint_tenant_isolation_returns_404(ctx) -> None:
     assert resp.status_code == 404
 
 
+def _make_meta_ads_tenant_account(
+    db_session, external_account_id: str = ""
+) -> tuple[Tenant, ConnectedAccount]:
+    """Create+commit a bare tenant and a meta_ads ConnectedAccount for it."""
+    tenant = Tenant(
+        id=uuid.uuid4(), name="Meta Tenant",
+        base_currency="TRY", country="TR", kvkk_region="TR",
+    )
+    account = ConnectedAccount(
+        id=uuid.uuid4(), tenant_id=tenant.id, platform=Platform.meta_ads,
+        external_account_id=external_account_id,
+        display_name="Meta Ads (connecting…)",
+        vault_secret_ref="", sync_status=SyncStatus.idle,
+    )
+    db_session.add(tenant)
+    db_session.add(account)
+    db_session.commit()
+    return tenant, account
+
+
+def _fake_capabilities_meta(self):
+    from ayaz.connectors.base import ConnectorCapabilities
+    return ConnectorCapabilities(platform_key="meta_ads", supported_streams=[])
+
+
+def test_inject_operator_credentials_meta_ads(monkeypatch) -> None:
+    """``inject_operator_credentials`` must inject the operator-level Meta app
+    id/secret from Settings via ``setdefault`` — never overwriting a
+    Vault-provided value — matching the Google Ads pattern."""
+    from ayaz.services import sync as sync_module
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    # Vault-provided value must win over the operator default.
+    secrets = {"access_token": "user_access_token", "client_id": "VAULT_CID"}
+    sync_module.inject_operator_credentials("meta_ads", secrets)
+
+    assert secrets["client_id"] == "VAULT_CID"
+    assert secrets["client_secret"] == "GLOBAL_META_APP_SECRET"
+    assert secrets["access_token"] == "user_access_token"
+
+
+def test_sync_meta_single_account_auto_resolves_and_syncs(
+    db_session, monkeypatch
+) -> None:
+    """A single accessible Meta ad account must be auto-resolved onto
+    ``external_account_id`` / ``secrets["ad_account_id"]`` and the sync must
+    complete with ``sync_status=success`` (parallel to the Google Ads
+    single-target auto-resolve test)."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(db_session)
+
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"access_token": "user_access_token"})
+
+    captured: dict[str, object] = {}
+
+    def fake_authenticate(self) -> None:
+        captured["connector"] = self
+        self._access_token = "fake-access-token"
+
+    def fake_discover(self):
+        return [{"id": "1122334455", "name": "Only Acct", "currency": "TRY"}]
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert result["records_processed"] == 0
+
+    connector = captured["connector"]
+    # Operator-level app id/secret injected on top of the vault's access_token.
+    assert connector.config.extra["client_id"] == "GLOBAL_META_APP_ID"
+    assert connector.config.extra["client_secret"] == "GLOBAL_META_APP_SECRET"
+    assert connector.config.extra["access_token"] == "user_access_token"
+    # Auto-resolved from the single target and persisted on the account.
+    assert connector.config.extra["ad_account_id"] == "1122334455"
+    assert account.external_account_id == "1122334455"
+    assert account.sync_status == SyncStatus.success
+
+
+def test_sync_meta_ambiguous_multiple_targets_leaves_external_account_id_blank(
+    db_session, monkeypatch
+) -> None:
+    """Two accessible Meta ad accounts → resolver returns 2 targets →
+    ambiguous, so external_account_id must stay unset (the user picks via the
+    discover UI) rather than being guessed."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(db_session)
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"access_token": "user_access_token"})
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_discover(self):
+        return [
+            {"id": "1112223333", "name": "Acct A", "currency": "TRY"},
+            {"id": "7778889999", "name": "Acct B", "currency": "TRY"},
+        ]
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert account.external_account_id == ""
+    assert account.sync_status == SyncStatus.idle
+    assert result["skipped"] == "no_account_selected"
+    assert result["records_processed"] == 0
+
+
+def test_sync_meta_no_accessible_accounts_leaves_blank_no_crash(
+    db_session, monkeypatch
+) -> None:
+    """Empty ``discover()`` → resolver returns [] → no target resolved → sync
+    short-circuits to ``idle`` (awaiting account selection) with
+    external_account_id left blank; no crash, no fetch, no error."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(db_session)
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"access_token": "user_access_token"})
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_discover(self):
+        return []
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert account.external_account_id == ""
+    assert account.sync_status == SyncStatus.idle
+    assert result["skipped"] == "no_account_selected"
+    assert result["records_processed"] == 0
+
+
+def test_sync_meta_discover_raises_is_skipped_sync_continues(
+    db_session, monkeypatch
+) -> None:
+    """``discover()`` raising must be logged and skipped by the resolver —
+    never propagated. With no target resolved, the sync short-circuits to
+    ``idle`` (awaiting account selection)."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(db_session)
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"access_token": "user_access_token"})
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_discover(self):
+        raise RuntimeError("boom — Graph API unavailable")
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert account.external_account_id == ""
+    assert account.sync_status == SyncStatus.idle
+    assert result["skipped"] == "no_account_selected"
+    assert result["records_processed"] == 0
+
+
+def test_sync_meta_ambiguous_targets_short_circuits_before_fetch(
+    db_session, monkeypatch
+) -> None:
+    """Regression guard (Meta counterpart of the Google Ads test with the same
+    name): with the REAL ``capabilities()`` (a non-empty ``supported_streams``)
+    so the fetch loop is genuinely reachable, an ambiguous resolution (>1 ad
+    account, none picked) must short-circuit and return BEFORE calling
+    ``fetch()``. Otherwise ``_ad_account_id()`` falls back to "" (or the raw
+    ``external_account_id``) and the connector hits the Insights endpoint with
+    a malformed ``act_`` URL. The unit suite would miss this if every other
+    meta_ads test stubs ``capabilities()`` to empty."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(db_session)
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"access_token": "user_access_token"})
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_discover(self):
+        return [
+            {"id": "1112223333", "name": "Acct A", "currency": "TRY"},
+            {"id": "7778889999", "name": "Acct B", "currency": "TRY"},
+        ]
+
+    def fake_fetch(self, *args, **kwargs):  # must never run in this scenario
+        raise AssertionError(
+            "fetch() must not be called when no ad_account_id is resolved"
+        )
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "fetch", fake_fetch)
+    # NOTE: capabilities() is intentionally NOT stubbed — the real one reports
+    # supported_streams=["daily_campaign_metrics"], so a missing short-circuit
+    # would reach the guarded fake_fetch above and fail this test loudly.
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert account.external_account_id == ""
+    assert account.sync_status == SyncStatus.idle
+    assert result["skipped"] == "no_account_selected"
+    assert result["records_processed"] == 0
+
+
+def test_sync_meta_existing_external_account_id_sets_ad_account_id_secret(
+    db_session, monkeypatch
+) -> None:
+    """When ``external_account_id`` is already set (user previously picked an
+    account via the discover UI), ``_apply_meta_targeting`` must not overwrite
+    it — it only needs to mirror the value into ``secrets["ad_account_id"]``
+    so the connector can read it via ``_get_secret``."""
+    from ayaz.connectors.meta_ads import MetaAdsConnector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "meta_app_id", "GLOBAL_META_APP_ID")
+    monkeypatch.setattr(sync_module.settings, "meta_app_secret", "GLOBAL_META_APP_SECRET")
+
+    tenant, account = _make_meta_ads_tenant_account(
+        db_session, external_account_id="9990001111"
+    )
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"access_token": "user_access_token"})
+
+    captured: dict[str, object] = {}
+
+    def fake_authenticate(self) -> None:
+        captured["connector"] = self
+        self._access_token = "fake-access-token"
+
+    def fake_discover(self):
+        # Even if other accounts are accessible, the already-picked one wins.
+        return [
+            {"id": "9990001111", "name": "Picked Acct", "currency": "TRY"},
+            {"id": "1112223333", "name": "Other Acct", "currency": "TRY"},
+        ]
+
+    monkeypatch.setattr(MetaAdsConnector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(MetaAdsConnector, "discover", fake_discover)
+    monkeypatch.setattr(MetaAdsConnector, "capabilities", _fake_capabilities_meta)
+
+    sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    connector = captured["connector"]
+    assert account.external_account_id == "9990001111"
+    assert connector.config.extra["ad_account_id"] == "9990001111"
+    assert account.sync_status == SyncStatus.success
+
+
 def test_discover_lists_accounts(ctx) -> None:
     client, _db, _tenant, account = ctx
     vault = InMemoryVault()

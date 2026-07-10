@@ -245,12 +245,22 @@ class MetaAdsConnector(Connector):
         For regular user tokens the OAuth Broker must call ``refresh_token()``
         before the 60-day window expires.
 
+        ``ad_account_id`` is intentionally NOT required here: a user who has
+        just completed the OAuth dialog has an ``access_token`` but has not
+        picked an ad account yet.  ``discover()`` (the account picker) needs
+        to run with only the token — requiring ``ad_account_id`` up front
+        creates a chicken-and-egg RuntimeError that blocks account selection
+        entirely.  Mirrors ``GoogleAdsConnector.authenticate()``, which does
+        not require ``customer_id`` either.  ``_ad_account_id()`` /
+        ``_insights_url()`` still fall back to ``config.external_account_id``
+        once an account has been selected and persisted.
+
         Raises
         ------
         RuntimeError
-            If ``access_token`` or ``ad_account_id`` are absent from config.extra.
+            If ``access_token`` is absent from config.extra.
         """
-        required = ("access_token", "ad_account_id")
+        required = ("access_token",)
         missing = [k for k in required if not self._get_secret(k)]
         if missing:
             raise RuntimeError(
@@ -321,7 +331,9 @@ class MetaAdsConnector(Connector):
         for item in body.get("data", []):
             accounts.append(
                 {
-                    "id": str(item.get("account_id", item.get("id", ""))).lstrip("act_"),
+                    "id": str(
+                        item.get("account_id", item.get("id", ""))
+                    ).removeprefix("act_"),
                     "name": str(item.get("name", "")),
                     "currency": str(item.get("currency", "USD")),
                 }

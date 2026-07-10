@@ -77,6 +77,14 @@ def inject_operator_credentials(platform_key: str, secrets: dict[str, Any]) -> N
         secrets.setdefault("client_id", settings.google_client_id)
         secrets.setdefault("client_secret", settings.google_client_secret)
         secrets.setdefault("developer_token", settings.google_ads_developer_token)
+    elif platform_key == "meta_ads":
+        # MetaAdsConnector reads these via ``_get_secret("client_id"/"client_secret")``
+        # for its token-exchange helpers (_exchange_code_for_token/refresh_token).
+        # Not required by authenticate()/discover()/fetch() in the MVP flow, but
+        # injected here for forward-compat so a future refresh_token() call works
+        # without a separate wiring change.
+        secrets.setdefault("client_id", settings.meta_app_id)
+        secrets.setdefault("client_secret", settings.meta_app_secret)
 
 
 # ── Google Ads target resolution ────────────────────────────────────────────────
@@ -213,6 +221,89 @@ def _apply_google_ads_targeting(
         )
         if match and match.get("login_customer_id"):
             secrets.setdefault("login_customer_id", match["login_customer_id"])
+
+
+# ── Meta Ads target resolution ──────────────────────────────────────────────────
+
+
+def resolve_meta_ads_targets(connector: Any) -> list[dict[str, Any]]:
+    """Enumerate accessible Meta ad accounts for an authenticated connector.
+
+    Unlike Google Ads there is no MCC/manager hierarchy to descend — a Meta
+    access token grants direct access to a flat list of ad accounts, already
+    returned in syncable form by ``connector.discover()`` (``GET
+    /me/adaccounts``). This wraps that call best-effort: any failure (e.g. the
+    token lacks ``ads_read``) is logged and swallowed — never propagated to the
+    caller. Requires ``connector.authenticate()`` to have already run.
+
+    Returns
+    -------
+    list[dict]
+        One entry per accessible ad account: ``{"ad_account_id", "name",
+        "currency"}``. Empty list if nothing is accessible or discover() failed.
+    """
+    try:
+        raw = connector.discover() or []
+    except Exception:
+        logger.warning(
+            "[sync] discover() failed; no Meta Ads targets resolved",
+            exc_info=True,
+        )
+        return []
+
+    targets: list[dict[str, Any]] = []
+    for item in raw:
+        acc_id = str(item.get("id", "")) if isinstance(item, dict) else str(item)
+        if not acc_id:
+            continue
+        targets.append(
+            {
+                "ad_account_id": acc_id,
+                "name": str(item.get("name", "")) if isinstance(item, dict) else "",
+                "currency": str(item.get("currency", "")) if isinstance(item, dict) else "",
+            }
+        )
+    return targets
+
+
+def _apply_meta_targeting(
+    db: Session,
+    account: ConnectedAccount,
+    connector: Any,
+    secrets: dict[str, Any],
+) -> None:
+    """Resolve and apply the Meta ``ad_account_id`` for a sync.
+
+    Parallel to ``_apply_google_ads_targeting`` but simpler: Meta has no
+    login-customer-id concept, so a target is just a flat ad account id.
+    Best-effort network resolution happens here (swallowed on failure via
+    ``resolve_meta_ads_targets``); the resulting DB mutation
+    (``account.external_account_id``) is left to the caller to flush inside
+    the main error-handling ``try`` block so a flush failure is correctly
+    surfaced as ``sync_status=error`` rather than silently swallowed.
+    """
+    targets = resolve_meta_ads_targets(connector)
+
+    if not account.external_account_id:
+        if len(targets) == 1:
+            target = targets[0]
+            account.external_account_id = target["ad_account_id"]
+            secrets["ad_account_id"] = target["ad_account_id"]
+            logger.info(
+                "[sync] Auto-resolved Meta Ads ad_account_id=%s for account=%s",
+                target["ad_account_id"],
+                account.id,
+            )
+        elif len(targets) > 1:
+            logger.info(
+                "[sync] %d Meta Ads accounts accessible for account=%s — "
+                "ambiguous, leaving external_account_id unset (pick via discover UI)",
+                len(targets),
+                account.id,
+            )
+        # 0 targets: leave external_account_id unset; nothing else to do.
+    else:
+        secrets.setdefault("ad_account_id", account.external_account_id)
 
 
 # ── dim_date helper ───────────────────────────────────────────────────────────
@@ -414,6 +505,17 @@ def _upsert_fact(
         return existing, False
 
 
+# Maps a platform_key that needs auto-resolved-ad-account targeting to the
+# ``secrets`` dict key its ``_apply_*_targeting`` function populates once a
+# single unambiguous target is resolved. Used by the shared idle-guard in
+# ``sync_connected_account`` below — platforms absent from this map (e.g. the
+# credential-free ``sample`` connector) never hit the guard.
+_ACCOUNT_ID_SECRET_KEY: dict[str, str] = {
+    "google_ads": "customer_id",
+    "meta_ads": "ad_account_id",
+}
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
@@ -520,41 +622,52 @@ def sync_connected_account(
         if secrets:
             connector.authenticate()
 
-        # Auto-resolve the platform ad-account id (e.g. Google Ads customer_id)
-        # when the account was linked via OAuth but the user has not picked a
-        # specific ad account yet. Network calls inside are best-effort
-        # (swallowed by ``resolve_google_ads_targets``); the resulting
+        # Auto-resolve the platform ad-account id (e.g. Google Ads customer_id,
+        # Meta Ads ad_account_id) when the account was linked via OAuth but the
+        # user has not picked a specific ad account yet. Network calls inside
+        # are best-effort (swallowed by ``resolve_google_ads_targets`` /
+        # ``resolve_meta_ads_targets``); the resulting
         # ``account.external_account_id`` mutation + flush stay in this outer
         # try so a flush failure is correctly surfaced as ``sync_status=error``.
         if platform_key == "google_ads" and secrets:
             _apply_google_ads_targeting(db, account, connector, secrets)
             db.flush()
+        elif platform_key == "meta_ads" and secrets:
+            _apply_meta_targeting(db, account, connector, secrets)
+            db.flush()
 
-            # If no single ad account could be resolved — zero accessible
-            # customers, or an ambiguous MCC hierarchy with several leaf accounts
-            # and none picked yet — do NOT proceed to fetch(): the connector's
-            # ``_customer_id()`` would fall back to "" and POST to a malformed
-            # ``customers//googleAds:searchStream`` URL, which the Google Ads API
-            # rejects with 400. That would mark the account ``error`` on every
-            # scheduled sync (indistinguishable from a real auth failure) and burn
-            # quota. Instead leave it ``idle`` so the panel keeps showing the
-            # account picker (AccountLinker renders whenever external_account_id is
-            # empty), and return early as a no-op.
-            if not (account.external_account_id or secrets.get("customer_id")):
-                account.sync_status = SyncStatus.idle
-                db.commit()
-                logger.info(
-                    "[sync] google_ads account=%s has no resolved customer_id "
-                    "(zero or ambiguous accessible accounts); awaiting account "
-                    "selection — skipping fetch.",
-                    account.id,
-                )
-                return {
-                    "inserted": 0,
-                    "updated": 0,
-                    "records_processed": 0,
-                    "skipped": "no_account_selected",
-                }
+        # If no single ad account could be resolved for a platform that needs
+        # one — zero accessible accounts, or an ambiguous set with several
+        # candidates and none picked yet — do NOT proceed to fetch(): the
+        # connector's account-id lookup (``_customer_id()`` / ``_ad_account_id()``)
+        # would fall back to "" and hit the provider API with a malformed
+        # request (e.g. Google Ads' ``customers//googleAds:searchStream`` 400).
+        # That would mark the account ``error`` on every scheduled sync
+        # (indistinguishable from a real auth failure) and burn quota. Instead
+        # leave it ``idle`` so the panel keeps showing the account picker
+        # (AccountLinker renders whenever external_account_id is empty), and
+        # return early as a no-op. Platforms without an entry in
+        # ``_ACCOUNT_ID_SECRET_KEY`` (e.g. the credential-free ``sample``
+        # connector) skip this guard entirely.
+        resolved_key = _ACCOUNT_ID_SECRET_KEY.get(platform_key)
+        if resolved_key and secrets and not (
+            account.external_account_id or secrets.get(resolved_key)
+        ):
+            account.sync_status = SyncStatus.idle
+            db.commit()
+            logger.info(
+                "[sync] %s account=%s has no resolved ad account "
+                "(zero or ambiguous accessible accounts); awaiting account "
+                "selection — skipping fetch.",
+                platform_key,
+                account.id,
+            )
+            return {
+                "inserted": 0,
+                "updated": 0,
+                "records_processed": 0,
+                "skipped": "no_account_selected",
+            }
 
         caps = connector.capabilities()
         all_records: list[UnifiedRecord] = []
