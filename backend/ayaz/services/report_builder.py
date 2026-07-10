@@ -41,7 +41,7 @@ import re
 from ayaz.services.channels import channel_label
 from ayaz.services.trdate import tr_date
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -151,7 +151,10 @@ def _extract_date_range(
     Fallback: default_from / default_to unchanged.
     """
     norm = _normalise(text)
-    today = date.today()
+    # UTC to stay consistent with the reports endpoint and the UTC-keyed warehouse
+    # (fact_daily_metrics dates come from the ad platforms in UTC). Using local
+    # date.today() here caused an off-by-one vs the endpoint during 00:00–03:00 TRT.
+    today = datetime.now(timezone.utc).date()
 
     # "son N gün" — last N calendar days
     m = re.search(r"son\s+(\d+)\s+g[üu]n", norm)
@@ -288,7 +291,7 @@ def _claude_parse(
     """Call Claude to extract a structured JSON spec.  Falls back to stub on error."""
     import httpx
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     system = (
         "Sen bir dijital pazarlama raporlama asistanısın. "
         "Kullanıcının Türkçe doğal dil sorgusunu yapılandırılmış JSON spesifikasyonuna "
