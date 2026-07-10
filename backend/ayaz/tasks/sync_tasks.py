@@ -120,44 +120,10 @@ def sync_account_task(
             )
             return {"skipped": True, "status": account.sync_status.value}
 
-        # Fetch vault tokens and inject into ConnectorConfig.extra
-        tokens = vault.get(account_id)
-        if tokens:
-            # Re-load the account with a connector-config-compatible extra dict.
-            # We cannot modify account.extra (no such column) so we pass the
-            # tokens through a fresh ConnectorConfig built inside sync_connected_account.
-            # The cleanest hook is to temporarily stash tokens on the account's
-            # vault_secret_ref — but sync_connected_account builds ConnectorConfig
-            # from the account row as-is and leaves extra={}.
-            # For Faz 1 we populate a side-channel: a module-level dict the sync
-            # service can read.  A cleaner approach (passing a vault to
-            # sync_connected_account) is a Faz 2 refactor.
-            #
-            # CURRENT APPROACH: patch the account's ConnectorConfig.extra by
-            # monkey-patching sync_connected_account's ConnectorConfig construction
-            # is too invasive.  Instead we write the tokens back as flat keys into
-            # the session's thread-local extra dict, then restore.  Actually the
-            # simplest safe approach for Faz 1: pass tokens via a well-known
-            # thread-local or just accept that authenticate() will use
-            # config.vault_secret_ref="" and skip live auth (fixture mode).
-            #
-            # We implement the proper path: build a temporary attribute so the
-            # sync knows tokens are available.  The sync function reads
-            # account.vault_secret_ref for the ref; we ensure the ref is the
-            # account id so the connector (if it calls vault.get) can retrieve.
-            #
-            # For now: the sync pipeline (sync.py) passes extra={} — a full Faz 2
-            # fix would thread vault through sync_connected_account.  We document
-            # the gap and call sync anyway (connectors in fixture/no-creds mode
-            # still run; live connectors need the Faz 2 wiring).
-            logger.debug(
-                "[sync_account_task] Vault tokens found for account=%s; "
-                "connector will use them if it reads from config.vault_secret_ref.",
-                account_id,
-            )
-
         try:
-            result = sync_connected_account(db, account, since=since, until=until)
+            result = sync_connected_account(
+                db, account, since=since, until=until, vault=vault
+            )
             logger.info(
                 "[sync_account_task] Done: account=%s result=%s", account_id, result
             )

@@ -43,6 +43,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ayaz.config import settings
 from ayaz.connectors import ConnectorRegistry
 from ayaz.connectors.base import ConnectorConfig, UnifiedRecord
 from ayaz.models.analytics import (
@@ -56,6 +57,162 @@ from ayaz.models.analytics import (
 from ayaz.models.oltp import ConnectedAccount, SyncStatus
 
 logger = logging.getLogger(__name__)
+
+
+# ── Operator-level credential injection ────────────────────────────────────────
+
+
+def inject_operator_credentials(platform_key: str, secrets: dict[str, Any]) -> None:
+    """Inject global operator-level credentials (same for all tenants, from
+    Settings) into a connector secrets dict, in place.
+
+    The Vault only ever holds the tenant's own OAuth refresh_token (and, for
+    api_key integrations, the user-supplied key). Operator-level credentials —
+    the OAuth app's client_id/client_secret and, for Google Ads, the developer
+    token — are the same for every tenant and live in Settings/env, never in
+    the per-tenant Vault. ``setdefault`` guarantees a Vault-provided value
+    always wins over the operator default.
+    """
+    if platform_key == "google_ads":
+        secrets.setdefault("client_id", settings.google_client_id)
+        secrets.setdefault("client_secret", settings.google_client_secret)
+        secrets.setdefault("developer_token", settings.google_ads_developer_token)
+
+
+# ── Google Ads target resolution ────────────────────────────────────────────────
+
+
+def resolve_google_ads_targets(connector: Any) -> list[dict[str, Any]]:
+    """Enumerate syncable leaf ad accounts for an authenticated Google Ads connector.
+
+    For each directly-accessible customer (``list_accessible_customers()``),
+    descend into its non-manager children via ``list_child_customers``: a
+    manager (MCC) yields its leaves (``login_customer_id`` = the MCC); a
+    standalone account yields itself (``login_customer_id`` = ``None``).
+
+    Per-accessible-id failures (e.g. ``list_child_customers`` raising) are
+    logged and skipped — never propagated to the caller. Requires
+    ``connector.authenticate()`` to have already run.
+
+    Returns
+    -------
+    list[dict]
+        One entry per syncable leaf account:
+        ``{"customer_id", "login_customer_id" (str|None), "name", "currency"}``.
+        Empty list if nothing is accessible or every lookup failed.
+    """
+    targets: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    try:
+        accessible = connector.list_accessible_customers() or []
+    except Exception:
+        logger.warning(
+            "[sync] list_accessible_customers failed; no Google Ads targets resolved",
+            exc_info=True,
+        )
+        return []
+
+    for raw in accessible:
+        cid = str(raw.get("id", "")) if isinstance(raw, dict) else str(raw)
+        # listAccessibleCustomers may return "customers/1234567890" resource names.
+        cid = cid.rsplit("/", 1)[-1]
+        if not cid:
+            continue
+
+        try:
+            children = connector.list_child_customers(cid) or []
+        except Exception:
+            logger.warning(
+                "[sync] list_child_customers failed for customer_id=%s; skipping",
+                cid,
+                exc_info=True,
+            )
+            continue
+
+        non_self = [c for c in children if str(c.get("id", "")) != cid]
+
+        if non_self:
+            # cid is a manager (MCC) — each non-self child is a syncable leaf.
+            for child in non_self:
+                child_id = str(child.get("id", ""))
+                if not child_id or child_id in seen:
+                    continue
+                seen.add(child_id)
+                targets.append(
+                    {
+                        "customer_id": child_id,
+                        "login_customer_id": cid,
+                        "name": str(child.get("name", "")),
+                        "currency": str(child.get("currency", "")),
+                    }
+                )
+        else:
+            # cid is standalone — it syncs itself, no login-customer-id needed.
+            if cid in seen:
+                continue
+            seen.add(cid)
+            self_row = next(
+                (c for c in children if str(c.get("id", "")) == cid), None
+            )
+            targets.append(
+                {
+                    "customer_id": cid,
+                    "login_customer_id": None,
+                    "name": str(self_row.get("name", "")) if self_row else "",
+                    "currency": str(self_row.get("currency", "")) if self_row else "",
+                }
+            )
+
+    return targets
+
+
+def _apply_google_ads_targeting(
+    db: Session,
+    account: ConnectedAccount,
+    connector: Any,
+    secrets: dict[str, Any],
+) -> None:
+    """Resolve and apply the Google Ads customer_id / login_customer_id for a sync.
+
+    Best-effort network resolution happens here (swallowed on failure via
+    ``resolve_google_ads_targets``); the resulting DB mutation
+    (``account.external_account_id``) is left to the caller to flush inside
+    the main error-handling ``try`` block so a flush failure is correctly
+    surfaced as ``sync_status=error`` rather than silently swallowed.
+    """
+    targets = resolve_google_ads_targets(connector)
+
+    if not account.external_account_id:
+        if len(targets) == 1:
+            target = targets[0]
+            account.external_account_id = target["customer_id"]
+            secrets["customer_id"] = target["customer_id"]
+            if target.get("login_customer_id"):
+                secrets["login_customer_id"] = target["login_customer_id"]
+            logger.info(
+                "[sync] Auto-resolved Google Ads customer_id=%s (login_customer_id=%s) "
+                "for account=%s",
+                target["customer_id"],
+                target.get("login_customer_id"),
+                account.id,
+            )
+        elif len(targets) > 1:
+            logger.info(
+                "[sync] %d Google Ads accounts accessible for account=%s — "
+                "ambiguous, leaving external_account_id unset (pick via discover UI)",
+                len(targets),
+                account.id,
+            )
+        # 0 targets: leave external_account_id unset; nothing else to do.
+    else:
+        secrets.setdefault("customer_id", account.external_account_id)
+        match = next(
+            (t for t in targets if t["customer_id"] == account.external_account_id),
+            None,
+        )
+        if match and match.get("login_customer_id"):
+            secrets.setdefault("login_customer_id", match["login_customer_id"])
 
 
 # ── dim_date helper ───────────────────────────────────────────────────────────
@@ -336,6 +493,10 @@ def sync_connected_account(
             )
             secrets = {}
 
+    # Inject global (operator-level) platform credentials — see
+    # ``inject_operator_credentials`` docstring for rationale.
+    inject_operator_credentials(platform_key, secrets)
+
     config = ConnectorConfig(
         tenant_id=str(tenant_id),
         connected_account_id=str(connected_account_id),
@@ -346,16 +507,55 @@ def sync_connected_account(
     )
     connector = connector_cls(config=config)
 
-    # Real connectors (Meta/Google/…) require authenticate() to load the access
-    # token from config.extra before fetch().  Only call it when we actually have
-    # credentials, so the credential-free fixture path is untouched.
-    if secrets:
-        connector.authenticate()
-
     account.sync_status = SyncStatus.syncing
     db.flush()
 
     try:
+        # Real connectors (Meta/Google/…) require authenticate() to load the
+        # access token from config.extra before fetch(). Only call it when we
+        # actually have credentials, so the credential-free fixture path is
+        # untouched. This now runs INSIDE the try block: an auth failure (e.g.
+        # a missing/empty developer_token) must land the account in
+        # ``sync_status=error`` rather than leaving it stuck on ``syncing``.
+        if secrets:
+            connector.authenticate()
+
+        # Auto-resolve the platform ad-account id (e.g. Google Ads customer_id)
+        # when the account was linked via OAuth but the user has not picked a
+        # specific ad account yet. Network calls inside are best-effort
+        # (swallowed by ``resolve_google_ads_targets``); the resulting
+        # ``account.external_account_id`` mutation + flush stay in this outer
+        # try so a flush failure is correctly surfaced as ``sync_status=error``.
+        if platform_key == "google_ads" and secrets:
+            _apply_google_ads_targeting(db, account, connector, secrets)
+            db.flush()
+
+            # If no single ad account could be resolved — zero accessible
+            # customers, or an ambiguous MCC hierarchy with several leaf accounts
+            # and none picked yet — do NOT proceed to fetch(): the connector's
+            # ``_customer_id()`` would fall back to "" and POST to a malformed
+            # ``customers//googleAds:searchStream`` URL, which the Google Ads API
+            # rejects with 400. That would mark the account ``error`` on every
+            # scheduled sync (indistinguishable from a real auth failure) and burn
+            # quota. Instead leave it ``idle`` so the panel keeps showing the
+            # account picker (AccountLinker renders whenever external_account_id is
+            # empty), and return early as a no-op.
+            if not (account.external_account_id or secrets.get("customer_id")):
+                account.sync_status = SyncStatus.idle
+                db.commit()
+                logger.info(
+                    "[sync] google_ads account=%s has no resolved customer_id "
+                    "(zero or ambiguous accessible accounts); awaiting account "
+                    "selection — skipping fetch.",
+                    account.id,
+                )
+                return {
+                    "inserted": 0,
+                    "updated": 0,
+                    "records_processed": 0,
+                    "skipped": "no_account_selected",
+                }
+
         caps = connector.capabilities()
         all_records: list[UnifiedRecord] = []
 
@@ -446,8 +646,17 @@ def sync_connected_account(
         }
 
     except Exception:
-        account.sync_status = SyncStatus.error
-        db.flush()
-        db.commit()
-        logger.exception("[sync] Failed for account=%s", account.id)
+        # Be resilient to a session that may have been poisoned by a failed
+        # flush/commit attempt above (e.g. authenticate() or targeting raised
+        # mid-transaction) — roll back first, then re-fetch the account fresh
+        # before writing the terminal error status.
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        fresh = db.get(ConnectedAccount, connected_account_id)
+        if fresh is not None:
+            fresh.sync_status = SyncStatus.error
+            db.commit()
+        logger.exception("[sync] Failed account=%s", connected_account_id)
         raise

@@ -330,6 +330,115 @@ class GoogleAdsConnector(Connector):
             )
         return accounts
 
+    def list_child_customers(self, manager_id: str) -> list[dict[str, Any]]:
+        """Return the non-manager (leaf) advertising accounts under a customer.
+
+        Runs the customer_client GAQL query (WHERE customer_client.manager = false)
+        against ``customers/{manager_id}/googleAds:search`` with the ``login-customer-id``
+        header explicitly set to ``manager_id``. For a manager (MCC) account this returns
+        its leaf child ad accounts; for a STANDALONE (non-manager) account the
+        customer_client resource returns a single self-row (the account itself).
+
+        Requires ``authenticate()`` to have run first (needs an access token).
+
+        Parameters
+        ----------
+        manager_id:
+            The Google Ads customer ID (MCC or standalone) to query as the
+            ``login-customer-id``. Overrides any ``login_customer_id`` configured
+            in ``config.extra`` — this call always addresses ``manager_id`` directly.
+
+        Returns
+        -------
+        list[dict]
+            One entry per leaf: ``{"id": "<bare 10-digit>", "name": "<descriptive_name>",
+            "currency": "<currency_code>"}``. Empty list if the response has no results.
+
+        Raises
+        ------
+        RuntimeError
+            If ``authenticate()`` has not been called yet (no access token) —
+            raised by ``_auth_headers()``.
+        httpx.HTTPStatusError
+            If the endpoint returns a non-2xx response (invalid creds/scope).
+        """
+        gaql = (
+            "SELECT customer_client.id, customer_client.descriptive_name, "
+            "customer_client.currency_code "
+            "FROM customer_client "
+            "WHERE customer_client.manager = false"
+        )
+        url = (
+            f"https://googleads.googleapis.com/{_API_VERSION}"
+            f"/customers/{manager_id}/googleAds:search"
+        )
+        headers = self._auth_headers()
+        headers["login-customer-id"] = str(manager_id)
+
+        resp = httpx.post(url, headers=headers, json={"query": gaql}, timeout=30)
+        resp.raise_for_status()
+        body: dict[str, Any] = resp.json()
+
+        leaves: list[dict[str, Any]] = []
+        for result in body.get("results", []):
+            cc = result.get("customerClient", {})
+            raw_id = str(cc.get("id", "")).removeprefix("customers/")
+            leaves.append(
+                {
+                    "id": raw_id,
+                    "name": str(cc.get("descriptiveName", "")),
+                    "currency": str(cc.get("currencyCode", "")),
+                }
+            )
+        logger.info(
+            "%s list_child_customers(manager_id=%s) returned %d leaf account(s).",
+            self._log_prefix(),
+            manager_id,
+            len(leaves),
+        )
+        return leaves
+
+    def list_accessible_customers(self) -> list[str]:
+        """Return the 10-digit customer IDs accessible to the authenticated creds.
+
+        Calls the Google Ads REST ``customers:listAccessibleCustomers`` endpoint,
+        which requires only the OAuth access token + developer-token header (no
+        login-customer-id, no GAQL). Used by the ETL layer to auto-populate
+        ``connected_accounts.external_account_id`` when it is empty.
+
+        Requires ``authenticate()`` to have been called (needs an access token).
+        Returns bare customer IDs (``"1234567890"``), stripped of the
+        ``"customers/"`` resource-name prefix. Empty list if none accessible.
+
+        Returns
+        -------
+        list[str]
+            Bare customer IDs, e.g. ``["1234567890", "9876543210"]``.
+
+        Raises
+        ------
+        RuntimeError
+            If ``authenticate()`` has not been called yet (no access token) —
+            raised by ``_auth_headers()``.
+        httpx.HTTPStatusError
+            If the endpoint returns a non-2xx response (invalid creds/scope).
+        """
+        url = (
+            f"https://googleads.googleapis.com/{_API_VERSION}"
+            "/customers:listAccessibleCustomers"
+        )
+        resp = httpx.get(url, headers=self._auth_headers(), timeout=30)
+        resp.raise_for_status()
+        body: dict[str, Any] = resp.json()
+        resource_names = body.get("resourceNames") or []
+        customer_ids = [name.removeprefix("customers/") for name in resource_names]
+        logger.info(
+            "%s listAccessibleCustomers returned %d customer id(s).",
+            self._log_prefix(),
+            len(customer_ids),
+        )
+        return customer_ids
+
     def fetch(
         self,
         stream: str,

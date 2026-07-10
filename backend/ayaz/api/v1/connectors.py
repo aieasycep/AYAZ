@@ -396,6 +396,15 @@ def discover_accounts(
             detail="Bu hesap için saklı kimlik yok — önce OAuth ile bağlanın.",
         )
 
+    # Inject operator-level (global) platform credentials — same rationale as
+    # sync_connected_account: the Vault only holds the tenant's own OAuth
+    # refresh_token, never the shared client_id/client_secret/developer_token.
+    # Without this, Google Ads discovery always 502s (authenticate() raises on
+    # missing developer_token).
+    from ayaz.services.sync import inject_operator_credentials, resolve_google_ads_targets
+
+    inject_operator_credentials(account.platform.value, secrets)
+
     connector_cls = ConnectorRegistry.get(account.platform.value)
     config = ConnectorConfig(
         tenant_id=str(account.tenant_id),
@@ -408,7 +417,21 @@ def discover_accounts(
     connector = connector_cls(config=config)
     try:
         connector.authenticate()
-        found = connector.discover()
+        if account.platform.value == "google_ads":
+            # Route through the same leaf-resolving logic used by sync so the
+            # user picks from real syncable ad accounts (MCC children), not
+            # the raw (possibly manager-only) accessible-customers list.
+            targets = resolve_google_ads_targets(connector)
+            found = [
+                {
+                    "id": t["customer_id"],
+                    "name": t["name"],
+                    "currency": t["currency"],
+                }
+                for t in targets
+            ]
+        else:
+            found = connector.discover()
     except Exception:
         logger.exception("Discover failed: account=%s", account_id)
         raise HTTPException(

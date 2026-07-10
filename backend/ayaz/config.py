@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     # Per-platform OAuth2 client credentials (injected via env in production).
     google_client_id: str = ""
     google_client_secret: str = ""
+    # Google Ads developer token (issued to the EYAYTECH MCC manager account). Required
+    # in the ``developer-token`` header of every Google Ads API request. Global operator
+    # credential (same for all tenants) — set GOOGLE_ADS_DEVELOPER_TOKEN in production.
+    google_ads_developer_token: str = ""
     meta_app_id: str = ""
     meta_app_secret: str = ""
     tiktok_app_id: str = ""

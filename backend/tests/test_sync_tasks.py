@@ -216,7 +216,9 @@ def test_sync_account_task_error_account_skipped():
 
 
 def test_sync_account_task_with_vault_tokens():
-    """When vault has tokens, vault.get is called with the account_id."""
+    """The task threads its EncryptedColumnVault instance through to
+    ``sync_connected_account`` (which is the one that actually calls
+    ``vault.get()``) rather than resolving tokens itself."""
     eng = _make_engine()
     accounts = _insert_accounts(eng, [SyncStatus.idle])
     account_id = str(accounts[0].id)
@@ -227,7 +229,9 @@ def test_sync_account_task_with_vault_tokens():
         with (
             patch("ayaz.tasks.sync_tasks.SessionLocal", sf_ctx),
             patch("ayaz.tasks.sync_tasks.EncryptedColumnVault") as MockVault,
-            patch("ayaz.tasks.sync_tasks.sync_connected_account", return_value=fake_result),
+            patch(
+                "ayaz.tasks.sync_tasks.sync_connected_account", return_value=fake_result
+            ) as mock_sync,
         ):
             mock_vault_instance = MagicMock()
             mock_vault_instance.get.return_value = tokens
@@ -237,7 +241,7 @@ def test_sync_account_task_with_vault_tokens():
 
             result = sync_account_task.run(account_id)
 
-    mock_vault_instance.get.assert_called_with(account_id)
+    assert mock_sync.call_args.kwargs.get("vault") is mock_vault_instance
     assert result == fake_result
 
 
