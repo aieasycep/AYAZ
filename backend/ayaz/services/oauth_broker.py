@@ -172,13 +172,15 @@ def generate_pkce_pair() -> tuple[str, str]:
 
 # ── State token helpers (CSRF) — HMAC-signed, expiring ───────────────────────
 
-_STATE_TTL_SECONDS = 600  # 10 minutes
+_STATE_TTL_SECONDS = 1800  # 30 minutes — OAuth akışı 2FA/SMS doğrulaması + soğuk
+# başlatma (Render free) ile 10 dk'yı aşabiliyordu; state'in erken bitip callback'i
+# reddetmesini önlemek için 30 dk. CSRF için hâlâ güvenli (kısa, HMAC imzalı, nonce'lu).
 
 
 def _sign_state(account_id: str, tenant_id: str) -> str:
     """Encode account_id + tenant_id into a URL-safe HMAC-signed state token.
 
-    The token has a 10-minute expiry and is signed with HMAC-SHA256 using
+    The token has a 30-minute expiry and is signed with HMAC-SHA256 using
     ``settings.jwt_secret`` as the key.
 
     Parameters
