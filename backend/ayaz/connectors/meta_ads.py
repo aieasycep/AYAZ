@@ -70,7 +70,7 @@ https://developers.facebook.com/docs/marketing-api/insights
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -113,6 +113,13 @@ _DEFAULT_CONVERSION_ACTION = "offsite_conversion.fb_pixel_purchase"
 # Pagination: maximum rows per page (Meta default is 25; we raise to 500 to
 # minimise round-trips on large accounts).
 _PAGE_LIMIT = 500
+
+# Meta's Insights endpoint returns HTTP 500 / times out on large *synchronous*
+# pulls (a wide date range × ``time_increment=1`` × many campaigns explodes the
+# response — unlike Google Ads' searchStream, which handles a full year in one
+# call). fetch() therefore splits the requested window into chunks of at most
+# this many days and pages through each independently, concatenating results.
+_INSIGHTS_CHUNK_DAYS = 30
 
 
 # ── Connector ─────────────────────────────────────────────────────────────────
@@ -376,28 +383,39 @@ class MetaAdsConnector(Connector):
                 "Supported: ['daily_campaign_metrics']"
             )
 
-        base_params: dict[str, Any] = {
-            "access_token": self._token(),
-            "fields": _FIELDS,
-            "time_increment": "1",
-            "level": "campaign",
-            "time_range": f'{{"since":"{since.isoformat()}","until":"{until.isoformat()}"}}',
-            "limit": str(_PAGE_LIMIT),
-        }
-
         rows: list[dict[str, Any]] = []
-        url: str | None = self._insights_url()
-        params: dict[str, Any] | None = base_params
+        insights_url = self._insights_url()
 
-        while url:
-            resp = httpx.get(url, params=params, timeout=60)
-            resp.raise_for_status()
-            body: dict[str, Any] = resp.json()
-            rows.extend(body.get("data", []))
-            # Pagination: follow cursor if present
-            next_url = body.get("paging", {}).get("next")
-            url = next_url
-            params = None  # ``next`` URL already contains all query params
+        # Split [since, until] into <= _INSIGHTS_CHUNK_DAYS windows so each
+        # synchronous Insights call stays small enough for Meta to serve (a
+        # full-year daily pull on a busy account otherwise 500s). Each chunk is
+        # paginated independently; all rows are concatenated.
+        chunk_start = since
+        while chunk_start <= until:
+            chunk_end = min(
+                chunk_start + timedelta(days=_INSIGHTS_CHUNK_DAYS - 1), until
+            )
+            url: str | None = insights_url
+            params: dict[str, Any] | None = {
+                "access_token": self._token(),
+                "fields": _FIELDS,
+                "time_increment": "1",
+                "level": "campaign",
+                "time_range": (
+                    f'{{"since":"{chunk_start.isoformat()}",'
+                    f'"until":"{chunk_end.isoformat()}"}}'
+                ),
+                "limit": str(_PAGE_LIMIT),
+            }
+            while url:
+                resp = httpx.get(url, params=params, timeout=60)
+                resp.raise_for_status()
+                body: dict[str, Any] = resp.json()
+                rows.extend(body.get("data", []))
+                # Pagination: follow cursor if present
+                url = body.get("paging", {}).get("next")
+                params = None  # ``next`` URL already contains all query params
+            chunk_start = chunk_end + timedelta(days=1)
 
         if rows:
             latest = max(date.fromisoformat(r["date_start"]) for r in rows)
