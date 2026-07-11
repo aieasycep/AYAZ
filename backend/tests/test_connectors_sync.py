@@ -1376,6 +1376,392 @@ def test_discover_lists_accounts(ctx) -> None:
     assert "id" in body[0]
 
 
+# ── GA4 target resolution (Google Ads/Meta pattern parallel) ─────────────────────
+
+
+def _make_ga4_tenant_account(
+    db_session, external_account_id: str = ""
+) -> tuple[Tenant, ConnectedAccount]:
+    """Create+commit a bare tenant and a ga4 ConnectedAccount for it."""
+    tenant = Tenant(
+        id=uuid.uuid4(), name="GA4 Tenant",
+        base_currency="TRY", country="TR", kvkk_region="TR",
+    )
+    account = ConnectedAccount(
+        id=uuid.uuid4(), tenant_id=tenant.id, platform=Platform.ga4,
+        external_account_id=external_account_id,
+        display_name="GA4 (connecting…)",
+        vault_secret_ref="", sync_status=SyncStatus.idle,
+    )
+    db_session.add(tenant)
+    db_session.add(account)
+    db_session.commit()
+    return tenant, account
+
+
+def _fake_capabilities_ga4(self):
+    from ayaz.connectors.base import ConnectorCapabilities
+    return ConnectorCapabilities(platform_key="ga4", supported_streams=[])
+
+
+def test_inject_operator_credentials_ga4(monkeypatch) -> None:
+    """``inject_operator_credentials`` must inject the operator-level Google
+    OAuth client_id/client_secret from Settings — the SAME Google client Google
+    Ads uses — via ``setdefault`` (never overwriting a Vault-provided value).
+    GA4 has no developer_token concept (that's a Google Ads-only entitlement),
+    so it must NOT be injected here."""
+    from ayaz.services import sync as sync_module
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+
+    # Vault-provided value must win over the operator default.
+    secrets = {"refresh_token": "user_refresh_token", "client_id": "VAULT_CID"}
+    sync_module.inject_operator_credentials("ga4", secrets)
+
+    assert secrets["client_id"] == "VAULT_CID"
+    assert secrets["client_secret"] == "GLOBAL_SECRET"
+    assert secrets["refresh_token"] == "user_refresh_token"
+    assert "developer_token" not in secrets
+
+
+def test_sync_ga4_single_property_auto_resolves_and_syncs(
+    db_session, monkeypatch
+) -> None:
+    """A single accessible GA4 property must be auto-resolved onto
+    ``external_account_id`` / ``secrets["property_id"]`` and the sync must
+    complete with ``sync_status=success`` (parallel to the Google Ads / Meta
+    single-target auto-resolve tests)."""
+    from ayaz.connectors.ga4 import GA4Connector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+
+    tenant, account = _make_ga4_tenant_account(db_session)
+
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"refresh_token": "user_refresh_token"})
+
+    captured: dict[str, object] = {}
+
+    def fake_authenticate(self) -> None:
+        captured["connector"] = self
+        self._access_token = "fake-access-token"
+
+    def fake_list_properties(self):
+        return [{"id": "334455667", "name": "Only Property"}]
+
+    monkeypatch.setattr(GA4Connector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(GA4Connector, "list_properties", fake_list_properties)
+    monkeypatch.setattr(GA4Connector, "capabilities", _fake_capabilities_ga4)
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert result["records_processed"] == 0
+
+    connector = captured["connector"]
+    # Operator-level Google OAuth client injected on top of the vault's refresh_token.
+    assert connector.config.extra["client_id"] == "GLOBAL_CID"
+    assert connector.config.extra["client_secret"] == "GLOBAL_SECRET"
+    assert connector.config.extra["refresh_token"] == "user_refresh_token"
+    assert "developer_token" not in connector.config.extra
+    # Auto-resolved from the single target and persisted on the account.
+    assert connector.config.extra["property_id"] == "334455667"
+    assert account.external_account_id == "334455667"
+    assert account.sync_status == SyncStatus.success
+
+
+def test_sync_ga4_ambiguous_multiple_targets_leaves_external_account_id_blank(
+    db_session, monkeypatch
+) -> None:
+    """Two accessible GA4 properties → resolver returns 2 targets →
+    ambiguous, so external_account_id must stay unset (the user picks via the
+    discover UI) rather than being guessed."""
+    from ayaz.connectors.ga4 import GA4Connector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+
+    tenant, account = _make_ga4_tenant_account(db_session)
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"refresh_token": "user_refresh_token"})
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_list_properties(self):
+        return [
+            {"id": "111222333", "name": "Property A"},
+            {"id": "777888999", "name": "Property B"},
+        ]
+
+    monkeypatch.setattr(GA4Connector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(GA4Connector, "list_properties", fake_list_properties)
+    monkeypatch.setattr(GA4Connector, "capabilities", _fake_capabilities_ga4)
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert account.external_account_id == ""
+    assert account.sync_status == SyncStatus.idle
+    assert result["skipped"] == "no_account_selected"
+    assert result["records_processed"] == 0
+
+
+def test_sync_ga4_no_accessible_properties_leaves_blank_no_crash(
+    db_session, monkeypatch
+) -> None:
+    """Empty ``list_properties()`` → resolver returns [] → no target resolved
+    → sync short-circuits to ``idle`` (awaiting account selection) with
+    external_account_id left blank; no crash, no fetch, no error."""
+    from ayaz.connectors.ga4 import GA4Connector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+
+    tenant, account = _make_ga4_tenant_account(db_session)
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"refresh_token": "user_refresh_token"})
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_list_properties(self):
+        return []
+
+    monkeypatch.setattr(GA4Connector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(GA4Connector, "list_properties", fake_list_properties)
+    monkeypatch.setattr(GA4Connector, "capabilities", _fake_capabilities_ga4)
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert account.external_account_id == ""
+    assert account.sync_status == SyncStatus.idle
+    assert result["skipped"] == "no_account_selected"
+    assert result["records_processed"] == 0
+
+
+def test_sync_ga4_list_properties_raises_is_skipped_sync_continues(
+    db_session, monkeypatch
+) -> None:
+    """``list_properties()`` raising must be logged and skipped by the
+    resolver — never propagated. With no target resolved, the sync
+    short-circuits to ``idle`` (awaiting account selection)."""
+    from ayaz.connectors.ga4 import GA4Connector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+
+    tenant, account = _make_ga4_tenant_account(db_session)
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"refresh_token": "user_refresh_token"})
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_list_properties(self):
+        raise RuntimeError("boom — Admin API unavailable")
+
+    monkeypatch.setattr(GA4Connector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(GA4Connector, "list_properties", fake_list_properties)
+    monkeypatch.setattr(GA4Connector, "capabilities", _fake_capabilities_ga4)
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert account.external_account_id == ""
+    assert account.sync_status == SyncStatus.idle
+    assert result["skipped"] == "no_account_selected"
+    assert result["records_processed"] == 0
+
+
+def test_sync_ga4_ambiguous_targets_short_circuits_before_fetch(
+    db_session, monkeypatch
+) -> None:
+    """Regression guard (GA4 counterpart of the Google Ads / Meta test with the
+    same name): with the REAL ``capabilities()`` (a non-empty
+    ``supported_streams``) so the fetch loop is genuinely reachable, an
+    ambiguous resolution (>1 property, none picked) must short-circuit and
+    return BEFORE calling ``fetch()``. Otherwise ``_property_id()`` falls back
+    to "" and the connector POSTs to a malformed
+    ``properties/:runReport`` URL. The unit suite would miss this if every
+    other ga4 test stubs ``capabilities()`` to empty."""
+    from ayaz.connectors.ga4 import GA4Connector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+
+    tenant, account = _make_ga4_tenant_account(db_session)
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"refresh_token": "user_refresh_token"})
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_list_properties(self):
+        return [
+            {"id": "111222333", "name": "Property A"},
+            {"id": "777888999", "name": "Property B"},
+        ]
+
+    def fake_fetch(self, *args, **kwargs):  # must never run in this scenario
+        raise AssertionError(
+            "fetch() must not be called when no property_id is resolved"
+        )
+
+    monkeypatch.setattr(GA4Connector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(GA4Connector, "list_properties", fake_list_properties)
+    monkeypatch.setattr(GA4Connector, "fetch", fake_fetch)
+    # NOTE: capabilities() is intentionally NOT stubbed — the real one reports
+    # supported_streams=["daily_channel_metrics"], so a missing short-circuit
+    # would reach the guarded fake_fetch above and fail this test loudly.
+
+    result = sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    assert account.external_account_id == ""
+    assert account.sync_status == SyncStatus.idle
+    assert result["skipped"] == "no_account_selected"
+    assert result["records_processed"] == 0
+
+
+def test_sync_ga4_existing_external_account_id_sets_property_id_secret(
+    db_session, monkeypatch
+) -> None:
+    """When ``external_account_id`` is already set (user previously picked a
+    property via the discover UI), ``_apply_ga4_targeting`` must not overwrite
+    it — it only needs to mirror the value into ``secrets["property_id"]`` so
+    the connector can read it via ``_get_secret``."""
+    from ayaz.connectors.ga4 import GA4Connector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+
+    tenant, account = _make_ga4_tenant_account(
+        db_session, external_account_id="999000111"
+    )
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"refresh_token": "user_refresh_token"})
+
+    captured: dict[str, object] = {}
+
+    def fake_authenticate(self) -> None:
+        captured["connector"] = self
+        self._access_token = "fake-access-token"
+
+    def fake_list_properties(self):
+        # Even if other properties are accessible, the already-picked one wins.
+        return [
+            {"id": "999000111", "name": "Picked Property"},
+            {"id": "111222333", "name": "Other Property"},
+        ]
+
+    monkeypatch.setattr(GA4Connector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(GA4Connector, "list_properties", fake_list_properties)
+    monkeypatch.setattr(GA4Connector, "capabilities", _fake_capabilities_ga4)
+
+    sync_module.sync_connected_account(
+        db_session, account, since=date(2026, 7, 1), until=date(2026, 7, 10), vault=vault
+    )
+
+    connector = captured["connector"]
+    assert account.external_account_id == "999000111"
+    assert connector.config.extra["property_id"] == "999000111"
+    assert account.sync_status == SyncStatus.success
+
+
+def test_discover_accounts_ga4_injects_creds_and_resolves_properties(
+    db_session, monkeypatch
+) -> None:
+    """``POST /discover`` for ga4 must (a) inject operator creds so
+    ``authenticate()`` doesn't 502 on a missing OAuth client, and (b) route
+    through ``resolve_ga4_targets`` so the picker shows real accessible
+    properties, not the generic ``discover()`` (which only echoes back the
+    already-configured — likely still empty — property)."""
+    from ayaz.connectors.ga4 import GA4Connector
+    from ayaz.services import sync as sync_module
+    from ayaz.services.vault import InMemoryVault
+
+    monkeypatch.setattr(sync_module.settings, "google_client_id", "GLOBAL_CID")
+    monkeypatch.setattr(sync_module.settings, "google_client_secret", "GLOBAL_SECRET")
+
+    tenant = Tenant(
+        id=uuid.uuid4(), name="Discover GA4 Tenant",
+        base_currency="TRY", country="TR", kvkk_region="TR",
+    )
+    user = User(
+        id=uuid.uuid4(), email="discoverga4@ayaz.app",
+        hashed_password=hash_password("test1234"), full_name="Discover GA4",
+    )
+    db_session.add(tenant)
+    db_session.add(user)
+    db_session.flush()
+    membership = Membership(
+        id=uuid.uuid4(), user_id=user.id, tenant_id=tenant.id,
+        role=MembershipRole.owner,
+    )
+    account = ConnectedAccount(
+        id=uuid.uuid4(), tenant_id=tenant.id, platform=Platform.ga4,
+        external_account_id="", display_name="GA4 (connecting…)",
+        vault_secret_ref="", sync_status=SyncStatus.idle,
+    )
+    db_session.add(membership)
+    db_session.add(account)
+    db_session.commit()
+
+    def fake_authenticate(self) -> None:
+        self._access_token = "fake-access-token"
+
+    def fake_list_properties(self):
+        return [{"id": "334455667", "name": "Only Property"}]
+
+    monkeypatch.setattr(GA4Connector, "authenticate", fake_authenticate)
+    monkeypatch.setattr(GA4Connector, "list_properties", fake_list_properties)
+
+    vault = InMemoryVault()
+    vault.put(str(account.id), {"refresh_token": "user_refresh_token"})
+
+    def override_db():
+        yield db_session
+
+    def override_membership():
+        return membership
+
+    _test_app.dependency_overrides[get_db] = override_db
+    _test_app.dependency_overrides[get_current_membership] = override_membership
+    _test_app.dependency_overrides[connectors_module._get_vault] = lambda: vault
+
+    try:
+        with TestClient(_test_app) as c:
+            resp = c.post(f"/api/v1/connectors/accounts/{account.id}/discover")
+    finally:
+        _test_app.dependency_overrides.clear()
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == [
+        {"id": "334455667", "name": "Only Property", "currency": ""}
+    ]
+
+
 # ── dim_channel etiket kanonikleştirme (kanal-etiketi tek-kaynak) ─────────────
 
 

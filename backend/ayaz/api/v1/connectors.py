@@ -404,7 +404,11 @@ def discover_accounts(
     # refresh_token, never the shared client_id/client_secret/developer_token.
     # Without this, Google Ads discovery always 502s (authenticate() raises on
     # missing developer_token).
-    from ayaz.services.sync import inject_operator_credentials, resolve_google_ads_targets
+    from ayaz.services.sync import (
+        inject_operator_credentials,
+        resolve_ga4_targets,
+        resolve_google_ads_targets,
+    )
 
     inject_operator_credentials(account.platform.value, secrets)
 
@@ -432,6 +436,20 @@ def discover_accounts(
                     "currency": t["currency"],
                 }
                 for t in targets
+            ]
+        elif account.platform.value == "ga4":
+            # Route through the Admin API property listing so the picker shows
+            # every accessible property, not the generic ``discover()`` (which
+            # only echoes back the already-configured — likely still empty —
+            # property).
+            ga4_targets = resolve_ga4_targets(connector)
+            found = [
+                {
+                    "id": t["property_id"],
+                    "name": t["name"],
+                    "currency": "",
+                }
+                for t in ga4_targets
             ]
         else:
             found = connector.discover()

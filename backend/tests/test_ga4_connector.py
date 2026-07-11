@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+import httpx
+
 from ayaz.connectors import ga4  # noqa: F401  — triggers self-registration
 from ayaz.connectors.base import ConnectorConfig, UnifiedRecord
 from ayaz.connectors.ga4 import GA4Connector
@@ -355,6 +357,200 @@ def test_discover_returns_configured_property(connector: GA4Connector) -> None:
     acc = accounts[0]
     assert acc["id"] == "987654321"
     assert "currency" in acc
+
+
+# ── authenticate() — chicken-and-egg fix: property_id NOT required ───────────
+
+
+def test_authenticate_succeeds_without_property_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """authenticate() must succeed with only client_id/client_secret/refresh_token —
+    property_id is NOT required (a freshly-OAuth'd user has not picked a property
+    yet; list_properties() needs to run before one is chosen)."""
+
+    def fake_post(url: str, data: dict, timeout: int) -> httpx.Response:
+        assert url == "https://oauth2.googleapis.com/token"
+        return httpx.Response(
+            200,
+            json={"access_token": "fake-access-token"},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    cfg = ConnectorConfig(
+        tenant_id="tenant-test-003",
+        connected_account_id="conn-ga4-001",
+        external_account_id="",
+        platform_key="ga4",
+        vault_secret_ref="",
+        extra={
+            "client_id": "client-id",
+            "client_secret": "client-secret",
+            "refresh_token": "refresh-token",
+            # property_id intentionally omitted
+        },
+    )
+    conn = GA4Connector(config=cfg)
+
+    conn.authenticate()  # must NOT raise
+
+    assert conn._access_token == "fake-access-token"
+
+
+def test_authenticate_raises_without_required_keys() -> None:
+    """authenticate() must still raise RuntimeError if client_id/client_secret/
+    refresh_token are missing (property_id is the only credential dropped)."""
+    cfg = ConnectorConfig(
+        tenant_id="tenant-test-003",
+        connected_account_id="conn-ga4-001",
+        external_account_id="",
+        platform_key="ga4",
+        vault_secret_ref="",
+        extra={},
+    )
+    conn = GA4Connector(config=cfg)
+    with pytest.raises(RuntimeError, match="Missing required credentials"):
+        conn.authenticate()
+
+
+# ── list_properties() — mocked httpx.get, no live network ────────────────────
+
+
+def test_list_properties_flattens_across_accounts(
+    connector: GA4Connector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two accounts, one property each → two flattened dicts, prefix stripped."""
+
+    def fake_get(
+        url: str, headers: dict, params: dict | None, timeout: int
+    ) -> httpx.Response:
+        assert url == "https://analyticsadmin.googleapis.com/v1beta/accountSummaries"
+        assert headers["Authorization"] == "Bearer fake-access-token"
+        return httpx.Response(
+            200,
+            json={
+                "accountSummaries": [
+                    {
+                        "account": "accounts/1",
+                        "displayName": "Account One",
+                        "propertySummaries": [
+                            {
+                                "property": "properties/111111111",
+                                "displayName": "Property One",
+                            }
+                        ],
+                    },
+                    {
+                        "account": "accounts/2",
+                        "displayName": "Account Two",
+                        "propertySummaries": [
+                            {
+                                "property": "properties/222222222",
+                                "displayName": "Property Two",
+                            }
+                        ],
+                    },
+                ]
+            },
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    connector._access_token = "fake-access-token"
+
+    properties = connector.list_properties()
+
+    assert properties == [
+        {"id": "111111111", "name": "Property One"},
+        {"id": "222222222", "name": "Property Two"},
+    ]
+
+
+def test_list_properties_flattens_multiple_properties_per_account(
+    connector: GA4Connector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One account with two properties must yield both, in order."""
+
+    def fake_get(
+        url: str, headers: dict, params: dict | None, timeout: int
+    ) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "accountSummaries": [
+                    {
+                        "account": "accounts/1",
+                        "displayName": "Account One",
+                        "propertySummaries": [
+                            {
+                                "property": "properties/111111111",
+                                "displayName": "Property One",
+                            },
+                            {
+                                "property": "properties/333333333",
+                                "displayName": "Property Three",
+                            },
+                        ],
+                    }
+                ]
+            },
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    connector._access_token = "fake-access-token"
+
+    properties = connector.list_properties()
+
+    assert properties == [
+        {"id": "111111111", "name": "Property One"},
+        {"id": "333333333", "name": "Property Three"},
+    ]
+
+
+def test_list_properties_empty_account_summaries(
+    connector: GA4Connector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An empty accountSummaries list yields an empty list."""
+
+    def fake_get(
+        url: str, headers: dict, params: dict | None, timeout: int
+    ) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"accountSummaries": []},
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    connector._access_token = "fake-access-token"
+
+    assert connector.list_properties() == []
+
+
+def test_list_properties_missing_account_summaries_key(
+    connector: GA4Connector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A response with no accountSummaries key at all also yields an empty list."""
+
+    def fake_get(
+        url: str, headers: dict, params: dict | None, timeout: int
+    ) -> httpx.Response:
+        return httpx.Response(200, json={}, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    connector._access_token = "fake-access-token"
+
+    assert connector.list_properties() == []
+
+
+def test_list_properties_requires_access_token(connector: GA4Connector) -> None:
+    """Without a prior authenticate() call (no access token), raises RuntimeError."""
+    assert connector._access_token is None
+    with pytest.raises(RuntimeError):
+        connector.list_properties()
 
 
 # ── build_authorization_url() ─────────────────────────────────────────────────

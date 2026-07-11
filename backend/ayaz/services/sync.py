@@ -101,6 +101,13 @@ def inject_operator_credentials(platform_key: str, secrets: dict[str, Any]) -> N
         # without a separate wiring change.
         secrets.setdefault("client_id", settings.meta_app_id)
         secrets.setdefault("client_secret", settings.meta_app_secret)
+    elif platform_key == "ga4":
+        # GA4Connector reuses the SAME Google OAuth client as Google Ads — no
+        # separate developer_token concept for GA4 (that is a Google Ads-only
+        # API entitlement). ``authenticate()`` needs client_id/client_secret
+        # to exchange the tenant's Vault-stored refresh_token.
+        secrets.setdefault("client_id", settings.google_client_id)
+        secrets.setdefault("client_secret", settings.google_client_secret)
 
 
 # ── Meta Ads rolling token refresh ──────────────────────────────────────────────
@@ -432,6 +439,87 @@ def _apply_meta_targeting(
         secrets.setdefault("ad_account_id", account.external_account_id)
 
 
+# ── GA4 target resolution ────────────────────────────────────────────────────────
+
+
+def resolve_ga4_targets(connector: Any) -> list[dict[str, Any]]:
+    """Enumerate accessible GA4 properties for an authenticated connector.
+
+    Like Meta there is no hierarchy to descend — ``connector.list_properties()``
+    (GA4 Admin API ``accountSummaries``) already returns a flat list of every
+    property the credentials can access. This wraps that call best-effort:
+    any failure (e.g. missing Admin API scope) is logged and swallowed — never
+    propagated to the caller. Requires ``connector.authenticate()`` to have
+    already run.
+
+    Returns
+    -------
+    list[dict]
+        One entry per accessible property: ``{"property_id", "name"}``. Empty
+        list if nothing is accessible or ``list_properties()`` failed.
+    """
+    try:
+        raw = connector.list_properties() or []
+    except Exception:
+        logger.warning(
+            "[sync] list_properties() failed; no GA4 targets resolved",
+            exc_info=True,
+        )
+        return []
+
+    targets: list[dict[str, Any]] = []
+    for item in raw:
+        prop_id = str(item.get("id", "")) if isinstance(item, dict) else str(item)
+        if not prop_id:
+            continue
+        targets.append(
+            {
+                "property_id": prop_id,
+                "name": str(item.get("name", "")) if isinstance(item, dict) else "",
+            }
+        )
+    return targets
+
+
+def _apply_ga4_targeting(
+    db: Session,
+    account: ConnectedAccount,
+    connector: Any,
+    secrets: dict[str, Any],
+) -> None:
+    """Resolve and apply the GA4 ``property_id`` for a sync.
+
+    Parallel to ``_apply_meta_targeting``: GA4 has no manager hierarchy, so a
+    target is just a flat property id. Best-effort network resolution happens
+    here (swallowed on failure via ``resolve_ga4_targets``); the resulting DB
+    mutation (``account.external_account_id``) is left to the caller to flush
+    inside the main error-handling ``try`` block so a flush failure is
+    correctly surfaced as ``sync_status=error`` rather than silently swallowed.
+    """
+    targets = resolve_ga4_targets(connector)
+
+    if not account.external_account_id:
+        if len(targets) == 1:
+            target = targets[0]
+            account.external_account_id = target["property_id"]
+            secrets["property_id"] = target["property_id"]
+            logger.info(
+                "[sync] Auto-resolved GA4 property_id=%s for account=%s",
+                target["property_id"],
+                account.id,
+            )
+        elif len(targets) > 1:
+            logger.info(
+                "[sync] %d GA4 properties accessible for account=%s — "
+                "ambiguous, leaving external_account_id unset (pick via discover UI)",
+                len(targets),
+                account.id,
+            )
+        # 0 targets: leave external_account_id unset; nothing else to do.
+    else:
+        secrets.setdefault("property_id", account.external_account_id)
+
+
 # ── dim_date helper ───────────────────────────────────────────────────────────
 
 
@@ -644,6 +732,7 @@ def _upsert_fact(
 _ACCOUNT_ID_SECRET_KEY: dict[str, str] = {
     "google_ads": "customer_id",
     "meta_ads": "ad_account_id",
+    "ga4": "property_id",
 }
 
 
@@ -769,10 +858,10 @@ def sync_connected_account(
             connector.authenticate()
 
         # Auto-resolve the platform ad-account id (e.g. Google Ads customer_id,
-        # Meta Ads ad_account_id) when the account was linked via OAuth but the
-        # user has not picked a specific ad account yet. Network calls inside
-        # are best-effort (swallowed by ``resolve_google_ads_targets`` /
-        # ``resolve_meta_ads_targets``); the resulting
+        # Meta Ads ad_account_id, GA4 property_id) when the account was linked
+        # via OAuth but the user has not picked a specific target yet. Network
+        # calls inside are best-effort (swallowed by ``resolve_google_ads_targets``
+        # / ``resolve_meta_ads_targets`` / ``resolve_ga4_targets``); the resulting
         # ``account.external_account_id`` mutation + flush stay in this outer
         # try so a flush failure is correctly surfaced as ``sync_status=error``.
         if platform_key == "google_ads" and secrets:
@@ -780,6 +869,9 @@ def sync_connected_account(
             db.flush()
         elif platform_key == "meta_ads" and secrets:
             _apply_meta_targeting(db, account, connector, secrets)
+            db.flush()
+        elif platform_key == "ga4" and secrets:
+            _apply_ga4_targeting(db, account, connector, secrets)
             db.flush()
 
         # If no single ad account could be resolved for a platform that needs

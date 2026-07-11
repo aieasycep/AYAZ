@@ -38,8 +38,21 @@ Required credentials (store in Vault; reference via ConnectorConfig.vault_secret
     Long-lived refresh token (scope ``https://www.googleapis.com/auth/analytics.readonly``).
 ``property_id``
     GA4 property ID (numeric, without the ``properties/`` prefix), e.g. ``"123456789"``.
+    NOT required by ``authenticate()`` (see chicken-and-egg note below) — only by
+    ``fetch()``.  Discover candidate values via ``list_properties()``.
 ``currency``  (optional)
     ISO-4217 code for ``conversion_value_ccy``.  Defaults to ``"USD"``.
+
+Property discovery
+------------------
+``authenticate()`` only requires ``client_id`` / ``client_secret`` /
+``refresh_token`` — a user who just completed the OAuth consent dialog has a
+refresh token but has not picked a GA4 property yet.  Call
+``list_properties()`` (GA4 Admin API ``accountSummaries``) after
+``authenticate()`` to list every property the credentials can access, then
+persist the chosen ``id`` as ``property_id`` / ``connected_accounts.external_account_id``
+before calling ``fetch()``.  ``discover()`` remains a zero-network-call helper
+that echoes back the already-configured property.
 
 Sync strategy
 -------------
@@ -93,6 +106,12 @@ _OAUTH_SCOPE = "https://www.googleapis.com/auth/analytics.readonly"
 _RUN_REPORT_URL = (
     "https://analyticsdata.googleapis.com/{ver}/properties/{property_id}:runReport"
 )
+
+# GA4 Admin API accountSummaries endpoint — NOTE: separate host from the Data
+# API above (analyticsadmin.googleapis.com, not analyticsdata.googleapis.com).
+# Fixed at v1beta; not parameterized by _API_VERSION (Admin API versions its
+# endpoints independently of the Data API).
+_ACCOUNT_SUMMARIES_URL = "https://analyticsadmin.googleapis.com/v1beta/accountSummaries"
 
 # Dimensions and metrics requested from the Data API
 _DIMENSIONS = ["date", "sessionDefaultChannelGroup"]
@@ -200,6 +219,17 @@ class GA4Connector(Connector):
     def authenticate(self) -> None:
         """Exchange the stored refresh token for a live access token.
 
+        ``property_id`` is intentionally NOT required here: a user who has
+        just completed the OAuth dialog has a ``refresh_token`` but has not
+        picked a GA4 property yet.  ``list_properties()`` (the property
+        picker) needs to run with only the token — requiring ``property_id``
+        up front creates a chicken-and-egg RuntimeError that blocks property
+        selection entirely.  Mirrors ``MetaAdsConnector.authenticate()``,
+        which does not require ``ad_account_id`` either.  ``_property_id()``
+        / ``_run_report_url()`` still fall back to
+        ``config.external_account_id`` once a property has been selected and
+        persisted; ``fetch()`` still requires a resolved property_id to work.
+
         Raises
         ------
         RuntimeError
@@ -209,7 +239,7 @@ class GA4Connector(Connector):
         ValueError
             If the response does not contain an access_token.
         """
-        required = ("client_id", "client_secret", "refresh_token", "property_id")
+        required = ("client_id", "client_secret", "refresh_token")
         missing = [k for k in required if not self._get_secret(k)]
         if missing:
             raise RuntimeError(
@@ -248,6 +278,67 @@ class GA4Connector(Connector):
                 "currency": self._currency(),
             }
         ]
+
+    def list_properties(self) -> list[dict[str, Any]]:
+        """Return the GA4 properties accessible to the authenticated credentials.
+
+        Calls the GA4 Admin API ``accountSummaries`` endpoint
+        (``https://analyticsadmin.googleapis.com/v1beta/accountSummaries``), which
+        the ``analytics.readonly`` scope covers, and flattens every
+        ``propertySummary`` across all account summaries.
+
+        Requires ``authenticate()`` first (needs an access token). Returns bare
+        property IDs (``"123456789"``, stripped of the ``properties/`` prefix) with
+        display names. Used by the ETL layer to auto-populate / offer a picker for
+        ``connected_accounts.external_account_id`` when it is empty.
+
+        Returns
+        -------
+        list[dict]
+            One entry per property: ``{"id": "<bare property id>", "name":
+            "<propertySummary.displayName>"}``. Empty list if no account summaries
+            (or no property summaries within them) are returned.
+
+        Raises
+        ------
+        RuntimeError
+            If ``authenticate()`` has not been called yet (no access token) —
+            raised by ``_auth_headers()``.
+        httpx.HTTPStatusError
+            If the endpoint returns a non-2xx response (invalid creds/scope).
+        """
+        headers = self._auth_headers()
+        properties: list[dict[str, Any]] = []
+
+        url: str | None = _ACCOUNT_SUMMARIES_URL
+        params: dict[str, Any] | None = None
+        while url:
+            resp = httpx.get(url, headers=headers, params=params, timeout=30)
+            resp.raise_for_status()
+            body: dict[str, Any] = resp.json()
+
+            for summary in body.get("accountSummaries", []) or []:
+                for prop in summary.get("propertySummaries", []) or []:
+                    raw_id = str(prop.get("property", "")).removeprefix("properties/")
+                    properties.append(
+                        {
+                            "id": raw_id,
+                            "name": str(prop.get("displayName", "")),
+                        }
+                    )
+
+            # Pagination: accountSummaries is normally a single page, but
+            # follow nextPageToken if the caller has enough accounts to paginate.
+            next_token = body.get("nextPageToken")
+            url = _ACCOUNT_SUMMARIES_URL if next_token else None
+            params = {"pageToken": next_token} if next_token else None
+
+        logger.info(
+            "%s list_properties() returned %d propert(y/ies).",
+            self._log_prefix(),
+            len(properties),
+        )
+        return properties
 
     def fetch(
         self,
