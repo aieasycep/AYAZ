@@ -799,6 +799,122 @@ def no_baseline_client(db_session: Session):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture()
+def ga4_mixed_scores_client(db_session: Session):
+    """TestClient seeded with google_ads (ad) + ga4 (analytics) in the SAME
+    current-period window, to regression-test the Dönüşüm (conversion)
+    score component's ad-only CVR fix.
+
+    Baseline  2024-03-01 (google_ads only): imp=1000, clk=50, spend=200,
+                                             conv=10, cv=1000  →  ad CVR=0.20
+    Current   2024-03-08:
+      google_ads: imp=2000, clk=80, spend=300, conv=20, cv=1500 → ad CVR=0.25
+      ga4:        clk=0,    conv=100 (!), cv=5000, spend=0 — NO clicks
+
+    Historically-buggy CVR would blend GA4's 100 conversions into the
+    numerator while ad_clicks (80) stays the denominator: (20+100)/80 = 1.5
+    — a huge, obviously-wrong "150% conversion rate". The fix must produce
+    exactly the ad-only CVR: 20/80 = 0.25 (identical to the ad-only
+    ``scores_client`` fixture's documented value).
+    """
+    tenant = _make_tenant(db_session, "Tenant GA4 Mixed Scores")
+    user = _make_user(db_session, "ga4_scores@ayaz.app")
+    membership = _make_membership(db_session, user, tenant)
+    acct = _make_connected_account(db_session, tenant)
+    ch_ads = _make_channel(db_session, "google_ads")
+    ch_ga4 = _make_channel(db_session, "ga4")
+
+    camp_ads = _make_campaign(db_session, tenant, ch_ads)
+    adset_ads = _make_adset(db_session, tenant, camp_ads)
+    ad_ads = _make_ad(db_session, tenant, adset_ads)
+
+    camp_ga4 = _make_campaign(db_session, tenant, ch_ga4)
+    adset_ga4 = _make_adset(db_session, tenant, camp_ga4)
+    ad_ga4 = _make_ad(db_session, tenant, adset_ga4)
+
+    # Baseline: google_ads only (no GA4 baseline row).
+    _insert_fact(
+        db_session, tenant, acct, ch_ads, camp_ads, adset_ads, ad_ads,
+        date(2024, 3, 1),
+        impressions=1000, clicks=50, spend="200.00", conversions="10", cv="1000.00",
+    )
+    # Current: google_ads
+    _insert_fact(
+        db_session, tenant, acct, ch_ads, camp_ads, adset_ads, ad_ads,
+        date(2024, 3, 8),
+        impressions=2000, clicks=80, spend="300.00", conversions="20", cv="1500.00",
+    )
+    # Current: ga4 — large conversion count, ZERO clicks (GA4 measures
+    # sessions, not ad clicks — see ayaz/connectors/ga4.py docstring).
+    _insert_fact(
+        db_session, tenant, acct, ch_ga4, camp_ga4, adset_ga4, ad_ga4,
+        date(2024, 3, 8),
+        impressions=0, clicks=0, spend="0", conversions="100", cv="5000.00",
+    )
+
+    db_session.commit()
+
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    def override_get_membership():
+        return membership
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_membership] = override_get_membership
+
+    client = TestClient(app)
+    yield client
+
+    app.dependency_overrides.clear()
+
+
+class TestScoresConversionSourceTypeSplit:
+    """Regression tests: Dönüşüm (conversion) score must use ad-only CVR,
+    never blend in GA4's 0-click conversions."""
+
+    _PARAMS = {"date_from": "2024-03-08", "date_to": "2024-03-14"}
+
+    def test_conversion_value_is_ad_only_cvr(
+        self, ga4_mixed_scores_client: TestClient
+    ) -> None:
+        """Historically-buggy CVR would be (20+100)/80 = 1.5. Correct: 20/80 = 0.25."""
+        body = ga4_mixed_scores_client.get(
+            "/api/v1/dashboard/scores", params=self._PARAMS
+        ).json()
+        conv = next(c for c in body["components"] if c["key"] == "conversion")
+        assert conv["value"] == pytest.approx(0.25)
+        assert conv["value"] != pytest.approx(1.5)
+
+    def test_conversion_baseline_is_ad_only_cvr(
+        self, ga4_mixed_scores_client: TestClient
+    ) -> None:
+        """Baseline has no GA4 row at all — baseline CVR must be exactly the
+        ad-only value (10/50 = 0.20), unaffected by GA4's absence/presence."""
+        body = ga4_mixed_scores_client.get(
+            "/api/v1/dashboard/scores", params=self._PARAMS
+        ).json()
+        conv = next(c for c in body["components"] if c["key"] == "conversion")
+        assert conv["baseline"] == pytest.approx(0.20)
+
+    def test_conversion_score_matches_documented_ad_only_scenario(
+        self, ga4_mixed_scores_client: TestClient
+    ) -> None:
+        """Adding a GA4 channel (100 conversions, 0 clicks) alongside the
+        SAME google_ads numbers as the module-level docstring's ad-only
+        scenario (CVR 0.20 → 0.25, improvement) must produce the identical
+        conversion score — GA4's presence must not move the score at all."""
+        body = ga4_mixed_scores_client.get(
+            "/api/v1/dashboard/scores", params=self._PARAMS
+        ).json()
+        conv = next(c for c in body["components"] if c["key"] == "conversion")
+        # ratio = 0.25/0.20 = 1.25 → (0.25)/0.5=0.5 → score = 50+25 = 75
+        assert conv["score"] == 75
+
+
 # ── Endpoint tests ────────────────────────────────────────────────────────────
 
 

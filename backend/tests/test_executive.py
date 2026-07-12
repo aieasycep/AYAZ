@@ -516,6 +516,117 @@ class TestComputeTotals:
         result = _compute_totals(data)
         assert result["roas"] == 0.0
 
+    # ── Kaynak-tipi mutabakatı: ad + analytics çift-sayım regresyon testleri ──
+    #
+    # google_ads (ad) ile ga4 (analytics) aynı dönemde birlikte varsa, eski
+    # davranış conversions/conversion_value'yu kör toplardı (çift sayım).
+
+    def test_ad_and_analytics_channel_conversions_not_summed(self) -> None:
+        """google_ads (20 conv, 4000 cv) + ga4 (15 conv, 3000 cv) — headline
+        must be GA4's 15/3000, NOT the blind sum 35/7000."""
+        data = {
+            "google_ads": {
+                "label": "Google Ads",
+                "spend": Decimal("1000"),
+                "conversion_value": Decimal("4000"),
+                "conversions": Decimal("20"),
+                "clicks": Decimal("500"),
+                "impressions": Decimal("10000"),
+            },
+            "ga4": {
+                "label": "Google Analytics 4",
+                "spend": Decimal("0"),
+                "conversion_value": Decimal("3000"),
+                "conversions": Decimal("15"),
+                "clicks": Decimal("0"),
+                "impressions": Decimal("0"),
+            },
+        }
+        result = _compute_totals(data)
+        assert result["conversions"] == pytest.approx(15.0)
+        assert result["conversions"] != pytest.approx(35.0)
+        assert result["revenue"] == pytest.approx(3000.0)
+        assert result["revenue"] != pytest.approx(7000.0)
+
+    def test_blended_roas_uses_ga4_revenue_over_ad_spend_only(self) -> None:
+        """Blended ROAS = ga4_revenue / ad_spend = 3000/1000 = 3.0, NOT the
+        old blind (4000+3000)/1000 = 7.0."""
+        data = {
+            "google_ads": {
+                "label": "Google Ads",
+                "spend": Decimal("1000"),
+                "conversion_value": Decimal("4000"),
+                "conversions": Decimal("20"),
+                "clicks": Decimal("500"),
+                "impressions": Decimal("10000"),
+            },
+            "ga4": {
+                "label": "Google Analytics 4",
+                "spend": Decimal("0"),
+                "conversion_value": Decimal("3000"),
+                "conversions": Decimal("15"),
+                "clicks": Decimal("0"),
+                "impressions": Decimal("0"),
+            },
+        }
+        result = _compute_totals(data)
+        assert result["roas"] == pytest.approx(3.0)
+        assert result["roas"] != pytest.approx(7.0)
+
+    def test_ad_and_analytics_breakdown_exposed(self) -> None:
+        data = {
+            "google_ads": {
+                "label": "Google Ads",
+                "spend": Decimal("1000"),
+                "conversion_value": Decimal("4000"),
+                "conversions": Decimal("20"),
+                "clicks": Decimal("500"),
+                "impressions": Decimal("10000"),
+            },
+            "ga4": {
+                "label": "Google Analytics 4",
+                "spend": Decimal("0"),
+                "conversion_value": Decimal("3000"),
+                "conversions": Decimal("15"),
+                "clicks": Decimal("0"),
+                "impressions": Decimal("0"),
+            },
+        }
+        result = _compute_totals(data)
+        assert result["ad_conversions"] == pytest.approx(20.0)
+        assert result["ad_conversion_value"] == pytest.approx(4000.0)
+        assert result["analytics_conversions"] == pytest.approx(15.0)
+        assert result["analytics_conversion_value"] == pytest.approx(3000.0)
+
+    def test_ad_only_channels_unaffected_by_fix(self) -> None:
+        """Regression guard: two ad-type channels (no analytics) must produce
+        IDENTICAL results to the pre-fix behaviour — locks the existing
+        test_two_channels_summed expectations via the new code path too."""
+        data = {
+            "google_ads": {
+                "label": "Google Ads",
+                "spend": Decimal("5000"),
+                "conversion_value": Decimal("20000"),
+                "conversions": Decimal("50"),
+                "clicks": Decimal("5000"),
+                "impressions": Decimal("100000"),
+            },
+            "meta_ads": {
+                "label": "Meta Ads",
+                "spend": Decimal("3000"),
+                "conversion_value": Decimal("9000"),
+                "conversions": Decimal("30"),
+                "clicks": Decimal("4000"),
+                "impressions": Decimal("80000"),
+            },
+        }
+        result = _compute_totals(data)
+        assert result["spend"] == pytest.approx(8000.0)
+        assert result["revenue"] == pytest.approx(29000.0)
+        assert result["conversions"] == pytest.approx(80.0)
+        assert result["roas"] == pytest.approx(3.625)
+        assert result["analytics_conversions"] == pytest.approx(0.0)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2. build_overview — service-level tests (with DB)
@@ -672,6 +783,84 @@ class TestBuildOverview:
         headline = result["headline"]
         # Should mention increase/decrease direction
         assert "arttı" in headline or "azaldı" in headline
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2b. build_overview — kaynak-tipi mutabakatı (ad + analytics) end-to-end
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _seed_ad_and_analytics_warehouse(
+    db: Session, tenant: Tenant, date_from: date, date_to: date
+) -> tuple[DimChannel, DimChannel]:
+    """Seed google_ads (ad) + ga4 (analytics) with fact rows on ``date_from``.
+
+    google_ads: spend=1000, conv=20, cv=4000 (self-attributed platform conv.)
+    ga4:        spend=0,    conv=15, cv=3000 (real on-site conversions)
+    """
+    acct = _make_connected_account(db, tenant)
+    google = _make_channel(db, "google_ads", "Google Ads")
+    ga4 = _make_channel(db, "ga4", "Google Analytics 4")
+
+    g_camp = _make_campaign(db, tenant, google, "Google Campaign")
+    g_adset = _make_adset(db, tenant, g_camp)
+    g_ad = _make_ad(db, tenant, g_adset)
+
+    a_camp = _make_campaign(db, tenant, ga4, "(not set)")
+    a_adset = _make_adset(db, tenant, a_camp)
+    a_ad = _make_ad(db, tenant, a_adset)
+
+    _insert_fact(
+        db, tenant, acct, google, g_camp, g_adset, g_ad, date_from,
+        spend="1000", conversion_value="4000", conversions="20",
+        impressions=10000, clicks=500,
+    )
+    _insert_fact(
+        db, tenant, acct, ga4, a_camp, a_adset, a_ad, date_from,
+        spend="0", conversion_value="3000", conversions="15",
+        impressions=0, clicks=0,
+    )
+    db.commit()
+    return google, ga4
+
+
+class TestBuildOverviewSourceTypeSplit:
+    """End-to-end (DB-seeded) regression tests for the double-counting fix."""
+
+    _date_from = date(2026, 2, 1)
+    _date_to = date(2026, 2, 1)
+
+    def test_kpis_conversions_not_double_counted(self, db_session: Session) -> None:
+        tenant = _make_tenant(db_session)
+        _seed_ad_and_analytics_warehouse(
+            db_session, tenant, self._date_from, self._date_to
+        )
+        result = build_overview(db_session, tenant.id, self._date_from, self._date_to)
+        kpis = result["kpis"]
+        # Historically-buggy value would be 20+15=35. Correct: GA4 wins (15).
+        assert kpis["conversions"] == pytest.approx(15.0)
+        assert kpis["revenue"] == pytest.approx(3000.0)
+
+    def test_kpis_roas_is_blended_not_summed(self, db_session: Session) -> None:
+        tenant = _make_tenant(db_session)
+        _seed_ad_and_analytics_warehouse(
+            db_session, tenant, self._date_from, self._date_to
+        )
+        result = build_overview(db_session, tenant.id, self._date_from, self._date_to)
+        # Historically-buggy ROAS: (4000+3000)/1000 = 7.0. Correct: 3000/1000 = 3.0.
+        assert result["kpis"]["roas"] == pytest.approx(3.0)
+
+    def test_per_channel_rows_show_own_unblended_numbers(
+        self, db_session: Session
+    ) -> None:
+        tenant = _make_tenant(db_session)
+        _seed_ad_and_analytics_warehouse(
+            db_session, tenant, self._date_from, self._date_to
+        )
+        result = build_overview(db_session, tenant.id, self._date_from, self._date_to)
+        by_key = {c["channel"]: c for c in result["channels"]}
+        assert by_key["google_ads"]["revenue"] == pytest.approx(4000.0)
+        assert by_key["ga4"]["revenue"] == pytest.approx(3000.0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

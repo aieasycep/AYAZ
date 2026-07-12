@@ -265,26 +265,52 @@ def _score_engagement(curr: dict[str, float], base: dict[str, float]) -> dict:
     }
 
 
+def _ad_clicks(totals: dict[str, float]) -> float:
+    """Return ad-only clicks, falling back to blended ``clicks`` when the
+    caller doesn't distinguish source type (geriye dönük uyumluluk)."""
+    return totals.get("ad_clicks", totals["clicks"])
+
+
+def _ad_conversions(totals: dict[str, float]) -> float:
+    """Return ad-only conversions, falling back to blended ``conversions``
+    when the caller doesn't distinguish source type."""
+    return totals.get("ad_conversions", totals["conversions"])
+
+
 def _conversion_rate(totals: dict[str, float]) -> float:
-    """Compute conversion rate = conversions / clicks.  Returns 0.0 when clicks=0."""
-    clicks = totals["clicks"]
-    if clicks == 0.0:
+    """Compute conversion rate = ad_conversions / ad_clicks.
+
+    Kaynak-tipi ayrımı: yalnız reklam (ad) kanallarının dönüşüm/tıklama
+    sayıları kullanılır. Analytics kaynaklarının (ör. GA4) dönüşümleri her
+    zaman 0 tıklamayla gelir (GA4 "clicks" değil "sessions" ölçer); bunları
+    reklam tıklamalarına bölmek CVR'ı yapay şekilde şişirir — bu fonksiyon
+    tam olarak bunu önler.
+
+    ``totals`` içinde ``ad_conversions``/``ad_clicks`` anahtarları yoksa
+    (ör. eski çağrı şekli veya salt-pure-function testleri) mevcut
+    ``conversions``/``clicks`` alanlarına düşülür — geriye dönük uyumlu.
+
+    Returns 0.0 when the (ad) click denominator is zero.
+    """
+    ad_clicks = _ad_clicks(totals)
+    if ad_clicks == 0.0:
         return 0.0
-    return totals["conversions"] / clicks
+    return _ad_conversions(totals) / ad_clicks
 
 
 def _score_conversion(curr: dict[str, float], base: dict[str, float]) -> dict:
     """Score Dönüşüm (Conversion).
 
-    Driver: conversion rate = conversions / clicks (higher is better).
+    Driver: conversion rate = ad_conversions / ad_clicks (higher is better;
+    kaynak-tipi ayrımıyla — bkz. ``_conversion_rate``).
     Returns neutral 50 when:
-    - baseline clicks are zero (no history), OR
-    - current clicks are zero (cannot compute current CVR).
+    - baseline (ad) CVR is zero (no history), OR
+    - current (ad) clicks are zero (cannot compute current CVR).
     """
     curr_cvr = _conversion_rate(curr)
     base_cvr = _conversion_rate(base)
 
-    if base_cvr == 0.0 or curr["clicks"] == 0.0:
+    if base_cvr == 0.0 or _ad_clicks(curr) == 0.0:
         return {
             "key": "conversion",
             "label": "Dönüşüm",
@@ -330,6 +356,12 @@ def compute_scores(
         spend, impressions, clicks, conversions, conversion_value,
         ctr, cpc, cpa, roas.
         Typically the ``totals`` field from ``_aggregate_period``.
+        Optionally also ``ad_conversions``/``ad_clicks`` — when present, the
+        Dönüşüm (conversion) component uses these ad-only values instead of
+        the blended ``conversions``/``clicks`` (avoids mixing in GA4's
+        0-click conversions or Search Console's organic clicks). When
+        absent, falls back to ``conversions``/``clicks`` unchanged —
+        fully backward compatible with pre-existing callers/tests.
 
     baseline_totals:
         Same shape as ``current_totals`` for the preceding equal-length period.

@@ -19,6 +19,16 @@ Metric formulas
     CPA  = spend  / conversions            (0 when conversions == 0)
     ROAS = conversion_value / spend        (0 when spend == 0)
 
+Source-type split (ad vs analytics) — çift-sayım koruması
+-----------------------------------------------------------
+Reklam platformları (google_ads, meta_ads, ...) ile analitik kaynakları
+(ga4, search_console) aynı fact tablosuna yazar. Kanal-üstü toplamlarda
+bunları kör SUM etmek çift sayıma yol açar (GA4 dönüşümü, platformun zaten
+raporladığı dönüşümün üstüne eklenir). ``split_channel_totals_by_source``,
+``resolve_headline_metric`` ve ``blended_roas`` bu ayrımı ve "hangi tek
+değer manşette gösterilir" çözümlemesini merkezileştirir — bkz. her
+birinin docstring'i ve ``ayaz/services/channels.py::source_type``.
+
 Top-movers helpers
 ------------------
 ``compute_top_movers`` is the single source of truth for top-movers ranking
@@ -101,6 +111,155 @@ def roas(conversion_value: Decimal, spend: Decimal) -> Decimal:
     if spend == Decimal(0):
         return Decimal(0)
     return conversion_value / spend
+
+
+# ── Kaynak-tipi (ad vs analytics) ayrımı ───────────────────────────────────────
+#
+# Google Ads/Meta Ads (ad) VE GA4/Search Console (analytics) aynı
+# ``fact_daily_metrics`` tablosuna, aynı ``conversions`` /
+# ``conversion_value_raw`` kolonlarına yazar. Kanal-üstü SUM() bu ikisini
+# ayırt etmezse GA4'ün ölçtüğü gerçek dönüşümler, reklam platformlarının
+# ZATEN kendi raporladığı (self-attributed) dönüşümlerin ÜSTÜNE eklenir —
+# manşet dönüşüm 2-3× şişer ve blended ROAS yapısal olarak abartılı çıkar.
+# Bu üç yardımcı, dashboard/executive/scores/attribution genelinde TEK bir
+# ayrım+çözümleme mantığı sağlar.
+
+
+def split_channel_totals_by_source(channel_data: dict[str, dict]) -> dict[str, Decimal]:
+    """Kanal-bazlı ham toplamları kaynak tipine (``ad`` / ``analytics``) göre ayırır.
+
+    Parameters
+    ----------
+    channel_data:
+        ``_aggregate_by_channel_raw`` ile aynı şekilde: ``{channel_key: {
+        "impressions": Decimal, "clicks": Decimal, "spend": Decimal,
+        "conversions": Decimal, "conversion_value": Decimal, ...}}``.
+        Fazladan anahtarlar (ör. ``"label"``) yok sayılır.
+
+    Returns
+    -------
+    dict[str, Decimal] anahtarları:
+        ``total_spend``, ``total_impressions``, ``total_clicks``
+            Tüm kanalların ham toplamı — mevcut (fix-öncesi) davranışla
+            AYNI, çünkü bunlar çift-sayım bug'ının konusu değil (analytics
+            kanallarının harcaması yapısal olarak 0'dır — bkz. GA4/Search
+            Console connector docstring'leri).
+        ``ad_spend``, ``ad_impressions``, ``ad_clicks``,
+        ``ad_conversions``, ``ad_conversion_value``
+            Yalnız ``source_type(channel_key) == "ad"`` olan kanalların
+            toplamı.
+        ``analytics_impressions``, ``analytics_clicks``,
+        ``analytics_conversions``, ``analytics_conversion_value``
+            Yalnız ``source_type(channel_key) == "analytics"`` olan
+            kanalların toplamı (spend hariç — analytics kanallarının
+            harcaması olmaz).
+
+    Bilinmeyen kanal anahtarları ``channels.source_type`` varsayılanı
+    (``"ad"``) üzerinden sınıflandırılır — bkz. o fonksiyonun docstring'i.
+    """
+    from ayaz.services.channels import source_type as _source_type
+
+    total_spend = Decimal(0)
+    total_impressions = Decimal(0)
+    total_clicks = Decimal(0)
+
+    ad_spend = Decimal(0)
+    ad_impressions = Decimal(0)
+    ad_clicks = Decimal(0)
+    ad_conversions = Decimal(0)
+    ad_conversion_value = Decimal(0)
+
+    analytics_impressions = Decimal(0)
+    analytics_clicks = Decimal(0)
+    analytics_conversions = Decimal(0)
+    analytics_conversion_value = Decimal(0)
+
+    for channel_key, row in channel_data.items():
+        spend = row.get("spend", Decimal(0))
+        impressions = row.get("impressions", Decimal(0))
+        clicks = row.get("clicks", Decimal(0))
+        conversions = row.get("conversions", Decimal(0))
+        conversion_value = row.get("conversion_value", Decimal(0))
+
+        total_spend += spend
+        total_impressions += impressions
+        total_clicks += clicks
+
+        if _source_type(channel_key) == "analytics":
+            analytics_impressions += impressions
+            analytics_clicks += clicks
+            analytics_conversions += conversions
+            analytics_conversion_value += conversion_value
+        else:  # "ad" (varsayılan — bilinmeyen kanallar da buraya düşer)
+            ad_spend += spend
+            ad_impressions += impressions
+            ad_clicks += clicks
+            ad_conversions += conversions
+            ad_conversion_value += conversion_value
+
+    return {
+        "total_spend": total_spend,
+        "total_impressions": total_impressions,
+        "total_clicks": total_clicks,
+        "ad_spend": ad_spend,
+        "ad_impressions": ad_impressions,
+        "ad_clicks": ad_clicks,
+        "ad_conversions": ad_conversions,
+        "ad_conversion_value": ad_conversion_value,
+        "analytics_impressions": analytics_impressions,
+        "analytics_clicks": analytics_clicks,
+        "analytics_conversions": analytics_conversions,
+        "analytics_conversion_value": analytics_conversion_value,
+    }
+
+
+def resolve_headline_metric(analytics_value: Decimal, ad_value: Decimal) -> Decimal:
+    """"Manşet" (headline) metrik değerini kaynak-doğrusu (source-of-truth) kuralıyla çözer.
+
+    İş kuralı: analytics (GA4) verisi VARSA (sıfırdan farklıysa) o esas
+    alınır — GA4 sitedeki/uygulamadaki gerçek aktiviteyi ölçer ve reklam
+    platformlarının kendi-raporladığı (şişirilmiş olabilen) sayısından daha
+    güvenilir kabul edilir. Analytics verisi yoksa (kaynak bağlı değil ya da
+    bu dönemde tam olarak sıfır) reklam kanallarının toplamına düşülür — bu
+    da mevcut (fix-öncesi, yalnız-ad) davranışla birebir aynı sonucu verir,
+    yani GA4 bağlanmamış kiracılar için geriye dönük olarak sayısal bir
+    değişiklik YOKTUR.
+    """
+    return analytics_value if analytics_value != Decimal(0) else ad_value
+
+
+def blended_roas(
+    *,
+    ad_spend: Decimal,
+    analytics_conversion_value: Decimal,
+    ad_conversion_value: Decimal = Decimal(0),
+) -> Decimal:
+    """Blended ROAS = kaynak-doğrusu gelir ÷ YALNIZ reklam harcaması.
+
+    Pay (gelir): ``resolve_headline_metric`` kuralı uygulanır — analytics
+    (GA4) geliri sıfırdan farklıysa o kullanılır; aksi halde
+    ``ad_conversion_value`` (varsayılan 0) kullanılır.
+
+    Bu varsayılan iki farklı kullanım şeklini TEK fonksiyonda birleştirir:
+      * ``ad_conversion_value`` VERİLMEZSE (attribution endpoint'i): formül
+        tam olarak ``ga4_revenue / ad_spend``'e indirgenir — GA4 yoksa/
+        sıfırsa sonuç dürüstçe 0'dır (fallback YOK; bu endpoint'in amacı
+        "gerçek" attribution sinyalinin var olup olmadığını göstermektir).
+      * ``ad_conversion_value`` VERİLİRSE (dashboard/executive manşet ROAS):
+        GA4 bağlı değilken/sıfırken eski (yalnız-ad) ROAS'a düşülür — geriye
+        dönük uyumluluk, mevcut kullanıcıların panelinde ROAS aniden 0
+        görünmez.
+
+    Payda: yalnız ``source_type == "ad"`` kanallarının harcaması. (Analytics
+    kanallarının harcaması yapısal olarak 0'dır — ama bu fonksiyon yine de
+    çağıranın açıkça ``ad_spend`` geçmesini ister; "toplam harcama" ile
+    karıştırılmasın diye.)
+
+    Sıfıra bölme: ``roas()`` yardımcısı üzerinden — ``ad_spend == 0`` ise
+    ``Decimal(0)`` döner, asla exception fırlatmaz.
+    """
+    revenue = resolve_headline_metric(analytics_conversion_value, ad_conversion_value)
+    return roas(revenue, ad_spend)
 
 
 # ── Aggregate helper ──────────────────────────────────────────────────────────
