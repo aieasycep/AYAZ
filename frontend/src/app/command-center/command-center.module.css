@@ -67,7 +67,10 @@
 
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* auto-fit (not a fixed repeat(4, ...)) so an optional 5th tile
+     (Harmanlanmış ROAS — rendered only when the attribution endpoint
+     resolves) reflows evenly instead of leaving a lone, half-empty row. */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
 }
 

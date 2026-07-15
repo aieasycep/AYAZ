@@ -21,11 +21,18 @@ import {
   type ExecInsight,
   type ChannelRoi,
 } from '@/lib/executive-api';
+import { getAttributionSummary, type AttributionSummary } from '@/lib/attribution-api';
 import { channelColor } from '@/lib/chartColors';
 import { channelLabel } from '@/lib/channels';
 import { parseApiError } from '@/lib/parseApiError';
 import styles from './executive.module.css';
 import { formatDateRangeTR } from '@/lib/formatDate';
+
+// Yönetici görünümü tarih parametresi göndermeden çağrılır — backend
+// varsayılanı "son 30 gün" (bkz. ayaz/api/v1/executive.py). Attribution
+// endpoint'i aynı pencereyle hizalanır ki "Harmanlanmış ROAS" mevcut ROAS
+// kutucuğunun yanında tutarlı görünsün.
+const ATTRIBUTION_WINDOW_DAYS = 30;
 
 // --- Formatters ---
 
@@ -136,17 +143,32 @@ interface KpiCardProps {
   delta: number | null;
   highlight?: boolean;
   goodWhenDown?: boolean;
+  /**
+   * Delta-row caption. Defaults to "önceki döneme göre". Pass `null` to hide
+   * the delta row entirely — used for metrics (e.g. blended/attribution
+   * ROAS) that carry no period-over-period comparison.
+   */
+  caption?: string | null;
 }
 
-function KpiCard({ label, value, delta, highlight, goodWhenDown }: KpiCardProps) {
+function KpiCard({
+  label,
+  value,
+  delta,
+  highlight,
+  goodWhenDown,
+  caption = 'önceki döneme göre',
+}: KpiCardProps) {
   return (
     <div className={styles.kpiCard}>
       <div className={styles.kpiLabel}>{label}</div>
       <div className={highlight ? styles.kpiValueRoas : styles.kpiValue}>{value}</div>
-      <div className={styles.kpiDeltaRow}>
-        <DeltaBadge pct={delta} goodWhenDown={goodWhenDown} />
-        <span className={styles.deltaLabel}>önceki döneme göre</span>
-      </div>
+      {caption !== null && (
+        <div className={styles.kpiDeltaRow}>
+          <DeltaBadge pct={delta} goodWhenDown={goodWhenDown} />
+          <span className={styles.deltaLabel}>{caption}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -365,6 +387,11 @@ export default function ExecutivePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Attribution (blended/gerçek ROAS) — fetched independently of the main
+  // executive overview. Fails silently (tile just doesn't render): this is a
+  // supplementary metric and must never block or error out the primary view.
+  const [attribution, setAttribution] = useState<AttributionSummary | null>(null);
+
   const fetchOverview = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -378,9 +405,19 @@ export default function ExecutivePage() {
     }
   }, []);
 
+  const fetchAttribution = useCallback(async () => {
+    try {
+      const result = await getAttributionSummary(ATTRIBUTION_WINDOW_DAYS);
+      setAttribution(result);
+    } catch {
+      setAttribution(null);
+    }
+  }, []);
+
   useEffect(() => {
     fetchOverview();
-  }, [fetchOverview]);
+    fetchAttribution();
+  }, [fetchOverview, fetchAttribution]);
 
   return (
     <div className={styles.shell}>
@@ -439,6 +476,19 @@ export default function ExecutivePage() {
                 value={fmtNumber(Math.round(data.kpis.conversions))}
                 delta={data.kpis.deltas.conversions_pct}
               />
+              {/* Harmanlanmış (gerçek) ROAS — yukarıdaki self-raporlu ROAS'ın
+                  aksine, GA4'ün tek-kaynak-doğrusu gelirini kullanır; reklam
+                  platformlarının kendi-iddia ettiği çakışan dönüşümleri kör
+                  toplamaz. GA4 bağlı değilse/veri yoksa tile hiç gösterilmez. */}
+              {attribution && (
+                <KpiCard
+                  label="Harmanlanmış ROAS (Gerçek)"
+                  value={fmtRoas(attribution.blended_roas)}
+                  delta={null}
+                  caption={null}
+                  highlight
+                />
+              )}
             </div>
 
             {/* Channel ROI */}

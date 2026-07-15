@@ -9,9 +9,16 @@ import {
   type AttentionItem,
   type CcModules,
 } from '@/lib/command-center-api';
+import { getAttributionSummary, type AttributionSummary } from '@/lib/attribution-api';
 import { parseApiError } from '@/lib/parseApiError';
 import { buildAttentionHref } from '@/lib/command-center-focus';
 import styles from './command-center.module.css';
+
+// Komuta Merkezi'nin KPI penceresiyle aynı: backend `last 30 days` varsayılanı
+// kullanır (bkz. ayaz/api/v1/command_center.py docstring). Attribution
+// endpoint'i `days` parametresi alır — aynı pencereyle hizalanır ki
+// "Harmanlanmış ROAS" mevcut ROAS kutucuğunun yanında tutarlı görünsün.
+const ATTRIBUTION_WINDOW_DAYS = 30;
 
 // --- Formatters ---
 
@@ -75,9 +82,22 @@ interface KpiCardProps {
   delta: number | null;
   goodWhenDown?: boolean;
   highlight?: boolean;
+  /**
+   * Delta-row caption. Defaults to "önceki döneme göre". Pass `null` to hide
+   * the delta row entirely — used for metrics (e.g. blended/attribution
+   * ROAS) that carry no period-over-period comparison.
+   */
+  caption?: string | null;
 }
 
-function KpiCard({ label, value, delta, highlight, goodWhenDown }: KpiCardProps) {
+function KpiCard({
+  label,
+  value,
+  delta,
+  highlight,
+  goodWhenDown,
+  caption = 'önceki döneme göre',
+}: KpiCardProps) {
   return (
     <div
       className={styles.kpiCard}
@@ -87,10 +107,12 @@ function KpiCard({ label, value, delta, highlight, goodWhenDown }: KpiCardProps)
       <div className={highlight ? styles.kpiValueRoas : styles.kpiValue}>
         {value}
       </div>
-      <div className={styles.kpiDeltaRow}>
-        <DeltaBadge pct={delta} goodWhenDown={goodWhenDown} />
-        <span className={styles.deltaLabel}>önceki döneme göre</span>
-      </div>
+      {caption !== null && (
+        <div className={styles.kpiDeltaRow}>
+          <DeltaBadge pct={delta} goodWhenDown={goodWhenDown} />
+          <span className={styles.deltaLabel}>{caption}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -616,6 +638,13 @@ export default function CommandCenterPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Attribution (blended/gerçek ROAS) — fetched independently of the main
+  // Command Center payload. Deliberately fails silently (tile just doesn't
+  // render): this is a secondary, supplementary metric and must never block
+  // or error out the primary Command Center view (marketing data is often
+  // partial — a tenant with no GA4 connected simply won't see this tile).
+  const [attribution, setAttribution] = useState<AttributionSummary | null>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -629,9 +658,19 @@ export default function CommandCenterPage() {
     }
   }, []);
 
+  const fetchAttribution = useCallback(async () => {
+    try {
+      const result = await getAttributionSummary(ATTRIBUTION_WINDOW_DAYS);
+      setAttribution(result);
+    } catch {
+      setAttribution(null);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchAttribution();
+  }, [fetchData, fetchAttribution]);
 
   return (
     <div className={styles.shell}>
@@ -691,6 +730,19 @@ export default function CommandCenterPage() {
                 value={fmtNumber(Math.round(data.kpis.conversions))}
                 delta={data.kpis.deltas.conversions_pct}
               />
+              {/* Harmanlanmış (gerçek) ROAS — yukarıdaki self-raporlu ROAS'ın
+                  aksine, GA4'ün tek-kaynak-doğrusu gelirini kullanır; reklam
+                  platformlarının kendi-iddia ettiği çakışan dönüşümleri kör
+                  toplamaz. GA4 bağlı değilse/veri yoksa tile hiç gösterilmez. */}
+              {attribution && (
+                <KpiCard
+                  label="Harmanlanmış ROAS (Gerçek)"
+                  value={fmtRoas(attribution.blended_roas)}
+                  delta={null}
+                  caption={null}
+                  highlight
+                />
+              )}
             </div>
 
             {/* Attention feed */}

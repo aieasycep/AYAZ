@@ -82,7 +82,21 @@ export default function ChannelTable({ rows, loading, error }: ChannelTableProps
               <td className={`${styles.td} ${styles.right}`}>{fmtNum(row.impressions)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtNum(row.clicks)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtNum(row.conversions)}</td>
-              <td className={`${styles.td} ${styles.right}`}>{fmtRoas(row.roas)}</td>
+              <td className={`${styles.td} ${styles.right}`}>
+                {/* ₺0 harcamalı kanallarda (ör. GA4 gibi analitik kaynaklar) ROAS
+                    matematiksel olarak tanımsızdır — "0.00x" göstermek yanıltıcı
+                    olur (harcama olmadığı için verim değil "veri yok" durumudur). */}
+                {row.spend === 0 ? (
+                  <span
+                    className={styles.muted}
+                    title="Harcaması olmayan kaynaklarda ROAS anlamsızdır"
+                  >
+                    —
+                  </span>
+                ) : (
+                  fmtRoas(row.roas)
+                )}
+              </td>
               <td className={`${styles.td} ${styles.right}`}>{fmtCurrency(row.cpc, 2)}</td>
               <td className={`${styles.td} ${styles.right}`}>{fmtPct(row.ctr)}</td>
             </tr>
