@@ -914,17 +914,28 @@ def _insight_exists(
 # ── Narrator integration ──────────────────────────────────────────────────────
 
 
-def _narrate(result: DetectorResult) -> tuple[str, str]:
-    """Produce a (title, body) Turkish narrative for a DetectorResult.
+def _default_narrator():
+    """Return the process-wide default insight narrator.
 
-    Imports narrator lazily to avoid circular dependencies.
-    Uses TemplateNarrator (no network) — ClaudeNarrator is an opt-in upgrade
-    that callers can wire in via the narrator parameter of generate_insights.
+    ClaudeNarrator when ``settings.anthropic_api_key`` is configured (real LLM
+    reasoning grounded in the detector data), otherwise TemplateNarrator. Mirrors
+    ``briefing._pick_narrator``. ClaudeNarrator itself also degrades to templates
+    on any API failure, so switching the key on is safe and reversible — behaviour
+    is byte-identical to the old template-only default until a key is present, at
+    which point the whole insight / copilot / report surface upgrades with no
+    further wiring.
     """
-    from ayaz.services.narrator import TemplateNarrator  # lazy import
+    from ayaz.config import settings
+    from ayaz.services.narrator import ClaudeNarrator, TemplateNarrator  # lazy
 
-    narrator = TemplateNarrator()
-    return narrator.narrate(result)
+    if settings.anthropic_api_key:
+        return ClaudeNarrator()
+    return TemplateNarrator()
+
+
+def _narrate(result: DetectorResult) -> tuple[str, str]:
+    """Produce a (title, body) Turkish narrative for a DetectorResult."""
+    return _default_narrator().narrate(result)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -986,10 +997,10 @@ def generate_insights(
 
     by_channel = _group_by_channel(all_points)
 
-    # Resolve narrator
+    # Resolve narrator (ClaudeNarrator when ANTHROPIC_API_KEY is set, else it
+    # transparently degrades to templates — see _default_narrator).
     if narrator is None:
-        from ayaz.services.narrator import TemplateNarrator
-        narrator = TemplateNarrator()
+        narrator = _default_narrator()
 
     # Run all detectors
     all_results: list[DetectorResult] = []

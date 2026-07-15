@@ -1376,3 +1376,29 @@ class TestAlertRuleCRUD:
         finally:
             # Restore: the fixture teardown will call _test_app.dependency_overrides.clear()
             pass
+
+
+# ── _default_narrator factory (Batch C: turn LLM on when key is set) ──────────
+
+def test_default_narrator_uses_template_without_key(monkeypatch):
+    """No ANTHROPIC_API_KEY → TemplateNarrator (byte-identical to old default)."""
+    from ayaz.services import insights as insights_mod
+    from ayaz.services.narrator import TemplateNarrator
+
+    monkeypatch.setattr(insights_mod, "_default_narrator", insights_mod._default_narrator)
+    from ayaz.config import settings
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    assert isinstance(insights_mod._default_narrator(), TemplateNarrator)
+
+
+def test_default_narrator_uses_claude_with_key(monkeypatch):
+    """ANTHROPIC_API_KEY set → ClaudeNarrator (real reasoning; self-falls-back on error)."""
+    from ayaz.services import insights as insights_mod
+    from ayaz.services.narrator import ClaudeNarrator
+    from ayaz.config import settings
+
+    monkeypatch.setattr(settings, "anthropic_api_key", "sk-ant-test-key")
+    narr = insights_mod._default_narrator()
+    assert isinstance(narr, ClaudeNarrator)
+    # model comes from config (claude_narrator_model), not a stale hardcode
+    assert narr._model == settings.claude_narrator_model

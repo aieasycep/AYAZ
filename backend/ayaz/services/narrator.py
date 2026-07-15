@@ -428,7 +428,7 @@ class ClaudeNarrator(InsightNarrator):
         from ayaz.config import settings
 
         self._api_key = api_key or settings.anthropic_api_key
-        self._model = model or self.DEFAULT_MODEL
+        self._model = model or settings.claude_narrator_model or self.DEFAULT_MODEL
         self._http_client = http_client  # None → create lazily
         self._fallback = TemplateNarrator()
 
