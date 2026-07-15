@@ -172,14 +172,32 @@ def _fetch_metric_value(
         in the past.
     channel_filter:
         When not None, an additional WHERE clause ``dim_channel.key = channel_filter``
-        is applied.  When None, all channels are summed.
+        is applied — a single-channel goal can never mix ad + analytics data,
+        so this path is aggregated directly (unchanged from before).
+        When None (account-wide goal), all channels are aggregated PER
+        CHANNEL first and then split by source type (ad vs analytics) —
+        see ``ayaz.services.metrics.split_channel_totals_by_source`` — to
+        avoid double-counting GA4's conversions on top of what ad platforms
+        already self-report.
 
     Returns
     -------
     Decimal
-        The aggregated value.  For ROAS: conversion_value_total / spend_total
-        (returns 0 if spend is 0).
+        The aggregated value.
+        - spend: total spend (ad platforms only ever report non-zero spend).
+        - conversions / conversion_value: source-of-truth value — GA4 wins
+          when present and non-zero, else falls back to the ad total (see
+          ``resolve_headline_metric``).  Identical to the pre-fix behaviour
+          when no analytics channel is connected.
+        - roas: ``blended_roas`` — source-of-truth revenue ÷ ad-only spend
+          (falls back to ad-only ROAS when no analytics channel is present).
     """
+    from ayaz.services.metrics import (
+        blended_roas as _blended_roas,
+        resolve_headline_metric,
+        split_channel_totals_by_source,
+    )
+
     # Build the base query columns we always need
     spend_expr = func.sum(
         func.coalesce(FactDailyMetrics.cost_base_ccy, FactDailyMetrics.cost_raw)
@@ -188,7 +206,8 @@ def _fetch_metric_value(
     conversions_expr = func.sum(FactDailyMetrics.conversions)
 
     if channel_filter is not None:
-        # Join DimChannel to filter by key
+        # Single-channel goal — already source-isolated, no cross-channel
+        # blending is possible. Same query as before the fix.
         stmt = (
             select(
                 spend_expr.label("spend"),
@@ -203,30 +222,60 @@ def _fetch_metric_value(
                 DimChannel.key == channel_filter,
             )
         )
+        row = db.execute(stmt).mappings().one()
+        spend = _d(row["spend"])
+        conv_value = _d(row["conversion_value"])
+        conversions = _d(row["conversions"])
+        roas_value = _roas(conv_value, spend)
     else:
-        stmt = (
+        # Account-wide goal — aggregate per channel, then split ad vs
+        # analytics so GA4 (or Search Console) never gets blindly summed
+        # on top of the ad platforms.
+        rows = db.execute(
             select(
+                DimChannel.key.label("channel_key"),
                 spend_expr.label("spend"),
                 conv_value_expr.label("conversion_value"),
                 conversions_expr.label("conversions"),
             )
+            .join(DimChannel, FactDailyMetrics.channel_id == DimChannel.id)
             .where(
                 FactDailyMetrics.tenant_id == tenant_id,
                 FactDailyMetrics.date_key >= period_start,
                 FactDailyMetrics.date_key <= as_of_date,
             )
+            .group_by(DimChannel.key)
+        ).mappings().all()
+
+        channel_data = {
+            str(r["channel_key"]): {
+                "impressions": Decimal(0),
+                "clicks": Decimal(0),
+                "spend": _d(r["spend"]),
+                "conversions": _d(r["conversions"]),
+                "conversion_value": _d(r["conversion_value"]),
+            }
+            for r in rows
+        }
+        split = split_channel_totals_by_source(channel_data)
+
+        spend = split["total_spend"]
+        conversions = resolve_headline_metric(
+            split["analytics_conversions"], split["ad_conversions"]
         )
-
-    row = db.execute(stmt).mappings().one()
-
-    spend = _d(row["spend"])
-    conv_value = _d(row["conversion_value"])
-    conversions = _d(row["conversions"])
+        conv_value = resolve_headline_metric(
+            split["analytics_conversion_value"], split["ad_conversion_value"]
+        )
+        roas_value = _blended_roas(
+            ad_spend=split["ad_spend"],
+            analytics_conversion_value=split["analytics_conversion_value"],
+            ad_conversion_value=split["ad_conversion_value"],
+        )
 
     if metric == "spend":
         return spend
     elif metric == "roas":
-        return _roas(conv_value, spend)
+        return roas_value
     elif metric == "conversions":
         return conversions
     elif metric == "conversion_value":

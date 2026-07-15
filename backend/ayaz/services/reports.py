@@ -46,7 +46,12 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.analytics import DimChannel, FactDailyMetrics
 from ayaz.models.reports import ReportDefinition, ReportSchedule
-from ayaz.services.metrics import compute_derived_metrics
+from ayaz.services.metrics import (
+    blended_roas,
+    compute_derived_metrics,
+    resolve_headline_metric,
+    split_channel_totals_by_source,
+)
 from ayaz.services.channels import channel_label
 from ayaz.services.trdate import tr_date_short, tr_datetime
 from ayaz.services.trformat import tr_num, tr_pct
@@ -249,6 +254,7 @@ def build_report_payload(
         raw_rows = _query_channel_rows(db, tenant_id, date_from, date_to)
 
         channel_items: list[dict[str, Any]] = []
+        channel_raw: dict[str, dict] = {}
         for row in raw_rows:
             channel_key = str(row["channel_key"])
             if channel_filter and channel_key not in channel_filter:
@@ -280,34 +286,57 @@ def build_report_payload(
                     "roas": float(derived["roas"]),
                 }
             )
+            channel_raw[channel_key] = {
+                "impressions": imp,
+                "clicks": clk,
+                "spend": spd,
+                "conversions": cvr,
+                "conversion_value": cvv,
+            }
 
         if "by_channel" in sections:
             payload["by_channel"] = channel_items
 
-        # Totals: sum across filtered channels
+        # Totals: kaynak-tipi ayrımıyla (ad vs analytics) — çift-sayımı
+        # önler. Ad platforms (google_ads, meta_ads, ...) ve analytics
+        # kaynakları (ga4, search_console) aynı kolonlara yazar; GA4
+        # dönüşümleri artık reklam platformlarının zaten raporladığı
+        # dönüşümlerin ÜSTÜNE eklenmiyor — bkz. ayaz.services.metrics.
         if "totals" in sections:
-            t_imp = sum(_d(c["impressions"]) for c in channel_items)
-            t_clk = sum(_d(c["clicks"]) for c in channel_items)
-            t_spd = sum(_d(c["spend"]) for c in channel_items)
-            t_cvr = sum(_d(c["conversions"]) for c in channel_items)
-            t_cvv = sum(_d(c["conversion_value"]) for c in channel_items)
+            split = split_channel_totals_by_source(channel_raw)
+            t_imp = split["total_impressions"]
+            t_clk = split["total_clicks"]
+            t_spd = split["total_spend"]
+
+            headline_cvr = resolve_headline_metric(
+                split["analytics_conversions"], split["ad_conversions"]
+            )
+            headline_cvv = resolve_headline_metric(
+                split["analytics_conversion_value"], split["ad_conversion_value"]
+            )
+
             t_derived = compute_derived_metrics(
                 impressions=t_imp,
                 clicks=t_clk,
                 spend=t_spd,
-                conversions=t_cvr,
-                conversion_value=t_cvv,
+                conversions=headline_cvr,
+                conversion_value=headline_cvv,
+            )
+            t_roas = blended_roas(
+                ad_spend=split["ad_spend"],
+                analytics_conversion_value=split["analytics_conversion_value"],
+                ad_conversion_value=split["ad_conversion_value"],
             )
             payload["totals"] = {
                 "spend": float(t_spd),
                 "impressions": float(t_imp),
                 "clicks": float(t_clk),
-                "conversions": float(t_cvr),
-                "conversion_value": float(t_cvv),
+                "conversions": float(headline_cvr),
+                "conversion_value": float(headline_cvv),
                 "ctr": float(t_derived["ctr"]),
                 "cpc": float(t_derived["cpc"]),
                 "cpa": float(t_derived["cpa"]),
-                "roas": float(t_derived["roas"]),
+                "roas": float(t_roas),
             }
 
     # ── timeseries ────────────────────────────────────────────────────────────

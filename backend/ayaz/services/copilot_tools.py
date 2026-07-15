@@ -59,7 +59,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ayaz.models.analytics import DimChannel, FactDailyMetrics
-from ayaz.services.metrics import compute_derived_metrics, compute_top_movers
+from ayaz.services.metrics import (
+    blended_roas as _blended_roas,
+    compute_derived_metrics,
+    compute_top_movers,
+    resolve_headline_metric,
+    split_channel_totals_by_source,
+)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -88,7 +94,19 @@ def _get_performance_summary(
     date_from: str,
     date_to: str,
 ) -> dict:
-    """Aggregate totals and per-channel breakdown for the date range."""
+    """Aggregate totals and per-channel breakdown for the date range.
+
+    This is what the AI copilot sees for "how are we doing" style questions,
+    so it MUST NOT double-count: ad platforms (google_ads, meta_ads, ...) and
+    analytics sources (ga4, search_console) write to the same fact-table
+    columns, so a blind cross-channel SUM would add GA4's conversions on top
+    of what the ad platforms already self-report. ``totals.conversions`` /
+    ``conversion_value`` / ``roas`` are resolved via the source-of-truth rule
+    (GA4 wins when present and non-zero, else ad) — see
+    ``ayaz.services.metrics.resolve_headline_metric`` / ``blended_roas``.
+    Per-channel ``by_channel`` rows are unaffected (a single channel's own
+    numbers were never double-counted).
+    """
     df = _parse_date(date_from)
     dt = _parse_date(date_to)
 
@@ -117,13 +135,10 @@ def _get_performance_summary(
     ).mappings().all()
 
     by_channel = []
-    total_imp = Decimal(0)
-    total_clk = Decimal(0)
-    total_spd = Decimal(0)
-    total_cvr = Decimal(0)
-    total_cvv = Decimal(0)
+    channel_raw: dict[str, dict] = {}
 
     for row in channel_rows:
+        ch_key = str(row["channel_key"])
         imp = _d(row["impressions"])
         clk = _d(row["clicks"])
         spd = _d(row["spend"])
@@ -137,7 +152,7 @@ def _get_performance_summary(
             conversion_value=cvv,
         )
         by_channel.append({
-            "channel": str(row["channel_key"]),
+            "channel": ch_key,
             "spend": float(spd),
             "impressions": float(imp),
             "clicks": float(clk),
@@ -148,18 +163,42 @@ def _get_performance_summary(
             "cpa": float(derived["cpa"]),
             "roas": float(derived["roas"]),
         })
-        total_imp += imp
-        total_clk += clk
-        total_spd += spd
-        total_cvr += cvr
-        total_cvv += cvv
+        channel_raw[ch_key] = {
+            "impressions": imp,
+            "clicks": clk,
+            "spend": spd,
+            "conversions": cvr,
+            "conversion_value": cvv,
+        }
+
+    # ── Kaynak-tipi ayrımı (ad vs analytics) — çift-sayımı önler ───────────
+    split = split_channel_totals_by_source(channel_raw)
+
+    total_imp = split["total_impressions"]
+    total_clk = split["total_clicks"]
+    total_spd = split["total_spend"]
+
+    ad_conversions = split["ad_conversions"]
+    ad_conversion_value = split["ad_conversion_value"]
+    analytics_conversions = split["analytics_conversions"]
+    analytics_conversion_value = split["analytics_conversion_value"]
+
+    headline_conversions = resolve_headline_metric(analytics_conversions, ad_conversions)
+    headline_conversion_value = resolve_headline_metric(
+        analytics_conversion_value, ad_conversion_value
+    )
 
     total_derived = compute_derived_metrics(
         impressions=total_imp,
         clicks=total_clk,
         spend=total_spd,
-        conversions=total_cvr,
-        conversion_value=total_cvv,
+        conversions=headline_conversions,
+        conversion_value=headline_conversion_value,
+    )
+    blended = _blended_roas(
+        ad_spend=split["ad_spend"],
+        analytics_conversion_value=analytics_conversion_value,
+        ad_conversion_value=ad_conversion_value,
     )
 
     return {
@@ -169,12 +208,18 @@ def _get_performance_summary(
             "spend": float(total_spd),
             "impressions": float(total_imp),
             "clicks": float(total_clk),
-            "conversions": float(total_cvr),
-            "conversion_value": float(total_cvv),
+            "conversions": float(headline_conversions),
+            "conversion_value": float(headline_conversion_value),
             "ctr": float(total_derived["ctr"]),
             "cpc": float(total_derived["cpc"]),
             "cpa": float(total_derived["cpa"]),
-            "roas": float(total_derived["roas"]),
+            "roas": float(blended),
+            # Kaynak-tipi kırılımı — AI'ın "kaç dönüşüm reklamdan, kaçı
+            # GA4'ten doğrulandı" gibi sorulara doğru cevap vermesi için.
+            "ad_conversions": float(ad_conversions),
+            "ad_conversion_value": float(ad_conversion_value),
+            "analytics_conversions": float(analytics_conversions),
+            "analytics_conversion_value": float(analytics_conversion_value),
         },
         "by_channel": by_channel,
     }
@@ -187,8 +232,20 @@ def _get_timeseries(
     date_to: str,
     metric: str,
 ) -> dict:
-    """Daily values of one metric across all channels."""
-    from ayaz.services.metrics import ctr as _ctr, cpc as _cpc, roas as _roas, cpa as _cpa
+    """Daily values of one metric across all channels.
+
+    Same kaynak-tipi (ad vs analytics) ayrımı applies per day as in
+    ``_get_performance_summary``: ``conversions``/``conversion_value``/
+    ``roas`` are resolved from the per-day, per-channel split (GA4 wins when
+    present and non-zero that day, else ad) rather than a blind cross-channel
+    SUM — see ``ayaz.services.metrics``. ``spend``/``impressions``/``clicks``
+    are unaffected (never part of the double-counting bug).
+    """
+    from ayaz.services.metrics import (
+        blended_roas as _blended_roas_ts,
+        resolve_headline_metric as _resolve_headline_ts,
+        split_channel_totals_by_source as _split_ts,
+    )
 
     df = _parse_date(date_from)
     dt = _parse_date(date_to)
@@ -200,6 +257,7 @@ def _get_timeseries(
     rows = db.execute(
         select(
             FactDailyMetrics.date_key,
+            DimChannel.key.label("channel_key"),
             func.sum(FactDailyMetrics.impressions).label("impressions"),
             func.sum(FactDailyMetrics.clicks).label("clicks"),
             func.sum(
@@ -211,39 +269,59 @@ def _get_timeseries(
             func.sum(FactDailyMetrics.conversions).label("conversions"),
             func.sum(FactDailyMetrics.conversion_value_raw).label("conversion_value"),
         )
+        .join(DimChannel, FactDailyMetrics.channel_id == DimChannel.id)
         .where(
             FactDailyMetrics.tenant_id == tenant_id,
             FactDailyMetrics.date_key >= df,
             FactDailyMetrics.date_key <= dt,
         )
-        .group_by(FactDailyMetrics.date_key)
+        .group_by(FactDailyMetrics.date_key, DimChannel.key)
         .order_by(FactDailyMetrics.date_key)
     ).mappings().all()
 
-    points = []
+    # Group by date so each day's ad/analytics split is resolved
+    # independently — a GA4 channel present on some days must not leak into
+    # other days' totals.
+    by_date: dict[Any, dict[str, dict]] = {}
     for row in rows:
-        imp = _d(row["impressions"])
-        clk = _d(row["clicks"])
-        spd = _d(row["spend"])
-        cvr = _d(row["conversions"])
-        cvv = _d(row["conversion_value"])
+        d_key = row["date_key"]
+        ch_key = str(row["channel_key"])
+        by_date.setdefault(d_key, {})[ch_key] = {
+            "impressions": _d(row["impressions"]),
+            "clicks": _d(row["clicks"]),
+            "spend": _d(row["spend"]),
+            "conversions": _d(row["conversions"]),
+            "conversion_value": _d(row["conversion_value"]),
+        }
+
+    points = []
+    for d_key in sorted(by_date.keys()):
+        split = _split_ts(by_date[d_key])
 
         if metric == "spend":
-            val = float(spd)
+            val = float(split["total_spend"])
         elif metric == "impressions":
-            val = float(imp)
+            val = float(split["total_impressions"])
         elif metric == "clicks":
-            val = float(clk)
+            val = float(split["total_clicks"])
         elif metric == "conversions":
-            val = float(cvr)
+            val = float(_resolve_headline_ts(
+                split["analytics_conversions"], split["ad_conversions"]
+            ))
         elif metric == "conversion_value":
-            val = float(cvv)
+            val = float(_resolve_headline_ts(
+                split["analytics_conversion_value"], split["ad_conversion_value"]
+            ))
         elif metric == "roas":
-            val = float(_roas(cvv, spd))
+            val = float(_blended_roas_ts(
+                ad_spend=split["ad_spend"],
+                analytics_conversion_value=split["analytics_conversion_value"],
+                ad_conversion_value=split["ad_conversion_value"],
+            ))
         else:
-            val = float(spd)
+            val = float(split["total_spend"])
 
-        points.append({"date": str(row["date_key"]), "value": val})
+        points.append({"date": str(d_key), "value": val})
 
     return {"metric": metric, "date_from": str(df), "date_to": str(dt), "points": points}
 
