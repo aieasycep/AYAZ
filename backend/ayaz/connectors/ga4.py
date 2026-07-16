@@ -23,10 +23,21 @@ GA4 is an **analytics** source, not an **ads** source.  Key implications:
    since GA4 has no campaign-level grain at this query.  The ETL worker can
    enrich this further if GA4 campaign dimensions are added to the report.
 
-4. **Conversions are aggregate**: GA4 ``conversions`` is the total count of all
-   conversion events (sum across all conversion event names).  This is not
-   broken down by event type in this connector's default query.  For value-based
-   bidding comparisons, ``totalRevenue`` is mapped to ``conversion_value_raw``.
+4. **Conversions are purchases, not all key events**: this connector requests
+   the GA4 Data API's ecommerce-specific metrics — ``ecommercePurchases``
+   (count of purchase events) and ``purchaseRevenue`` (revenue from those
+   purchases) — rather than the generic ``conversions`` / ``totalRevenue``
+   metrics. The generic ``conversions`` metric sums *every* configured
+   key event (which can include ``page_view``, ``session_start``, etc.,
+   depending on the property's key-event configuration) and ``totalRevenue``
+   sums *all* site revenue regardless of channel — both wildly overcount vs.
+   what ad platforms report as "conversions", producing nonsensical multi-
+   million-conversion / triple-digit-ROAS numbers when blended with ad-
+   platform data (see ``ayaz/services/attribution.py``). ``ecommercePurchases``
+   / ``purchaseRevenue`` are standard GA4 Data API metrics available on every
+   property (return ``0`` if the property has no ecommerce tracking
+   configured) and map onto "conversions" the way ad platforms mean it:
+   completed purchases.
 
 Required credentials (store in Vault; reference via ConnectorConfig.vault_secret_ref)
 -------------------------------------------------------------------------------------
@@ -115,7 +126,10 @@ _ACCOUNT_SUMMARIES_URL = "https://analyticsadmin.googleapis.com/v1beta/accountSu
 
 # Dimensions and metrics requested from the Data API
 _DIMENSIONS = ["date", "sessionDefaultChannelGroup"]
-_METRICS = ["sessions", "conversions", "totalRevenue"]
+# ecommercePurchases / purchaseRevenue (NOT conversions / totalRevenue) — see
+# module docstring point 4: the generic metrics overcount vs. ad-platform
+# "conversions" semantics; the ecommerce-specific ones are apples-to-apples.
+_METRICS = ["sessions", "ecommercePurchases", "purchaseRevenue"]
 
 
 # ── Connector ─────────────────────────────────────────────────────────────────
@@ -361,8 +375,8 @@ class GA4Connector(Connector):
         -------
         list[dict]
             Flat list of row dicts, each containing ``date``,
-            ``sessionDefaultChannelGroup``, ``sessions``, ``conversions``,
-            and ``totalRevenue`` keys.  Rows are produced by
+            ``sessionDefaultChannelGroup``, ``sessions``, ``ecommercePurchases``,
+            and ``purchaseRevenue`` keys.  Rows are produced by
             ``_parse_run_report_response()``.
         """
         if stream not in ("daily_channel_metrics",):
@@ -452,8 +466,13 @@ class GA4Connector(Connector):
         ``sessionDefaultChannelGroup`` → ``campaign_id`` and ``campaign_name``
         ``sessions`` (str)             → NOT MAPPED (no equivalent field in schema)
                                           ``clicks = 0`` (see module docstring)
-        ``conversions`` (str)          → ``conversions`` (Decimal)
-        ``totalRevenue`` (str)         → ``conversion_value_raw`` (Decimal)
+        ``ecommercePurchases`` (str)   → ``conversions`` (Decimal) — purchase
+                                          count, NOT the generic all-key-events
+                                          ``conversions`` metric (see module
+                                          docstring point 4).
+        ``purchaseRevenue`` (str)      → ``conversion_value_raw`` (Decimal) —
+                                          ecommerce purchase revenue, NOT
+                                          ``totalRevenue`` (all site revenue).
         n/a                            → ``cost_raw = Decimal("0")`` (analytics source)
 
         Date format: GA4 returns dates as ``"YYYYMMDD"`` strings.
@@ -473,8 +492,10 @@ class GA4Connector(Connector):
             # Documented as "not mapped"; clicks remains 0.
             # sessions_count = int(str(row.get("sessions", "0")))  # available if needed
 
-            conversions = Decimal(str(row.get("conversions", "0")))
-            conversion_value_raw = Decimal(str(row.get("totalRevenue", "0")))
+            # ecommercePurchases / purchaseRevenue — NOT the generic
+            # conversions / totalRevenue metrics (see module docstring point 4).
+            conversions = Decimal(str(row.get("ecommercePurchases", "0")))
+            conversion_value_raw = Decimal(str(row.get("purchaseRevenue", "0")))
 
             records.append(
                 UnifiedRecord(

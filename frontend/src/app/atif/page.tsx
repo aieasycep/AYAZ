@@ -83,35 +83,34 @@ type Tone = 'good' | 'warn' | 'critical' | 'neutral';
 
 function inflationTone(factor: number | null): Tone {
   if (factor === null) return 'neutral';
-  if (factor <= 1.15) return 'good';
-  if (factor <= 2) return 'warn';
-  return 'critical';
+  if (factor > 2) return 'critical';
+  if (factor >= 1.2) return 'warn';
+  if (factor >= 0.95) return 'good';
+  // factor < 0.95 → platformlar GA4 ücretli-kanalın ALTINDA raporluyor; bu bir
+  // tutarsızlık, "Tutarlı" (yeşil) DEĞİL. Caption ile uyumlu olması için uyarı.
+  return 'warn';
 }
 
 function inflationBadgeText(factor: number | null): string {
-  switch (inflationTone(factor)) {
-    case 'neutral':
-      return 'Ölçülemedi';
-    case 'good':
-      return 'GA4 ile uyumlu';
-    case 'warn':
-      return 'Şişkin';
-    case 'critical':
-      return 'Ciddi şişkin';
-  }
+  if (factor === null) return 'Hesaplanamadı';
+  if (factor > 2) return 'Ciddi şişkin';
+  if (factor >= 1.2) return 'Şişkin';
+  if (factor >= 0.95) return 'Tutarlı';
+  // Under-report bandı: rozet metni caption'daki "altında iddia ediyor" ile eşleşir.
+  return 'Eksik raporluyor';
 }
 
 function inflationCaption(factor: number | null): string {
   if (factor === null) {
-    return 'GA4 bağlı değil veya bu dönemde GA4 dönüşümü yok — karşılaştırma yapılamıyor.';
+    return 'GA4’te ücretli-kanal dönüşümü bulunamadı — şişme faktörü hesaplanamıyor.';
   }
   if (factor > 1.05) {
-    return `Platformlar ${fmtFactor(factor)} fazla dönüşüm iddia ediyor.`;
+    return `Platformlar GA4 ücretli-kanal dönüşümüne göre ${fmtFactor(factor)} fazla iddia ediyor.`;
   }
   if (factor < 0.95) {
-    return `Platformlar GA4'ün altında dönüşüm iddia ediyor (${fmtFactor(factor)}).`;
+    return `Platformlar GA4 ücretli-kanalın altında dönüşüm iddia ediyor (${fmtFactor(factor)}).`;
   }
-  return 'Platform iddiaları GA4 ile uyumlu.';
+  return 'Platform iddiaları GA4 ücretli-kanal verisiyle tutarlı.';
 }
 
 function pillClass(tone: Tone): string {
@@ -226,7 +225,7 @@ function LoadingSkeleton() {
   return (
     <>
       <div className={styles.skeletonKpiGrid}>
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1, 2, 3, 4].map((i) => (
           <div key={i} className={`${styles.skeleton} ${styles.skeletonCard}`} />
         ))}
       </div>
@@ -336,6 +335,17 @@ export default function AtifPage() {
         ) : data ? (
           hasChannels ? (
             <>
+              {/* Data-quality warning banner — ayrı ve dikkat çekici (amber),
+                  mavi info callout'tan bağımsız. Yalnız backend not döndürdüğünde. */}
+              {data.data_quality?.note && (
+                <div className={styles.warningBanner} role="alert">
+                  <span className={styles.warningIcon} aria-hidden="true">
+                    ⚠
+                  </span>
+                  <p className={styles.warningText}>{data.data_quality.note}</p>
+                </div>
+              )}
+
               {/* KPI strip */}
               <div className={styles.kpiGrid}>
                 <KpiTile
@@ -344,10 +354,15 @@ export default function AtifPage() {
                   highlight
                   badge={{ text: 'Gerçek', tone: 'good' }}
                   caption={
-                    data.ga4_revenue === 0
-                      ? 'GA4 geliri sıfır — bağlantıyı kontrol edin'
-                      : 'GA4 geliri ÷ reklam harcaması'
+                    data.ga4_paid_revenue === 0
+                      ? 'GA4 ücretli-kanal geliri sıfır — bağlantıyı kontrol edin'
+                      : 'GA4 ücretli-kanal geliri ÷ reklam harcaması'
                   }
+                />
+                <KpiTile
+                  label="Medya Verimliliği (MER)"
+                  value={fmtRoas(data.mer)}
+                  caption="Tüm GA4 geliri ÷ reklam harcaması (organik dahil)"
                 />
                 <KpiTile
                   label="Reklam Harcaması"
@@ -355,9 +370,9 @@ export default function AtifPage() {
                   caption="Yalnızca reklam platformları (Google Ads + Meta Ads)"
                 />
                 <KpiTile
-                  label="GA4 Dönüşümü"
-                  value={fmtNumber(data.ga4_conversions)}
-                  caption="Gerçek, tek-kaynak-doğrusu dönüşüm"
+                  label="GA4 Ücretli Dönüşüm"
+                  value={fmtNumber(data.ga4_paid_conversions)}
+                  caption={`Toplam GA4: ${fmtNumber(data.ga4_conversions)}`}
                 />
                 <KpiTile
                   label="Şişme Faktörü"
@@ -376,9 +391,11 @@ export default function AtifPage() {
                   ⓘ
                 </span>
                 <p className={styles.infoText}>
-                  Reklam platformları kendi dönüşümlerini raporlar ve çakışır; GA4
-                  kanal-bazlı tek-kaynak-doğrusudur. Blended ROAS = GA4 geliri ÷ toplam
-                  reklam harcaması.
+                  Reklam platformları kendi dönüşümlerini raporlar ve çakışır; GA4&apos;ün
+                  ücretli-kanal grupları (Paid Search/Paid Social/...) bu iddialarla
+                  ELMA-ELMA karşılaştırılabilir tek-kaynak-doğrusudur. Blended ROAS = GA4
+                  ücretli-kanal geliri ÷ toplam reklam harcaması. MER ise organik dahil
+                  tüm GA4 gelirini reklam harcamasıyla oranlar — ayrı bir verimlilik ölçüsü.
                 </p>
               </div>
 

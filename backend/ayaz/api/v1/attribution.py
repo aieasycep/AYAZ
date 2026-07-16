@@ -41,6 +41,14 @@ class AttributionChannelRow(BaseModel):
     roas: float
 
 
+class AttributionDataQuality(BaseModel):
+    """GA4 bağlantısı ve ücretli-kanal izlemesi hakkında veri-kalitesi bayrakları."""
+
+    ga4_connected: bool
+    ga4_paid_tracked: bool
+    note: str | None
+
+
 class AttributionSummaryResponse(BaseModel):
     """Reklam-platformu vs GA4 kaynak-mutabakatı özeti."""
 
@@ -50,9 +58,13 @@ class AttributionSummaryResponse(BaseModel):
     platform_claimed_revenue: float
     ga4_conversions: float
     ga4_revenue: float
+    ga4_paid_conversions: float
+    ga4_paid_revenue: float
     inflation_factor: float | None
     ad_spend: float
     blended_roas: float
+    mer: float
+    data_quality: AttributionDataQuality
     channels: list[AttributionChannelRow]
 
 
@@ -84,13 +96,25 @@ def attribution_summary(
     davranışı) manşet dönüşümü 2-3× şişirir. Bu endpoint ikisini ayrı ayrı
     gösterip ``inflation_factor`` ile farkı nicelleştirir.
 
-    ``inflation_factor`` GA4 bağlı değilse veya bu dönemde GA4 dönüşümü
-    sıfırsa ``None`` döner (karşılaştırma anlamsız — sıfıra bölme yok).
+    GA4'ün ``sessionDefaultChannelGroup`` boyutu organik/direkt/e-posta gibi
+    ücretsiz kanalları da içerir — bu yüzden reklam platformuyla elma-elma
+    karşılaştırma için GA4 TOPLAMI değil, GA4'ün YALNIZ ücretli kanal
+    gruplarına (Paid Search/Paid Social/...) düşen dilimi (``ga4_paid_*``)
+    kullanılır. ``ga4_conversions``/``ga4_revenue`` toplamı ayrı bir alan
+    (``mer``) için saklanır.
 
-    ``blended_roas`` = GA4 geliri ÷ yalnız reklam harcaması. GA4 yoksa/
-    sıfırsa 0 döner — bu endpoint'in amacı "gerçek" resmi göstermek
-    olduğundan, dashboard ``/summary`` endpoint'indeki geriye-uyumlu
-    ad-only fallback burada UYGULANMAZ.
+    ``inflation_factor`` = ``platform_claimed_conversions / ga4_paid_conversions``.
+    GA4 bağlı değilse veya bu dönemde ücretli-kanal GA4 dönüşümü sıfırsa
+    ``None`` döner (karşılaştırma anlamsız — sıfıra bölme yok); bu durumda
+    ``data_quality.note`` doldurulur.
+
+    ``blended_roas`` ("Gerçek/Ücretli ROAS") = ücretli-GA4 geliri ÷ yalnız
+    reklam harcaması. Ücretli-GA4 yoksa/sıfırsa 0 döner — bu endpoint'in
+    amacı "gerçek" resmi göstermek olduğundan, dashboard ``/summary``
+    endpoint'indeki geriye-uyumlu ad-only fallback burada UYGULANMAZ.
+
+    ``mer`` (Media Efficiency Ratio) = TOPLAM GA4 geliri ÷ reklam harcaması —
+    ``blended_roas`` ile karıştırılmamalı; tüm-işletme verimliliği sinyalidir.
 
     Tenant izolasyonu: tüm sorgular ``membership.tenant_id`` ile filtrelenir.
     """
@@ -108,8 +132,12 @@ def attribution_summary(
         platform_claimed_revenue=result["platform_claimed_revenue"],
         ga4_conversions=result["ga4_conversions"],
         ga4_revenue=result["ga4_revenue"],
+        ga4_paid_conversions=result["ga4_paid_conversions"],
+        ga4_paid_revenue=result["ga4_paid_revenue"],
         inflation_factor=result["inflation_factor"],
         ad_spend=result["ad_spend"],
         blended_roas=result["blended_roas"],
+        mer=result["mer"],
+        data_quality=AttributionDataQuality(**result["data_quality"]),
         channels=[AttributionChannelRow(**c) for c in result["channels"]],
     )

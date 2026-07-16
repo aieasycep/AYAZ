@@ -129,10 +129,12 @@ def _make_channel(db: Session, key: str) -> DimChannel:
     return ch
 
 
-def _make_campaign(db: Session, tenant: Tenant, channel: DimChannel) -> DimCampaign:
+def _make_campaign(
+    db: Session, tenant: Tenant, channel: DimChannel, name: str = "Camp"
+) -> DimCampaign:
     c = DimCampaign(
         id=uuid.uuid4(), tenant_id=tenant.id,
-        channel_id=channel.id, external_id=str(uuid.uuid4()), name="Camp",
+        channel_id=channel.id, external_id=str(uuid.uuid4()), name=name,
     )
     db.add(c)
     db.flush()
@@ -209,7 +211,15 @@ def _insert_fact(
 
 def _seed_mixed_warehouse(db: Session, tenant: Tenant, d: date) -> None:
     """google_ads (ad, spend=1000, conv=20, cv=4000) + ga4 (analytics,
-    conv=15, cv=3000, spend=0), both on date ``d``."""
+    conv=15, cv=3000, spend=0), both on date ``d``.
+
+    The GA4 campaign is named ``"Paid Search"`` — a member of
+    ``PAID_CHANNEL_GROUPS`` — so in this fixture ``ga4_paid_* == ga4_*``
+    (single, entirely-paid GA4 channel group). This keeps the pre-existing
+    inflation_factor / blended_roas assertions meaningful under the new
+    paid-vs-total split (see ``TestGa4PaidVsTotalSplit`` for a fixture that
+    actually mixes paid + organic GA4 rows).
+    """
     acct = _make_connected_account(db, tenant, Platform.google_ads)
     ch_ads = _make_channel(db, "google_ads")
     camp_ads = _make_campaign(db, tenant, ch_ads)
@@ -217,7 +227,7 @@ def _seed_mixed_warehouse(db: Session, tenant: Tenant, d: date) -> None:
     ad_ads = _make_ad(db, tenant, adset_ads)
 
     ch_ga4 = _make_channel(db, "ga4")
-    camp_ga4 = _make_campaign(db, tenant, ch_ga4)
+    camp_ga4 = _make_campaign(db, tenant, ch_ga4, name="Paid Search")
     adset_ga4 = _make_adset(db, tenant, camp_ga4)
     ad_ga4 = _make_ad(db, tenant, adset_ga4)
 
@@ -336,6 +346,8 @@ class TestBuildAttributionSummary:
         assert channels[1]["roas"] == pytest.approx(0.0)  # spend=0 guard
 
     def test_empty_warehouse_all_zero_no_crash(self, db_session: Session) -> None:
+        """Scenario (c) — GA4-less (fully empty) tenant: existing fields keep
+        their pre-fix defaults, and every new field also has a sane default."""
         tenant = _make_tenant(db_session, "Empty Attribution Tenant")
         result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
         assert result["platform_claimed_conversions"] == 0.0
@@ -343,6 +355,13 @@ class TestBuildAttributionSummary:
         assert result["inflation_factor"] is None
         assert result["blended_roas"] == 0.0
         assert result["channels"] == []
+        # New fields — geriye uyumlu defaults.
+        assert result["ga4_paid_conversions"] == 0.0
+        assert result["ga4_paid_revenue"] == 0.0
+        assert result["mer"] == 0.0
+        assert result["data_quality"]["ga4_connected"] is False
+        assert result["data_quality"]["ga4_paid_tracked"] is False
+        assert result["data_quality"]["note"] is None
 
     def test_tenant_isolation(self, db_session: Session) -> None:
         tenant_a = _make_tenant(db_session, "Tenant A")
@@ -365,6 +384,194 @@ class TestBuildAttributionSummary:
         assert result_a["platform_claimed_conversions"] == pytest.approx(20.0)
         assert result_a["ad_spend"] == pytest.approx(1000.0)
         assert len(result_a["channels"]) == 2
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GA4 TOPLAM vs GA4 ÜCRETLİ split — apples-to-apples reconciliation
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestGa4PaidVsTotalSplit:
+    """Covers the second elma-armut trap: GA4's own total (all channel
+    groups — organic, direct, paid, ...) is not directly comparable to what
+    an ad platform claims. Only the GA4 rows tagged with a paid channel
+    group (``PAID_CHANNEL_GROUPS``) are apples-to-apples."""
+
+    _d = date(2024, 6, 1)
+
+    def _seed_paid_plus_organic_ga4(self, db: Session, tenant: Tenant) -> None:
+        """google_ads (ad, spend=1000, conv=50, cv=5000) + GA4 split across
+        two channel groups on the same day:
+          - "Paid Search" (paid):    conv=30, cv=3000
+          - "Organic Search" (not paid): conv=70, cv=7000
+        GA4 TOTAL: conv=100, cv=10000. GA4 PAID: conv=30, cv=3000.
+        """
+        acct = _make_connected_account(db, tenant, Platform.google_ads)
+        ch_ads = _make_channel(db, "google_ads")
+        camp_ads = _make_campaign(db, tenant, ch_ads)
+        adset_ads = _make_adset(db, tenant, camp_ads)
+        ad_ads = _make_ad(db, tenant, adset_ads)
+        _insert_fact(
+            db, tenant, acct, ch_ads, camp_ads, adset_ads, ad_ads, self._d,
+            impressions=20000, clicks=1000, spend="1000.00",
+            conversions="50", cv="5000.00",
+        )
+
+        ch_ga4 = _make_channel(db, "ga4")
+
+        camp_paid = _make_campaign(db, tenant, ch_ga4, name="Paid Search")
+        adset_paid = _make_adset(db, tenant, camp_paid)
+        ad_paid = _make_ad(db, tenant, adset_paid)
+        _insert_fact(
+            db, tenant, acct, ch_ga4, camp_paid, adset_paid, ad_paid, self._d,
+            conversions="30", cv="3000.00",
+        )
+
+        camp_organic = _make_campaign(db, tenant, ch_ga4, name="Organic Search")
+        adset_organic = _make_adset(db, tenant, camp_organic)
+        ad_organic = _make_ad(db, tenant, adset_organic)
+        _insert_fact(
+            db, tenant, acct, ch_ga4, camp_organic, adset_organic, ad_organic,
+            self._d, conversions="70", cv="7000.00",
+        )
+
+        db.commit()
+
+    def test_ga4_total_includes_both_groups(self, db_session: Session) -> None:
+        tenant = _make_tenant(db_session, "Paid+Organic Tenant")
+        self._seed_paid_plus_organic_ga4(db_session, tenant)
+        result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
+        assert result["ga4_conversions"] == pytest.approx(100.0)
+        assert result["ga4_revenue"] == pytest.approx(10000.0)
+
+    def test_ga4_paid_excludes_organic(self, db_session: Session) -> None:
+        tenant = _make_tenant(db_session, "Paid+Organic Tenant 2")
+        self._seed_paid_plus_organic_ga4(db_session, tenant)
+        result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
+        assert result["ga4_paid_conversions"] == pytest.approx(30.0)
+        assert result["ga4_paid_revenue"] == pytest.approx(3000.0)
+
+    def test_inflation_factor_uses_paid_not_total(self, db_session: Session) -> None:
+        """50 (ad-claimed) / 30 (GA4 PAID) = 1.666..., NOT 50/100 = 0.5 (which
+        the old total-GA4-denominator bug would have produced — and which
+        would nonsensically claim ad platforms UNDER-report vs GA4)."""
+        tenant = _make_tenant(db_session, "Paid+Organic Tenant 3")
+        self._seed_paid_plus_organic_ga4(db_session, tenant)
+        result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
+        assert result["inflation_factor"] == pytest.approx(50 / 30, rel=1e-4)
+        assert result["inflation_factor"] != pytest.approx(0.5)
+
+    def test_blended_roas_uses_paid_ga4_revenue(self, db_session: Session) -> None:
+        """blended_roas = ga4_paid_revenue / ad_spend = 3000/1000 = 3.0."""
+        tenant = _make_tenant(db_session, "Paid+Organic Tenant 4")
+        self._seed_paid_plus_organic_ga4(db_session, tenant)
+        result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
+        assert result["blended_roas"] == pytest.approx(3.0)
+
+    def test_mer_uses_total_ga4_revenue(self, db_session: Session) -> None:
+        """mer = ga4_revenue (TOTAL) / ad_spend = 10000/1000 = 10.0 — a
+        distinct, larger number than blended_roas (3.0); never conflated."""
+        tenant = _make_tenant(db_session, "Paid+Organic Tenant 5")
+        self._seed_paid_plus_organic_ga4(db_session, tenant)
+        result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
+        assert result["mer"] == pytest.approx(10.0)
+        assert result["mer"] != pytest.approx(result["blended_roas"])
+
+    def test_data_quality_ga4_connected_and_paid_tracked(
+        self, db_session: Session
+    ) -> None:
+        tenant = _make_tenant(db_session, "Paid+Organic Tenant 6")
+        self._seed_paid_plus_organic_ga4(db_session, tenant)
+        result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
+        dq = result["data_quality"]
+        assert dq["ga4_connected"] is True
+        assert dq["ga4_paid_tracked"] is True
+        assert dq["note"] is None
+
+    def test_ga4_connected_but_no_paid_channel_group(
+        self, db_session: Session
+    ) -> None:
+        """Scenario (b) — GA4 is connected (has rows) but none of them fall
+        into a paid channel group (e.g. only "Organic Search", "Direct").
+        inflation_factor must be None and data_quality.note must explain why,
+        even though ga4_conversions (TOTAL) is nonzero."""
+        tenant = _make_tenant(db_session, "Organic Only Tenant")
+        acct = _make_connected_account(db_session, tenant, Platform.google_ads)
+        ch_ads = _make_channel(db_session, "google_ads")
+        camp_ads = _make_campaign(db_session, tenant, ch_ads)
+        adset_ads = _make_adset(db_session, tenant, camp_ads)
+        ad_ads = _make_ad(db_session, tenant, adset_ads)
+        _insert_fact(
+            db_session, tenant, acct, ch_ads, camp_ads, adset_ads, ad_ads,
+            self._d, spend="500.00", conversions="10", cv="2000.00",
+        )
+
+        ch_ga4 = _make_channel(db_session, "ga4")
+        camp_organic = _make_campaign(db_session, tenant, ch_ga4, name="Organic Search")
+        adset_organic = _make_adset(db_session, tenant, camp_organic)
+        ad_organic = _make_ad(db_session, tenant, adset_organic)
+        _insert_fact(
+            db_session, tenant, acct, ch_ga4, camp_organic, adset_organic,
+            ad_organic, self._d, conversions="40", cv="800.00",
+        )
+        db_session.commit()
+
+        result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
+        # Total GA4 is nonzero (organic conversions exist)...
+        assert result["ga4_conversions"] == pytest.approx(40.0)
+        # ...but the PAID slice is zero, so inflation_factor/blended_roas
+        # honestly reflect "no comparable data", not a misleading number.
+        assert result["ga4_paid_conversions"] == 0.0
+        assert result["inflation_factor"] is None
+        assert result["blended_roas"] == 0.0
+        dq = result["data_quality"]
+        assert dq["ga4_connected"] is True
+        assert dq["ga4_paid_tracked"] is False
+        assert dq["note"] is not None
+        assert "ücretli kanal" in dq["note"].lower() or "GA4" in dq["note"]
+
+    def test_paid_tracked_but_no_purchases_gets_non_ecommerce_note(
+        self, db_session: Session
+    ) -> None:
+        """Scenario (c) — a paid channel group IS tracked (a "Paid Search" row
+        exists, e.g. sessions>0) but ecommercePurchases is 0 for it (lead-gen /
+        non-ecommerce property). This must NOT be mislabeled as a broken
+        connection (adversarial review finding #1): inflation stays None (no
+        purchases to compare), ga4_paid_tracked is True (a paid row exists —
+        distinguishes it from scenario b), and the note explains it is expected
+        for non-ecommerce properties rather than telling the user to fix a link."""
+        tenant = _make_tenant(db_session, "Non-Ecommerce Paid Tenant")
+        acct = _make_connected_account(db_session, tenant, Platform.google_ads)
+        ch_ads = _make_channel(db_session, "google_ads")
+        camp_ads = _make_campaign(db_session, tenant, ch_ads)
+        adset_ads = _make_adset(db_session, tenant, camp_ads)
+        ad_ads = _make_ad(db_session, tenant, adset_ads)
+        _insert_fact(
+            db_session, tenant, acct, ch_ads, camp_ads, adset_ads, ad_ads,
+            self._d, spend="500.00", conversions="10", cv="2000.00",
+        )
+
+        ch_ga4 = _make_channel(db_session, "ga4")
+        camp_paid = _make_campaign(db_session, tenant, ch_ga4, name="Paid Search")
+        adset_paid = _make_adset(db_session, tenant, camp_paid)
+        ad_paid = _make_ad(db_session, tenant, adset_paid)
+        # Paid channel group row EXISTS (row_count>0) but zero purchases.
+        _insert_fact(
+            db_session, tenant, acct, ch_ga4, camp_paid, adset_paid, ad_paid,
+            self._d, conversions="0", cv="0.00",
+        )
+        db_session.commit()
+
+        result = build_attribution_summary(db_session, tenant.id, self._d, self._d)
+        assert result["ga4_paid_conversions"] == 0.0
+        assert result["inflation_factor"] is None
+        dq = result["data_quality"]
+        assert dq["ga4_connected"] is True
+        assert dq["ga4_paid_tracked"] is True  # a paid row exists → not scenario (b)
+        assert dq["note"] is not None
+        assert (
+            "ecommerce" in dq["note"].lower() or "e-ticaret" in dq["note"].lower()
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -411,16 +618,25 @@ class TestAttributionSummaryEndpoint:
             "date_from", "date_to",
             "platform_claimed_conversions", "platform_claimed_revenue",
             "ga4_conversions", "ga4_revenue",
-            "inflation_factor", "ad_spend", "blended_roas", "channels",
+            "ga4_paid_conversions", "ga4_paid_revenue",
+            "inflation_factor", "ad_spend", "blended_roas", "mer",
+            "data_quality", "channels",
         ):
             assert key in body, f"Missing key: {key}"
+        for key in ("ga4_connected", "ga4_paid_tracked", "note"):
+            assert key in body["data_quality"], f"Missing data_quality key: {key}"
 
     def test_values_correct(self, attribution_client: TestClient) -> None:
         body = attribution_client.get("/api/v1/attribution/summary").json()
         assert body["platform_claimed_conversions"] == pytest.approx(20.0)
         assert body["ga4_conversions"] == pytest.approx(15.0)
+        assert body["ga4_paid_conversions"] == pytest.approx(15.0)
         assert body["blended_roas"] == pytest.approx(3.0)
+        assert body["mer"] == pytest.approx(3.0)
         assert body["inflation_factor"] == pytest.approx(20 / 15, rel=1e-4)
+        assert body["data_quality"]["ga4_connected"] is True
+        assert body["data_quality"]["ga4_paid_tracked"] is True
+        assert body["data_quality"]["note"] is None
 
     def test_channels_present(self, attribution_client: TestClient) -> None:
         body = attribution_client.get("/api/v1/attribution/summary").json()

@@ -104,8 +104,8 @@ def test_parse_run_report_response_has_expected_keys(fixture_body) -> None:
         assert "date" in row
         assert "sessionDefaultChannelGroup" in row
         assert "sessions" in row
-        assert "conversions" in row
-        assert "totalRevenue" in row
+        assert "ecommercePurchases" in row
+        assert "purchaseRevenue" in row
 
 
 def test_parse_run_report_response_empty_body() -> None:
@@ -189,7 +189,7 @@ def test_normalize_golden_metrics_row1(
     assert first.clicks == 0
     # GA4 has no impression count at this query level
     assert first.impressions == 0
-    # Organic Search 2024-06-01: conversions "87", totalRevenue "2109.75"
+    # Organic Search 2024-06-01: ecommercePurchases "87", purchaseRevenue "2109.75"
     assert first.conversions == Decimal("87")
     assert first.conversion_value_raw == Decimal("2109.75")
     assert first.conversion_value_ccy == "USD"
@@ -306,8 +306,8 @@ def test_normalize_zero_conversions_row(connector: GA4Connector) -> None:
         "date": "20240605",
         "sessionDefaultChannelGroup": "Direct",
         "sessions": "1200",
-        "conversions": "0",
-        "totalRevenue": "0",
+        "ecommercePurchases": "0",
+        "purchaseRevenue": "0",
     }
     records = connector.normalize([row])
     assert len(records) == 1
@@ -326,8 +326,8 @@ def test_normalize_missing_channel_defaults_to_not_set(
     row = {
         "date": "20240606",
         "sessions": "500",
-        "conversions": "10",
-        "totalRevenue": "200.00",
+        "ecommercePurchases": "10",
+        "purchaseRevenue": "200.00",
     }
     records = connector.normalize([row])
     assert len(records) == 1

@@ -65,21 +65,41 @@ export interface AttributionChannelRow {
   roas: number;
 }
 
+/** GA4 bağlantı/ölçüm kalitesi — şişme faktörü ve blended ROAS'ın güvenilirliği için. */
+export interface AttributionDataQuality {
+  /** analytics-source (GA4) herhangi bir satır var mı. */
+  ga4_connected: boolean;
+  /** Ücretli kanal-grubu (Paid Search/Paid Social/...) GA4 satırı var mı. */
+  ga4_paid_tracked: boolean;
+  /** Doldurulduğunda arayüzde amber uyarı banner'ı olarak gösterilir. */
+  note: string | null;
+}
+
 export interface AttributionSummary {
   date_from: string;
   date_to: string;
   /** Reklam platformlarının (google_ads+meta_ads) kendi iddia ettiği toplam dönüşüm. */
   platform_claimed_conversions: number;
   platform_claimed_revenue: number;
-  /** GA4'ün ölçtüğü — tek-kaynak-doğrusu — gerçek dönüşüm. */
+  /** GA4'ün ölçtüğü TOPLAM dönüşüm/gelir — tüm kanal grupları (organik+direkt dahil). */
   ga4_conversions: number;
   ga4_revenue: number;
-  /** platform_claimed / ga4 — GA4 verisi yoksa/sıfırsa null (karşılaştırma anlamsız). */
+  /** Yalnız ücretli kanal-grubu (Paid Search/Paid Social/...) GA4 satırları — reklam
+   *  platformu iddialarıyla ELMA-ELMA karşılaştırılabilir dedup gerçeği. */
+  ga4_paid_conversions: number;
+  ga4_paid_revenue: number;
+  /** platform_claimed_conversions / ga4_paid_conversions — ga4_paid_conversions>0 ise,
+   *  yoksa null (karşılaştırma anlamsız). >1 = platformlar fazla iddia ediyor. */
   inflation_factor: number | null;
   /** Yalnız reklam harcaması (analitik kaynaklar harcama taşımaz). */
   ad_spend: number;
-  /** ga4_revenue / ad_spend — de-duplike, "gerçek" ROAS. GA4 yoksa/sıfırsa 0. */
+  /** ga4_paid_revenue / ad_spend — "Gerçek/Ücretli ROAS", de-duplike. GA4 yoksa/sıfırsa 0. */
   blended_roas: number;
+  /** Media Efficiency Ratio: ga4_revenue (TOPLAM) / ad_spend — tüm-işletme geliri ÷
+   *  reklam harcaması (organik dahil). Blended ROAS ile karıştırılmamalı. */
+  mer: number;
+  /** GA4 bağlantı/ölçüm kalitesi — bkz. AttributionDataQuality. */
+  data_quality: AttributionDataQuality;
   channels: AttributionChannelRow[];
 }
 

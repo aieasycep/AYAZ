@@ -5,8 +5,8 @@
   ],
   "metricHeaders": [
     {"name": "sessions", "type": "TYPE_INTEGER"},
-    {"name": "conversions", "type": "TYPE_INTEGER"},
-    {"name": "totalRevenue", "type": "TYPE_CURRENCY"}
+    {"name": "ecommercePurchases", "type": "TYPE_INTEGER"},
+    {"name": "purchaseRevenue", "type": "TYPE_CURRENCY"}
   ],
   "rows": [
     {
