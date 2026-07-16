@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { channelLabel } from '@/lib/channels';
 import Link from 'next/link';
 import { getToken } from '@/lib/api';
 import {
@@ -51,10 +52,11 @@ function fmtNum(n: number): string {
 
 function fmtPct(n: number): string {
   return (
+    '%' +
     (n * 100).toLocaleString('tr-TR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }) + '%'
+    })
   );
 }
 
@@ -408,7 +410,7 @@ export default function ReportBuilderPage() {
                   onClick={() =>
                     downloadRowsAsCsv(
                       channelRows.map((r) => ({
-                        kanal: r.channel,
+                        kanal: channelLabel(r.channel),
                         harcama: r.spend,
                         gosterim: r.impressions,
                         tiklama: r.clicks,

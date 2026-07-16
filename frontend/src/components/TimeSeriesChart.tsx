@@ -28,7 +28,7 @@ function formatValue(value: number, metricLabel: string): string {
     }).format(value);
   }
   if (metricLabel === 'ROAS') {
-    return value.toFixed(2) + 'x';
+    return value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'x';
   }
   return new Intl.NumberFormat('tr-TR').format(Math.round(value));
 }
@@ -84,7 +84,7 @@ export default function TimeSeriesChart({
             tickLine={false}
             axisLine={false}
             tickFormatter={(v: number) => {
-              if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
+              if (v >= 1_000_000) return (v / 1_000_000).toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + 'M';
               if (v >= 1_000) return (v / 1_000).toFixed(0) + 'K';
               return String(v);
             }}

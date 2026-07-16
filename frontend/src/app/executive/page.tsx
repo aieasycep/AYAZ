@@ -21,9 +21,18 @@ import {
   type ExecInsight,
   type ChannelRoi,
 } from '@/lib/executive-api';
+import { getAttributionSummary, type AttributionSummary } from '@/lib/attribution-api';
 import { channelColor } from '@/lib/chartColors';
+import { channelLabel } from '@/lib/channels';
 import { parseApiError } from '@/lib/parseApiError';
 import styles from './executive.module.css';
+import { formatDateRangeTR } from '@/lib/formatDate';
+
+// Yönetici görünümü tarih parametresi göndermeden çağrılır — backend
+// varsayılanı "son 30 gün" (bkz. ayaz/api/v1/executive.py). Attribution
+// endpoint'i aynı pencereyle hizalanır ki "Harmanlanmış ROAS" mevcut ROAS
+// kutucuğunun yanında tutarlı görünsün.
+const ATTRIBUTION_WINDOW_DAYS = 30;
 
 // --- Formatters ---
 
@@ -58,12 +67,14 @@ function fmtDelta(pct: number | null): { text: string; dir: 'up' | 'down' | 'neu
 
 // --- Delta badge ---
 
-function DeltaBadge({ pct }: { pct: number | null }) {
+function DeltaBadge({ pct, goodWhenDown }: { pct: number | null; goodWhenDown?: boolean }) {
   const { text, dir } = fmtDelta(pct);
+  // Maliyet metriklerinde (harcama) artış kötüdür: renk yönü ters çevrilir.
+  const effDir = goodWhenDown && dir !== 'neutral' ? (dir === 'up' ? 'down' : 'up') : dir;
   const cls =
-    dir === 'up'
+    effDir === 'up'
       ? styles.deltaUp
-      : dir === 'down'
+      : effDir === 'down'
       ? styles.deltaDown
       : styles.deltaNeutral;
   return <span className={`${styles.deltaBadge} ${cls}`}>{text}</span>;
@@ -71,10 +82,19 @@ function DeltaBadge({ pct }: { pct: number | null }) {
 
 // --- Goal status badge ---
 
+// Aynı durum sözlüğü Hedefler ve Brifing ekranlarıyla aynı olmalı
+// (at_risk -> "Risk Altında"); backend anahtarları: on_track/at_risk/off_track.
 const GOAL_STATUS_LABELS: Record<string, string> = {
   on_track: 'Yolunda',
-  at_risk: 'Riskli',
-  behind: 'Geride',
+  at_risk: 'Risk Altında',
+  off_track: 'Geride',
+};
+
+const GOAL_METRIC_LABELS: Record<string, string> = {
+  roas: 'ROAS',
+  spend: 'Harcama',
+  conversions: 'Dönüşüm',
+  conversion_value: 'Dönüşüm Değeri',
 };
 
 function goalStatusClass(status: string): string {
@@ -83,7 +103,7 @@ function goalStatusClass(status: string): string {
       return styles.goalStatusOnTrack;
     case 'at_risk':
       return styles.goalStatusAtRisk;
-    case 'behind':
+    case 'off_track':
       return styles.goalStatusBehind;
     default:
       return styles.goalStatusDefault;
@@ -122,17 +142,33 @@ interface KpiCardProps {
   value: string;
   delta: number | null;
   highlight?: boolean;
+  goodWhenDown?: boolean;
+  /**
+   * Delta-row caption. Defaults to "önceki döneme göre". Pass `null` to hide
+   * the delta row entirely — used for metrics (e.g. blended/attribution
+   * ROAS) that carry no period-over-period comparison.
+   */
+  caption?: string | null;
 }
 
-function KpiCard({ label, value, delta, highlight }: KpiCardProps) {
+function KpiCard({
+  label,
+  value,
+  delta,
+  highlight,
+  goodWhenDown,
+  caption = 'önceki döneme göre',
+}: KpiCardProps) {
   return (
     <div className={styles.kpiCard}>
       <div className={styles.kpiLabel}>{label}</div>
       <div className={highlight ? styles.kpiValueRoas : styles.kpiValue}>{value}</div>
-      <div className={styles.kpiDeltaRow}>
-        <DeltaBadge pct={delta} />
-        <span className={styles.deltaLabel}>önceki döneme göre</span>
-      </div>
+      {caption !== null && (
+        <div className={styles.kpiDeltaRow}>
+          <DeltaBadge pct={delta} goodWhenDown={goodWhenDown} />
+          <span className={styles.deltaLabel}>{caption}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -264,7 +300,7 @@ function GoalsSection({ goals }: { goals: ExecGoal[] }) {
           <div key={`${goal.name}-${idx}`} className={styles.goalRow}>
             <div style={{ flex: '1 1 120px', minWidth: 0 }}>
               <div className={styles.goalName}>{goal.name}</div>
-              <div className={styles.goalMetric}>{goal.metric}</div>
+              <div className={styles.goalMetric}>{GOAL_METRIC_LABELS[goal.metric] ?? goal.metric}</div>
             </div>
             <div className={styles.goalProgress}>
               <div className={styles.goalProgressTrack}>
@@ -278,7 +314,7 @@ function GoalsSection({ goals }: { goals: ExecGoal[] }) {
                   {fmtNumber(Math.round(goal.current_value))}
                 </span>
                 <span>
-                  %{clampedPct.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} / Hedef{' '}
+                  %{goal.pct_to_target.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} / Hedef{' '}
                   {fmtNumber(Math.round(goal.target_value))}
                 </span>
               </div>
@@ -318,7 +354,7 @@ function InsightsSection({ insights }: { insights: ExecInsight[] }) {
           <div className={styles.insightContent}>
             <div className={styles.insightTitle}>{ins.title}</div>
             {ins.channel && (
-              <div className={styles.insightChannel}>{ins.channel}</div>
+              <div className={styles.insightChannel}>{channelLabel(ins.channel)}</div>
             )}
           </div>
         </div>
@@ -351,6 +387,11 @@ export default function ExecutivePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Attribution (blended/gerçek ROAS) — fetched independently of the main
+  // executive overview. Fails silently (tile just doesn't render): this is a
+  // supplementary metric and must never block or error out the primary view.
+  const [attribution, setAttribution] = useState<AttributionSummary | null>(null);
+
   const fetchOverview = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -364,9 +405,19 @@ export default function ExecutivePage() {
     }
   }, []);
 
+  const fetchAttribution = useCallback(async () => {
+    try {
+      const result = await getAttributionSummary(ATTRIBUTION_WINDOW_DAYS);
+      setAttribution(result);
+    } catch {
+      setAttribution(null);
+    }
+  }, []);
+
   useEffect(() => {
     fetchOverview();
-  }, [fetchOverview]);
+    fetchAttribution();
+  }, [fetchOverview, fetchAttribution]);
 
   return (
     <div className={styles.shell}>
@@ -407,6 +458,7 @@ export default function ExecutivePage() {
                 label="Toplam Harcama"
                 value={fmtCurrency(data.kpis.spend)}
                 delta={data.kpis.deltas.spend_pct}
+                goodWhenDown
               />
               <KpiCard
                 label="Toplam Gelir"
@@ -421,9 +473,22 @@ export default function ExecutivePage() {
               />
               <KpiCard
                 label="Dönüşüm"
-                value={fmtNumber(data.kpis.conversions)}
+                value={fmtNumber(Math.round(data.kpis.conversions))}
                 delta={data.kpis.deltas.conversions_pct}
               />
+              {/* Harmanlanmış (gerçek) ROAS — yukarıdaki self-raporlu ROAS'ın
+                  aksine, GA4'ün tek-kaynak-doğrusu gelirini kullanır; reklam
+                  platformlarının kendi-iddia ettiği çakışan dönüşümleri kör
+                  toplamaz. GA4 bağlı değilse/veri yoksa tile hiç gösterilmez. */}
+              {attribution && (
+                <KpiCard
+                  label="Harmanlanmış ROAS (Gerçek)"
+                  value={fmtRoas(attribution.blended_roas)}
+                  delta={null}
+                  caption={null}
+                  highlight
+                />
+              )}
             </div>
 
             {/* Channel ROI */}
@@ -431,7 +496,7 @@ export default function ExecutivePage() {
               <div className={styles.sectionHeader}>
                 <span className={styles.sectionTitle}>Kanal ROI</span>
                 <span className={styles.periodLabel}>
-                  {data.period.date_from} — {data.period.date_to}
+                  {formatDateRangeTR(data.period.date_from, data.period.date_to)}
                 </span>
               </div>
               {data.channels.length === 0 ? (

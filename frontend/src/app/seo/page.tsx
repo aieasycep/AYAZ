@@ -41,10 +41,10 @@ function fmtNum(n: number): string {
 }
 
 function fmtCtr(ctr: number): string {
-  return (ctr * 100).toLocaleString('tr-TR', {
+  return '%' + (ctr * 100).toLocaleString('tr-TR', {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
-  }) + '%';
+  });
 }
 
 function fmtPos(pos: number): string {

@@ -23,10 +23,21 @@ GA4 is an **analytics** source, not an **ads** source.  Key implications:
    since GA4 has no campaign-level grain at this query.  The ETL worker can
    enrich this further if GA4 campaign dimensions are added to the report.
 
-4. **Conversions are aggregate**: GA4 ``conversions`` is the total count of all
-   conversion events (sum across all conversion event names).  This is not
-   broken down by event type in this connector's default query.  For value-based
-   bidding comparisons, ``totalRevenue`` is mapped to ``conversion_value_raw``.
+4. **Conversions are purchases, not all key events**: this connector requests
+   the GA4 Data API's ecommerce-specific metrics — ``ecommercePurchases``
+   (count of purchase events) and ``purchaseRevenue`` (revenue from those
+   purchases) — rather than the generic ``conversions`` / ``totalRevenue``
+   metrics. The generic ``conversions`` metric sums *every* configured
+   key event (which can include ``page_view``, ``session_start``, etc.,
+   depending on the property's key-event configuration) and ``totalRevenue``
+   sums *all* site revenue regardless of channel — both wildly overcount vs.
+   what ad platforms report as "conversions", producing nonsensical multi-
+   million-conversion / triple-digit-ROAS numbers when blended with ad-
+   platform data (see ``ayaz/services/attribution.py``). ``ecommercePurchases``
+   / ``purchaseRevenue`` are standard GA4 Data API metrics available on every
+   property (return ``0`` if the property has no ecommerce tracking
+   configured) and map onto "conversions" the way ad platforms mean it:
+   completed purchases.
 
 Required credentials (store in Vault; reference via ConnectorConfig.vault_secret_ref)
 -------------------------------------------------------------------------------------
@@ -38,8 +49,21 @@ Required credentials (store in Vault; reference via ConnectorConfig.vault_secret
     Long-lived refresh token (scope ``https://www.googleapis.com/auth/analytics.readonly``).
 ``property_id``
     GA4 property ID (numeric, without the ``properties/`` prefix), e.g. ``"123456789"``.
+    NOT required by ``authenticate()`` (see chicken-and-egg note below) — only by
+    ``fetch()``.  Discover candidate values via ``list_properties()``.
 ``currency``  (optional)
     ISO-4217 code for ``conversion_value_ccy``.  Defaults to ``"USD"``.
+
+Property discovery
+------------------
+``authenticate()`` only requires ``client_id`` / ``client_secret`` /
+``refresh_token`` — a user who just completed the OAuth consent dialog has a
+refresh token but has not picked a GA4 property yet.  Call
+``list_properties()`` (GA4 Admin API ``accountSummaries``) after
+``authenticate()`` to list every property the credentials can access, then
+persist the chosen ``id`` as ``property_id`` / ``connected_accounts.external_account_id``
+before calling ``fetch()``.  ``discover()`` remains a zero-network-call helper
+that echoes back the already-configured property.
 
 Sync strategy
 -------------
@@ -94,9 +118,18 @@ _RUN_REPORT_URL = (
     "https://analyticsdata.googleapis.com/{ver}/properties/{property_id}:runReport"
 )
 
+# GA4 Admin API accountSummaries endpoint — NOTE: separate host from the Data
+# API above (analyticsadmin.googleapis.com, not analyticsdata.googleapis.com).
+# Fixed at v1beta; not parameterized by _API_VERSION (Admin API versions its
+# endpoints independently of the Data API).
+_ACCOUNT_SUMMARIES_URL = "https://analyticsadmin.googleapis.com/v1beta/accountSummaries"
+
 # Dimensions and metrics requested from the Data API
 _DIMENSIONS = ["date", "sessionDefaultChannelGroup"]
-_METRICS = ["sessions", "conversions", "totalRevenue"]
+# ecommercePurchases / purchaseRevenue (NOT conversions / totalRevenue) — see
+# module docstring point 4: the generic metrics overcount vs. ad-platform
+# "conversions" semantics; the ecommerce-specific ones are apples-to-apples.
+_METRICS = ["sessions", "ecommercePurchases", "purchaseRevenue"]
 
 
 # ── Connector ─────────────────────────────────────────────────────────────────
@@ -200,6 +233,17 @@ class GA4Connector(Connector):
     def authenticate(self) -> None:
         """Exchange the stored refresh token for a live access token.
 
+        ``property_id`` is intentionally NOT required here: a user who has
+        just completed the OAuth dialog has a ``refresh_token`` but has not
+        picked a GA4 property yet.  ``list_properties()`` (the property
+        picker) needs to run with only the token — requiring ``property_id``
+        up front creates a chicken-and-egg RuntimeError that blocks property
+        selection entirely.  Mirrors ``MetaAdsConnector.authenticate()``,
+        which does not require ``ad_account_id`` either.  ``_property_id()``
+        / ``_run_report_url()`` still fall back to
+        ``config.external_account_id`` once a property has been selected and
+        persisted; ``fetch()`` still requires a resolved property_id to work.
+
         Raises
         ------
         RuntimeError
@@ -209,7 +253,7 @@ class GA4Connector(Connector):
         ValueError
             If the response does not contain an access_token.
         """
-        required = ("client_id", "client_secret", "refresh_token", "property_id")
+        required = ("client_id", "client_secret", "refresh_token")
         missing = [k for k in required if not self._get_secret(k)]
         if missing:
             raise RuntimeError(
@@ -249,6 +293,67 @@ class GA4Connector(Connector):
             }
         ]
 
+    def list_properties(self) -> list[dict[str, Any]]:
+        """Return the GA4 properties accessible to the authenticated credentials.
+
+        Calls the GA4 Admin API ``accountSummaries`` endpoint
+        (``https://analyticsadmin.googleapis.com/v1beta/accountSummaries``), which
+        the ``analytics.readonly`` scope covers, and flattens every
+        ``propertySummary`` across all account summaries.
+
+        Requires ``authenticate()`` first (needs an access token). Returns bare
+        property IDs (``"123456789"``, stripped of the ``properties/`` prefix) with
+        display names. Used by the ETL layer to auto-populate / offer a picker for
+        ``connected_accounts.external_account_id`` when it is empty.
+
+        Returns
+        -------
+        list[dict]
+            One entry per property: ``{"id": "<bare property id>", "name":
+            "<propertySummary.displayName>"}``. Empty list if no account summaries
+            (or no property summaries within them) are returned.
+
+        Raises
+        ------
+        RuntimeError
+            If ``authenticate()`` has not been called yet (no access token) —
+            raised by ``_auth_headers()``.
+        httpx.HTTPStatusError
+            If the endpoint returns a non-2xx response (invalid creds/scope).
+        """
+        headers = self._auth_headers()
+        properties: list[dict[str, Any]] = []
+
+        url: str | None = _ACCOUNT_SUMMARIES_URL
+        params: dict[str, Any] | None = None
+        while url:
+            resp = httpx.get(url, headers=headers, params=params, timeout=30)
+            resp.raise_for_status()
+            body: dict[str, Any] = resp.json()
+
+            for summary in body.get("accountSummaries", []) or []:
+                for prop in summary.get("propertySummaries", []) or []:
+                    raw_id = str(prop.get("property", "")).removeprefix("properties/")
+                    properties.append(
+                        {
+                            "id": raw_id,
+                            "name": str(prop.get("displayName", "")),
+                        }
+                    )
+
+            # Pagination: accountSummaries is normally a single page, but
+            # follow nextPageToken if the caller has enough accounts to paginate.
+            next_token = body.get("nextPageToken")
+            url = _ACCOUNT_SUMMARIES_URL if next_token else None
+            params = {"pageToken": next_token} if next_token else None
+
+        logger.info(
+            "%s list_properties() returned %d propert(y/ies).",
+            self._log_prefix(),
+            len(properties),
+        )
+        return properties
+
     def fetch(
         self,
         stream: str,
@@ -270,8 +375,8 @@ class GA4Connector(Connector):
         -------
         list[dict]
             Flat list of row dicts, each containing ``date``,
-            ``sessionDefaultChannelGroup``, ``sessions``, ``conversions``,
-            and ``totalRevenue`` keys.  Rows are produced by
+            ``sessionDefaultChannelGroup``, ``sessions``, ``ecommercePurchases``,
+            and ``purchaseRevenue`` keys.  Rows are produced by
             ``_parse_run_report_response()``.
         """
         if stream not in ("daily_channel_metrics",):
@@ -361,8 +466,13 @@ class GA4Connector(Connector):
         ``sessionDefaultChannelGroup`` → ``campaign_id`` and ``campaign_name``
         ``sessions`` (str)             → NOT MAPPED (no equivalent field in schema)
                                           ``clicks = 0`` (see module docstring)
-        ``conversions`` (str)          → ``conversions`` (Decimal)
-        ``totalRevenue`` (str)         → ``conversion_value_raw`` (Decimal)
+        ``ecommercePurchases`` (str)   → ``conversions`` (Decimal) — purchase
+                                          count, NOT the generic all-key-events
+                                          ``conversions`` metric (see module
+                                          docstring point 4).
+        ``purchaseRevenue`` (str)      → ``conversion_value_raw`` (Decimal) —
+                                          ecommerce purchase revenue, NOT
+                                          ``totalRevenue`` (all site revenue).
         n/a                            → ``cost_raw = Decimal("0")`` (analytics source)
 
         Date format: GA4 returns dates as ``"YYYYMMDD"`` strings.
@@ -382,8 +492,10 @@ class GA4Connector(Connector):
             # Documented as "not mapped"; clicks remains 0.
             # sessions_count = int(str(row.get("sessions", "0")))  # available if needed
 
-            conversions = Decimal(str(row.get("conversions", "0")))
-            conversion_value_raw = Decimal(str(row.get("totalRevenue", "0")))
+            # ecommercePurchases / purchaseRevenue — NOT the generic
+            # conversions / totalRevenue metrics (see module docstring point 4).
+            conversions = Decimal(str(row.get("ecommercePurchases", "0")))
+            conversion_value_raw = Decimal(str(row.get("purchaseRevenue", "0")))
 
             records.append(
                 UnifiedRecord(

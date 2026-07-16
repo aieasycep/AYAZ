@@ -5,6 +5,7 @@ import { getScores, type ScoresResponse, type ScoreComponent, type ScoreRating }
 import { parseApiError } from '@/lib/parseApiError';
 import { LoadingState, ErrorState, EmptyState } from '@/components/StateViews';
 import styles from './PerformanceScore.module.css';
+import { formatDateRangeTR } from '@/lib/formatDate';
 
 // ---------------------------------------------------------------------------
 // Rating helpers
@@ -268,7 +269,7 @@ export default function PerformanceScore({ dateFrom, dateTo }: PerformanceScoreP
         </h2>
         {data && (
           <span className={styles.dateHint}>
-            {data.date_from} — {data.date_to}
+            {formatDateRangeTR(data.date_from, data.date_to)}
           </span>
         )}
       </div>

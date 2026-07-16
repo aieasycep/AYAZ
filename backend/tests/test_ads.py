@@ -904,6 +904,43 @@ class TestListCampaignsService:
         assert roas_values == sorted(roas_values, reverse=True)
 
 
+class TestListCampaignsSourceTypeIsolation:
+    """Confirms (not a code fix — see Batch A.2 report) that campaign-grain
+    aggregation is already channel-isolated: a DimCampaign belongs to exactly
+    one DimChannel, so a GA4 (analytics) campaign can never be blended into
+    an ad campaign's own numbers. Adding a GA4 campaign to the same tenant
+    must leave the two pre-existing ad campaigns' numbers untouched and
+    surface as its own separate row."""
+
+    def test_ga4_campaign_is_separate_row_with_own_numbers(self, ads_client) -> None:
+        db = ads_client["db"]
+        tenant = ads_client["tenant_a"]
+
+        acct_ga4 = _make_connected_account(db, tenant, Platform.ga4, "GA4-001")
+        ch_ga4 = _make_channel(db, "ga4")
+        camp_ga4 = _make_campaign(db, tenant, ch_ga4, "GA4-100", "(not set)")
+        adset_ga4 = _make_adset(db, tenant, camp_ga4, "AGA4-100")
+        ad_ga4 = _make_ad(db, tenant, adset_ga4, "ADGA4-100")
+        _insert_fact(
+            db, tenant, acct_ga4, ch_ga4, camp_ga4,
+            adset_ga4, ad_ga4, date(2024, 4, 1),
+            impressions=0, clicks=0, cost_raw="0",
+            conversions="9999", conversion_value_raw="500000.00",
+        )
+        db.commit()
+
+        result = list_campaigns(db, tenant.id, date(2024, 4, 1), date(2024, 4, 21))
+        assert len(result) == 3
+
+        by_channel = {r["channel"]: r for r in result}
+        assert by_channel["ga4"]["conversions"] == pytest.approx(9999.0)
+        assert by_channel["ga4"]["spend"] == pytest.approx(0.0)
+
+        # google_ads / meta_ads rows must be byte-identical to before GA4 was added.
+        assert by_channel["google_ads"]["spend"] == pytest.approx(2100.0)
+        assert by_channel["meta_ads"]["spend"] == pytest.approx(1050.0)
+
+
 class TestCampaignDetailService:
     def test_campaign_detail_returns_dict(self, ads_client) -> None:
         db = ads_client["db"]

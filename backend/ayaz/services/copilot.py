@@ -46,6 +46,9 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.copilot import Conversation, Message
 from ayaz.services.copilot_tools import TOOL_SPECS, build_tenant_tool_specs, dispatch
+from ayaz.services.channels import channel_label
+from ayaz.services.trdate import TR_MONTHS_FULL
+from ayaz.services.trformat import tr_int, tr_pct, tr_roas, tr_tl
 
 logger = logging.getLogger(__name__)
 
@@ -169,18 +172,18 @@ def _summarise_performance(result: dict) -> str:
     ctr = totals.get("ctr", 0) * 100
 
     lines = [
-        f"Seçilen dönemde toplam harcama: {spend:,.2f}, "
-        f"ROAS: {roas:.2f}x, "
-        f"tıklama: {clicks:,.0f}, "
-        f"dönüşüm: {conversions:,.0f}, "
-        f"CTR: %{ctr:.2f}."
+        f"Seçilen dönemde toplam harcama: {tr_tl(spend, 2)}, "
+        f"ROAS: {tr_roas(roas)}, "
+        f"tıklama: {tr_int(clicks)}, "
+        f"dönüşüm: {tr_int(conversions)}, "
+        f"CTR: {tr_pct(ctr, 2)}."
     ]
     if by_channel:
         top = sorted(by_channel, key=lambda c: c.get("spend", 0), reverse=True)
         top_ch = top[0]
         lines.append(
-            f"En yüksek harcama kanalı: {top_ch['channel']} "
-            f"({top_ch['spend']:,.2f} harcama, {top_ch['roas']:.2f}x ROAS)."
+            f"En yüksek harcama kanalı: {channel_label(top_ch['channel'])} "
+            f"({tr_tl(top_ch['spend'], 2)} harcama, {tr_roas(top_ch['roas'])} ROAS)."
         )
     return " ".join(lines)
 
@@ -193,8 +196,8 @@ def _summarise_campaigns(result: dict) -> str:
     return (
         f"Toplam {len(campaigns)} kampanya bulunuyor. "
         f"En yüksek harcamalı kampanya: '{top['campaign_name']}' "
-        f"({top['channel']}, harcama: {top['spend']:,.2f}, "
-        f"ROAS: {top['roas']:.2f}x, dönüşüm: {top['conversions']:,.0f})."
+        f"({channel_label(top['channel'])}, harcama: {tr_tl(top['spend'], 2)}, "
+        f"ROAS: {tr_roas(top['roas'])}, dönüşüm: {tr_int(top['conversions'])})."
     )
 
 
@@ -214,7 +217,7 @@ def _summarise_insights(result: dict) -> str:
         return "Şu an aktif içgörü bulunamadı."
     lines = [f"Son {len(insights)} içgörü:"]
     for ins in insights[:3]:
-        lines.append(f"• [{ins['severity'].upper()}] {ins['title']} ({ins['channel'] or 'genel'}).")
+        lines.append(f"• [{ins['severity'].upper()}] {ins['title']} ({channel_label(ins['channel'])}).")
     return " ".join(lines)
 
 
@@ -263,7 +266,7 @@ def _summarise_budget(result: dict) -> str:
     }.get(result.get("objective", ""), result.get("objective", ""))
     parts = [
         f"En güncel plan: '{result.get('name')}' ({result.get('period_month')}), "
-        f"toplam {result.get('total_budget', 0):,.0f} {result.get('currency', 'TRY')}, "
+        f"toplam {tr_int(result.get('total_budget', 0))} {result.get('currency', 'TRY')}, "
         f"{obj_label} dağılım."
     ]
     top = result.get("top_platforms", [])
@@ -277,8 +280,8 @@ def _summarise_budget(result: dict) -> str:
     proj = result.get("projection", {})
     if proj.get("expected_revenue"):
         parts.append(
-            f"Beklenen gelir: {proj['expected_revenue']:,.0f}, "
-            f"ROAS: {proj.get('expected_roas', 0)}x."
+            f"Beklenen gelir: {tr_int(proj['expected_revenue'])}, "
+            f"ROAS: {tr_roas(float(proj.get('expected_roas', 0) or 0))}."
         )
     return " ".join(parts)
 
@@ -308,8 +311,8 @@ def _summarise_executive(result: dict) -> str:
     if not kpis:
         return "Bu dönemde yeterli veri yok."
     return (
-        f"Son 30 gün: harcama {kpis.get('spend', 0):,.0f}, "
-        f"gelir {kpis.get('revenue', 0):,.0f}, ROAS {kpis.get('roas', 0)}x."
+        f"Son 30 gün: harcama {tr_tl(kpis.get('spend', 0))}, "
+        f"gelir {tr_tl(kpis.get('revenue', 0))}, ROAS {tr_roas(float(kpis.get('roas', 0) or 0))}."
     )
 
 
@@ -324,15 +327,15 @@ def _summarise_funnel(result: dict) -> str:
         return "Dönüşüm hunisi için henüz yeterli veri bulunamadı."
 
     parts = [
-        f"Dönüşüm hunisi: {entry_count:,} giriş → {final_count:,} satın alma "
-        f"(%{overall_pct:.1f} genel dönüşüm)."
+        f"Dönüşüm hunisi: {tr_int(entry_count)} giriş → {tr_int(final_count)} satın alma "
+        f"({tr_pct(overall_pct)} genel dönüşüm)."
     ]
     if biggest_dropoff:
         from_label = biggest_dropoff.get("from_label", "?")
         to_label = biggest_dropoff.get("to_label", "?")
         dropoff_pct = biggest_dropoff.get("dropoff_pct", 0.0)
         parts.append(
-            f"En büyük düşüş: {from_label} → {to_label} (%{dropoff_pct:.1f})."
+            f"En büyük düşüş: {from_label} → {to_label} ({tr_pct(dropoff_pct)})."
         )
     return " ".join(parts)
 
@@ -355,11 +358,11 @@ def _summarise_consent(result: dict) -> str:
         return "KVKK rıza verileri için henüz kayıtlı olay bulunamadı."
 
     parts = [
-        f"KVKK rıza oranı %{consent_rate:.1f}; "
+        f"KVKK rıza oranı {tr_pct(consent_rate)}; "
         f"uyum skoru {score}/100 ({grade_tr})."
     ]
     if skipped:
-        parts.append(f"{skipped:,} olay rıza olmadığı için iletilmedi.")
+        parts.append(f"{tr_int(skipped)} olay rıza olmadığı için iletilmedi.")
     return " ".join(parts)
 
 
@@ -383,7 +386,7 @@ def _summarise_benchmark(result: dict) -> str:
             "average": "ortalama",
             "weak": "zayıf",
         }.get(roas_metric.get("position", ""), "")
-        parts.append(f"ROAS {val:.2f}x ({position_tr}).")
+        parts.append(f"ROAS {tr_roas(val)} ({position_tr}).")
 
     return " ".join(parts)
 
@@ -614,7 +617,7 @@ def _handle_create_goal_intent(
     last_day = calendar.monthrange(today.year, today.month)[1]
     period_end = today.replace(day=last_day).isoformat()
 
-    goal_name = f"{metric.upper()} Hedefi — {today.strftime('%B %Y')}"
+    goal_name = f"{metric.upper()} Hedefi — {TR_MONTHS_FULL[today.month]} {today.year}"
     dispatch_args: dict = {
         "name": goal_name,
         "metric": metric,
@@ -1095,7 +1098,7 @@ def _short_summary(tool_name: str, result: dict) -> str:
         return f"Hata: {result['error']}"
     if tool_name == "get_performance_summary":
         spend = result.get("totals", {}).get("spend", 0)
-        return f"Toplam harcama: {spend:,.2f}"
+        return f"Toplam harcama: {tr_tl(spend, 2)}"
     if tool_name == "get_timeseries":
         pts = result.get("points", [])
         return f"{result.get('metric', '?')} için {len(pts)} günlük veri"

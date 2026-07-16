@@ -248,8 +248,8 @@
   font-size: 0.8125rem;
   font-weight: 700;
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  /* uppercase yok: TR locale İngilizce markaları bozuyor (TikTok → TİKTOK) */
+  letter-spacing: 0.2px;
 }
 
 .channelSpend {

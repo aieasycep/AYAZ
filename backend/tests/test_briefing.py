@@ -483,12 +483,12 @@ class TestDeterministicHeadline:
     def test_roas_drop_headline_contains_dustu(self):
         perf = self._perf(yest_roas=3.0, prior_roas=5.0)  # -40% drop
         headline = _build_deterministic_headline(perf, [], None, [])
-        assert "dustu" in headline.lower()
+        assert "düştü" in headline.lower()
 
     def test_spend_spike_headline_contains_artti(self):
         perf = self._perf(yest_spend=150.0, prior_spend=100.0)  # +50% rise
         headline = _build_deterministic_headline(perf, [], None, [])
-        assert "artti" in headline.lower()
+        assert "arttı" in headline.lower()
 
     def test_critical_insight_title_used(self):
         perf = self._perf()  # no significant delta

@@ -33,7 +33,7 @@ function fmtRoas(n: number): string {
 }
 
 function fmtPct(n: number): string {
-  return n.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+  return '%' + n.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
 function fmtInt(n: number): string {
@@ -101,7 +101,7 @@ function CategoryTable({ rows }: { rows: CategoryRow[] }) {
     return <div className={styles.stateBox}><span className={styles.muted}>Kategori verisi yok.</span></div>;
   }
   return (
-    <div className={styles.tableWrap}>
+    <div className={`${styles.tableWrap} table-scroll-hint`}>
       <table className={styles.table}>
         <thead>
           <tr>
@@ -139,7 +139,7 @@ function ProductTable({ rows }: { rows: ProductRow[] }) {
     return <div className={styles.stateBox}><span className={styles.muted}>Ürün verisi bulunamadı.</span></div>;
   }
   return (
-    <div className={styles.tableWrap}>
+    <div className={`${styles.tableWrap} table-scroll-hint`}>
       <table className={styles.table}>
         <thead>
           <tr>

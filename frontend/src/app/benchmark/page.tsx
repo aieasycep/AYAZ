@@ -15,6 +15,7 @@ import {
 import { parseApiError } from '@/lib/parseApiError';
 import { downloadRowsAsCsv } from '@/lib/csv';
 import styles from './benchmark.module.css';
+import { formatDateRangeTR } from '@/lib/formatDate';
 
 // --- Formatters ---
 
@@ -30,10 +31,11 @@ function fmtValue(value: number, unit: '%' | '₺' | 'x'): string {
   }
   if (unit === '%') {
     return (
+      '%' +
       value.toLocaleString('tr-TR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
-      }) + '%'
+      })
     );
   }
   // 'x'
@@ -50,7 +52,7 @@ function fmtShort(value: number, unit: '%' | '₺' | 'x'): string {
     return '₺' + value.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
   }
   if (unit === '%') {
-    return value.toLocaleString('tr-TR', { maximumFractionDigits: 1 }) + '%';
+    return '%' + value.toLocaleString('tr-TR', { maximumFractionDigits: 1 });
   }
   return value.toLocaleString('tr-TR', { maximumFractionDigits: 2 }) + 'x';
 }
@@ -422,7 +424,7 @@ export default function BenchmarkPage() {
                     <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>
                       ·
                     </span>
-                    <span className={`${styles.chip} ${styles.chipWeak}`}>
+                    <span className={`${styles.chip} ${data.summary_counts.weak === 0 ? styles.chipNeutral : styles.chipWeak}`}>
                       Zayıf {data.summary_counts.weak}
                     </span>
                   </div>
@@ -443,7 +445,7 @@ export default function BenchmarkPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                     <ZoneLegend />
                     <span className={styles.periodLabel}>
-                      {data.period.date_from} — {data.period.date_to}
+                      {formatDateRangeTR(data.period.date_from, data.period.date_to)}
                     </span>
                   </div>
                 </div>

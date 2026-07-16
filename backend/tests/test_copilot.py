@@ -291,6 +291,220 @@ def seeded(db_session: Session):
     return db, tenant, user, membership, channel, campaign
 
 
+@pytest.fixture()
+def seeded_with_ga4(db_session: Session):
+    """Same as ``seeded`` (google_ads: 5 days, spend=1000/day, roas=4x) PLUS a
+    ga4 (analytics) channel on the same 5 days with distinguishing numbers:
+    spend=0, clicks=0, conversions=200/day (much larger than google_ads' 20/day),
+    conversion_value=90000/day.
+
+    Used to regression-test the "kaynak-tipi mutabakatı" fix in
+    ``_get_performance_summary`` / ``_get_timeseries`` — GA4's huge numbers
+    must never be blindly summed on top of google_ads' own numbers.
+    """
+    db = db_session
+    tenant = _make_tenant(db)
+    user = _make_user(db)
+    membership = _make_membership(db, user, tenant)
+    connected_account = _make_connected_account(db, tenant)
+    channel = _make_channel(db, "google_ads")
+    campaign = _make_campaign(db, tenant, channel, "Alpha Campaign")
+
+    ga4_channel = _make_channel(db, "ga4")
+    ga4_campaign = _make_campaign(db, tenant, ga4_channel, "(not set)")
+
+    today = date.today()
+    for i in range(5):
+        d = today - timedelta(days=i)
+        _make_fact(
+            db, tenant, connected_account, channel, campaign, d,
+            spend=1000.0, impressions=50000.0, clicks=500.0,
+            conversions=20.0, conv_value=4000.0,
+        )
+        _make_fact(
+            db, tenant, connected_account, ga4_channel, ga4_campaign, d,
+            spend=0.0, impressions=0.0, clicks=0.0,
+            conversions=200.0, conv_value=90000.0,
+        )
+    db.commit()
+    return db, tenant, user, membership, channel, campaign
+
+
+class TestToolDispatchSourceTypeSplit:
+    """Kaynak-tipi mutabakatı (ad + analytics) regresyon testleri.
+
+    Batch A.2: copilot_tools.py directly feeds the AI copilot, so double-
+    counting here is especially critical — the model would reason about a
+    wrong number as if it were ground truth.
+    """
+
+    def test_performance_summary_conversions_not_double_counted(
+        self, seeded_with_ga4
+    ) -> None:
+        """Historically-buggy total would be (20+200)*5=1100. Correct: GA4
+        wins as source of truth -> 200*5=1000 (NOT summed with google_ads)."""
+        db, tenant, *_ = seeded_with_ga4
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_performance_summary",
+            db,
+            tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+            },
+        )
+        totals = result["totals"]
+        assert totals["conversions"] == pytest.approx(1000.0, abs=1)
+        assert totals["conversions"] != pytest.approx(1100.0, abs=1)
+
+    def test_performance_summary_spend_is_ad_only(self, seeded_with_ga4) -> None:
+        """GA4 contributes 0 spend — total spend must equal google_ads' own
+        5000 (unaffected by the fix, spend was never double-counted)."""
+        db, tenant, *_ = seeded_with_ga4
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_performance_summary", db, tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+            },
+        )
+        assert result["totals"]["spend"] == pytest.approx(5000.0, abs=1)
+
+    def test_performance_summary_roas_is_blended_not_summed(
+        self, seeded_with_ga4
+    ) -> None:
+        """Historically-buggy ROAS: (4000+90000)*5 / (1000*5) = 94.0. Correct
+        blended ROAS = ga4_revenue / ad_spend = (90000*5)/(1000*5) = 90.0."""
+        db, tenant, *_ = seeded_with_ga4
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_performance_summary", db, tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+            },
+        )
+        assert result["totals"]["roas"] == pytest.approx(90.0, abs=0.1)
+        assert result["totals"]["roas"] != pytest.approx(94.0, abs=0.1)
+
+    def test_performance_summary_exposes_ad_vs_analytics_breakdown(
+        self, seeded_with_ga4
+    ) -> None:
+        db, tenant, *_ = seeded_with_ga4
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_performance_summary", db, tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+            },
+        )
+        totals = result["totals"]
+        assert totals["ad_conversions"] == pytest.approx(100.0, abs=1)
+        assert totals["analytics_conversions"] == pytest.approx(1000.0, abs=1)
+
+    def test_performance_summary_by_channel_unaffected(self, seeded_with_ga4) -> None:
+        """Per-channel breakdown was never double-counted — each channel's
+        own numbers must be preserved regardless of the headline fix."""
+        db, tenant, *_ = seeded_with_ga4
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_performance_summary", db, tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+            },
+        )
+        by_channel = {c["channel"]: c for c in result["by_channel"]}
+        assert by_channel["google_ads"]["conversions"] == pytest.approx(100.0, abs=1)
+        assert by_channel["ga4"]["conversions"] == pytest.approx(1000.0, abs=1)
+
+    def test_timeseries_conversions_not_double_counted(self, seeded_with_ga4) -> None:
+        """Per-day: google_ads=20, ga4=200. Historically-buggy value=220;
+        correct=200 (GA4 wins, not summed)."""
+        db, tenant, *_ = seeded_with_ga4
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_timeseries", db, tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+                "metric": "conversions",
+            },
+        )
+        assert len(result["points"]) == 5
+        for pt in result["points"]:
+            assert pt["value"] == pytest.approx(200.0, abs=0.5)
+            assert pt["value"] != pytest.approx(220.0, abs=0.5)
+
+    def test_timeseries_roas_is_blended(self, seeded_with_ga4) -> None:
+        """Per-day blended ROAS = 90000/1000 = 90.0, not (4000+90000)/1000=94.0."""
+        db, tenant, *_ = seeded_with_ga4
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_timeseries", db, tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+                "metric": "roas",
+            },
+        )
+        for pt in result["points"]:
+            assert pt["value"] == pytest.approx(90.0, abs=0.1)
+
+    def test_timeseries_spend_unaffected(self, seeded_with_ga4) -> None:
+        db, tenant, *_ = seeded_with_ga4
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_timeseries", db, tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+                "metric": "spend",
+            },
+        )
+        for pt in result["points"]:
+            assert pt["value"] == pytest.approx(1000.0, abs=1)
+
+    def test_ad_only_tenant_unaffected_by_fix(self, seeded) -> None:
+        """Regression guard: the pre-existing ad-only ``seeded`` fixture must
+        produce identical results to before this fix."""
+        db, tenant, *_ = seeded
+        from ayaz.services.copilot_tools import dispatch
+
+        today = date.today()
+        result = dispatch(
+            "get_performance_summary", db, tenant.id,
+            {
+                "date_from": (today - timedelta(days=4)).isoformat(),
+                "date_to": today.isoformat(),
+            },
+        )
+        totals = result["totals"]
+        assert totals["spend"] == pytest.approx(5000.0, abs=1)
+        assert totals["roas"] == pytest.approx(4.0, abs=0.01)
+        assert totals["ad_conversions"] == totals["conversions"]
+        assert totals["analytics_conversions"] == pytest.approx(0.0)
+
+
 # ── FastAPI test client factory ───────────────────────────────────────────────
 
 

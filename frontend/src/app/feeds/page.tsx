@@ -669,11 +669,12 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
     try {
       const updated = await patchChannelRule(rule.id, { is_paused: newPaused });
       setRules((prev) => prev.map((r) => (r.id === rule.id ? updated : r)));
-    } catch {
+    } catch (err) {
       // Revert on failure
       setRules((prev) =>
         prev.map((r) => (r.id === rule.id ? { ...r, is_paused: rule.is_paused } : r))
       );
+      alert(parseApiError(err));
     }
   }
 
@@ -759,8 +760,9 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
       setDeletingId(null);
       setImpact(null);
       await runLint();
-    } catch {
+    } catch (err) {
       setDeletingId(null);
+      alert(parseApiError(err));
     }
   }
 
@@ -1021,7 +1023,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                   <label className={styles.label}>Kural Türü</label>
                   <select
                     className={styles.select}
-                    value={ruleType}
+                    aria-label="Kural Türü" value={ruleType}
                     onChange={(e) => {
                       setRuleType(e.target.value as RuleType);
                       setRuleCfg({ ...DEFAULT_RULE_CONFIG });
@@ -1041,7 +1043,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                     type="number"
                     min="1"
                     placeholder={String(rules.length + 1)}
-                    value={rulePos}
+                    aria-label="Pozisyon" value={rulePos}
                     onChange={(e) => setRulePos(e.target.value)}
                   />
                 </div>
@@ -1052,11 +1054,11 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                 <div className={styles.formRow}>
                   <div className={styles.field}>
                     <label className={styles.label}>Alan</label>
-                    <input className={styles.input} placeholder="title" value={ruleCfg.sv_field} onChange={(e) => updateCfg('sv_field', e.target.value)} required />
+                    <input className={styles.input} placeholder="title" aria-label="Alan" value={ruleCfg.sv_field} onChange={(e) => updateCfg('sv_field', e.target.value)} required />
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>Değer</label>
-                    <input className={styles.input} placeholder="Sabit değer" value={ruleCfg.sv_value} onChange={(e) => updateCfg('sv_value', e.target.value)} required />
+                    <input className={styles.input} placeholder="Sabit değer" aria-label="Değer" value={ruleCfg.sv_value} onChange={(e) => updateCfg('sv_value', e.target.value)} required />
                   </div>
                 </div>
               )}
@@ -1065,11 +1067,11 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                 <div className={styles.formRow}>
                   <div className={styles.field}>
                     <label className={styles.label}>Eski Ad</label>
-                    <input className={styles.input} placeholder="g:id" value={ruleCfg.rf_from} onChange={(e) => updateCfg('rf_from', e.target.value)} required />
+                    <input className={styles.input} placeholder="g:id" aria-label="Eski Ad" value={ruleCfg.rf_from} onChange={(e) => updateCfg('rf_from', e.target.value)} required />
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>Yeni Ad</label>
-                    <input className={styles.input} placeholder="id" value={ruleCfg.rf_to} onChange={(e) => updateCfg('rf_to', e.target.value)} required />
+                    <input className={styles.input} placeholder="id" aria-label="Yeni Ad" value={ruleCfg.rf_to} onChange={(e) => updateCfg('rf_to', e.target.value)} required />
                   </div>
                 </div>
               )}
@@ -1078,15 +1080,15 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                 <div className={styles.formRow}>
                   <div className={styles.field}>
                     <label className={styles.label}>Alan (opsiyonel)</label>
-                    <input className={styles.input} placeholder="description" value={ruleCfg.fr_field} onChange={(e) => updateCfg('fr_field', e.target.value)} />
+                    <input className={styles.input} placeholder="description" aria-label="Alan" value={ruleCfg.fr_field} onChange={(e) => updateCfg('fr_field', e.target.value)} />
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>Ara</label>
-                    <input className={styles.input} placeholder="Aranacak metin" value={ruleCfg.fr_pattern} onChange={(e) => updateCfg('fr_pattern', e.target.value)} required />
+                    <input className={styles.input} placeholder="Aranacak metin" aria-label="Aranacak metin" value={ruleCfg.fr_pattern} onChange={(e) => updateCfg('fr_pattern', e.target.value)} required />
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>Değiştir</label>
-                    <input className={styles.input} placeholder="Yeni metin" value={ruleCfg.fr_replacement} onChange={(e) => updateCfg('fr_replacement', e.target.value)} />
+                    <input className={styles.input} placeholder="Yeni metin" aria-label="Yeni metin" value={ruleCfg.fr_replacement} onChange={(e) => updateCfg('fr_replacement', e.target.value)} />
                   </div>
                   <div className={styles.field} style={{ maxWidth: '100px' }}>
                     <label className={styles.label}>Regex</label>
@@ -1106,11 +1108,11 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                 <div className={styles.formRow}>
                   <div className={styles.field}>
                     <label className={styles.label}>Alan</label>
-                    <input className={styles.input} placeholder="availability" value={ruleCfg.fi_condition_field} onChange={(e) => updateCfg('fi_condition_field', e.target.value)} required />
+                    <input className={styles.input} placeholder="availability" aria-label="Koşul alanı" value={ruleCfg.fi_condition_field} onChange={(e) => updateCfg('fi_condition_field', e.target.value)} required />
                   </div>
                   <div className={styles.field} style={{ maxWidth: '160px' }}>
                     <label className={styles.label}>Koşul</label>
-                    <select className={styles.select} value={ruleCfg.fi_condition_op} onChange={(e) => updateCfg('fi_condition_op', e.target.value)}>
+                    <select className={styles.select} aria-label="Koşul" value={ruleCfg.fi_condition_op} onChange={(e) => updateCfg('fi_condition_op', e.target.value)}>
                       <option value="eq">Eşit (=)</option>
                       <option value="neq">Eşit değil (!=)</option>
                       <option value="contains">İçerir</option>
@@ -1121,7 +1123,7 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                   </div>
                   <div className={styles.field}>
                     <label className={styles.label}>Değer</label>
-                    <input className={styles.input} placeholder="in stock" value={ruleCfg.fi_condition_value} onChange={(e) => updateCfg('fi_condition_value', e.target.value)} required />
+                    <input className={styles.input} placeholder="in stock" aria-label="Koşul değeri" value={ruleCfg.fi_condition_value} onChange={(e) => updateCfg('fi_condition_value', e.target.value)} required />
                   </div>
                 </div>
               )}
@@ -1130,11 +1132,11 @@ function RuleEditor({ channel }: { channel: FeedChannel }) {
                 <div className={styles.formRow}>
                   <div className={styles.field}>
                     <label className={styles.label}>Hedef Alan</label>
-                    <input className={styles.input} placeholder="sale_price" value={ruleCfg.calc_field} onChange={(e) => updateCfg('calc_field', e.target.value)} required />
+                    <input className={styles.input} placeholder="sale_price" aria-label="Hedef Alan" value={ruleCfg.calc_field} onChange={(e) => updateCfg('calc_field', e.target.value)} required />
                   </div>
                   <div className={styles.field} style={{ flex: 2 }}>
                     <label className={styles.label}>İfade</label>
-                    <input className={styles.input} placeholder="{price} * 0.9" value={ruleCfg.calc_expression} onChange={(e) => updateCfg('calc_expression', e.target.value)} required />
+                    <input className={styles.input} placeholder="{price} * 0.9" aria-label="İfade" value={ruleCfg.calc_expression} onChange={(e) => updateCfg('calc_expression', e.target.value)} required />
                   </div>
                 </div>
               )}
@@ -1272,7 +1274,7 @@ function ChannelPanel({ source }: { source: FeedSource }) {
               <input
                 className={styles.input}
                 placeholder="Google Shopping TR"
-                value={chName}
+                aria-label="Kanal Adı" value={chName}
                 onChange={(e) => setChName(e.target.value)}
                 required
                 disabled={submitting}
@@ -1282,7 +1284,7 @@ function ChannelPanel({ source }: { source: FeedSource }) {
               <label className={styles.label}>Platform</label>
               <select
                 className={styles.select}
-                value={chType}
+                aria-label="Platform" value={chType}
                 onChange={(e) => setChType(e.target.value as ChannelType)}
                 disabled={submitting}
               >
@@ -1295,7 +1297,7 @@ function ChannelPanel({ source }: { source: FeedSource }) {
               <label className={styles.label}>Format</label>
               <select
                 className={styles.select}
-                value={chFormat}
+                aria-label="Format" value={chFormat}
                 onChange={(e) => setChFormat(e.target.value as OutputFormat)}
                 disabled={submitting}
               >
@@ -1455,8 +1457,8 @@ export default function FeedsPage() {
     try {
       const updated = await syncFeedSource(source.id);
       setSources((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    } catch {
-      // non-fatal — user can retry
+    } catch (err) {
+      alert(parseApiError(err));
     } finally {
       setSyncing((prev) => ({ ...prev, [source.id]: false }));
     }
@@ -1495,7 +1497,7 @@ export default function FeedsPage() {
                   <input
                     className={styles.input}
                     placeholder="Ana Ürün Katalogu"
-                    value={nsName}
+                    aria-label="Feed Adı" value={nsName}
                     onChange={(e) => setNsName(e.target.value)}
                     required
                     disabled={nsSubmitting}
@@ -1505,7 +1507,7 @@ export default function FeedsPage() {
                   <label className={styles.label}>Kaynak Türü</label>
                   <select
                     className={styles.select}
-                    value={nsType}
+                    aria-label="Kaynak Türü" value={nsType}
                     onChange={(e) => setNsType(e.target.value as SourceType)}
                     disabled={nsSubmitting}
                   >
@@ -1521,7 +1523,7 @@ export default function FeedsPage() {
                       className={styles.input}
                       type="url"
                       placeholder="https://example.com/feed.xml"
-                      value={nsUrl}
+                      aria-label="Kaynak URL" value={nsUrl}
                       onChange={(e) => setNsUrl(e.target.value)}
                       required
                       disabled={nsSubmitting}

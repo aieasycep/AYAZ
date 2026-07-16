@@ -43,6 +43,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from ayaz.services.trformat import tr_int, tr_pct, tr_roas, tr_tl
+
 log = logging.getLogger(__name__)
 
 # ── Rol tanımları ──────────────────────────────────────────────────────────────
@@ -226,21 +228,23 @@ _ROLE_MAP: dict[str, dict] = {r["key"]: r for r in ROLE_DEFINITIONS}
 # ── Yardımcı biçimleyiciler ────────────────────────────────────────────────────
 
 
+# Rol panosu kartları kullanıcıya dönük; sayılar TR biçimden (binlik=nokta,
+# ondalık=virgül, % önde) geçmeli — hepsi ortak trformat modülüne yönlendirildi.
 def _fmt_tl(value: float) -> str:
-    """₺ ile biçimlendirilmiş para birimi dizesi."""
-    return f"₺{value:,.0f}"
+    """₺ ile biçimlendirilmiş para birimi dizesi (₺125.000)."""
+    return tr_tl(value)
 
 
 def _fmt_roas(value: float) -> str:
-    return f"{value:.2f}x"
+    return tr_roas(value)
 
 
 def _fmt_pct(value: float) -> str:
-    return f"%{value:.1f}"
+    return tr_pct(value)
 
 
 def _fmt_int(value: float) -> str:
-    return f"{value:,.0f}"
+    return tr_int(value)
 
 
 # ── Metrik toplayıcılar (rol bazlı) ───────────────────────────────────────────

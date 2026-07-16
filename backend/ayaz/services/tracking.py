@@ -17,8 +17,8 @@ returns only hashed values; the caller must not log or persist the ``raw`` dict.
 Platform payload mappings
 -------------------------
 
-meta_capi (Graph API v21.0):
-  POST https://graph.facebook.com/v21.0/{pixel_id}/events
+meta_capi (Graph API v25.0):
+  POST https://graph.facebook.com/v25.0/{pixel_id}/events
   Body: {
     "data": [{
       "event_name":   <event_name>,
@@ -74,7 +74,7 @@ ga4_mp (Measurement Protocol):
 
 Rate limits / vendor notes
 --------------------------
-meta_capi:     200 events/batch max; 80k events/hour per pixel; API version v21.0.
+meta_capi:     200 events/batch max; 80k events/hour per pixel; API version v25.0.
 tiktok_events: 1 000 events/request max; use event_id for dedup.
 ga4_mp:        25 events/request max (we send 1); no official RPS limit;
                validation endpoint: /debug/mp/collect (use in dev).
@@ -98,7 +98,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-_META_CAPI_URL = "https://graph.facebook.com/v21.0/{pixel_id}/events"
+_META_CAPI_URL = "https://graph.facebook.com/v25.0/{pixel_id}/events"
 _TIKTOK_EVENTS_URL = (
     "https://business-api.tiktok.com/open_api/v1.3/event/track/"
 )
@@ -983,7 +983,7 @@ def _forward_meta_capi(
     *,
     http_client: httpx.Client | None,
 ) -> None:
-    """Forward a conversion event to the Meta Conversions API (Graph API v21.0).
+    """Forward a conversion event to the Meta Conversions API (Graph API v25.0).
 
     Mapping
     -------

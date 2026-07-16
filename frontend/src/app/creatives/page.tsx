@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken, downloadCsv } from '@/lib/api';
+import { channelLabel } from '@/lib/channels';
 import {
   getCreativesPerformance,
   type AdPerformance,
@@ -48,10 +49,11 @@ function fmtNum(n: number): string {
 
 function fmtPct(n: number): string {
   return (
+    '%' +
     (n * 100).toLocaleString('tr-TR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }) + '%'
+    })
   );
 }
 
@@ -111,7 +113,7 @@ const COLUMNS: ColDef[] = [
     label: 'Kanal',
     align: 'left',
     sortable: false,
-    render: (ad) => <span className={styles.channelBadge}>{ad.channel}</span>,
+    render: (ad) => <span className={styles.channelBadge}>{channelLabel(ad.channel)}</span>,
   },
   {
     key: 'spend',
@@ -318,7 +320,7 @@ export default function CreativesPage() {
               onClick={handleCsvExport}
               disabled={csvLoading}
             >
-              {csvLoading ? 'Indiriliyor...' : 'CSV Indir'}
+              {csvLoading ? 'İndiriliyor...' : 'CSV İndir'}
             </button>
             {csvError && (
               <span className={styles.csvError}>{csvError}</span>
@@ -377,7 +379,7 @@ export default function CreativesPage() {
                           <li key={ad.ad_id} className={styles.highlightItem}>
                             <span className={styles.highlightAdName} title={ad.ad_name}>
                               {ad.ad_name}
-                              <span className={styles.highlightChannel}> · {ad.channel}</span>
+                              <span className={styles.highlightChannel}> · {channelLabel(ad.channel)}</span>
                             </span>
                             <span className={styles.roasGood}>{fmtRoas(ad.roas)}</span>
                           </li>
@@ -404,7 +406,7 @@ export default function CreativesPage() {
                           <li key={ad.ad_id} className={styles.highlightItem}>
                             <span className={styles.highlightAdName} title={ad.ad_name}>
                               {ad.ad_name}
-                              <span className={styles.highlightChannel}> · {ad.channel}</span>
+                              <span className={styles.highlightChannel}> · {channelLabel(ad.channel)}</span>
                             </span>
                             <span className={styles.roasBad}>{fmtRoas(ad.roas)}</span>
                           </li>

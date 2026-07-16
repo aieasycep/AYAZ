@@ -37,7 +37,7 @@ from __future__ import annotations
 import html
 import logging
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -46,7 +46,15 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.analytics import DimChannel, FactDailyMetrics
 from ayaz.models.reports import ReportDefinition, ReportSchedule
-from ayaz.services.metrics import compute_derived_metrics
+from ayaz.services.metrics import (
+    blended_roas,
+    compute_derived_metrics,
+    resolve_headline_metric,
+    split_channel_totals_by_source,
+)
+from ayaz.services.channels import channel_label
+from ayaz.services.trdate import tr_date_short, tr_datetime
+from ayaz.services.trformat import tr_num, tr_pct
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +254,7 @@ def build_report_payload(
         raw_rows = _query_channel_rows(db, tenant_id, date_from, date_to)
 
         channel_items: list[dict[str, Any]] = []
+        channel_raw: dict[str, dict] = {}
         for row in raw_rows:
             channel_key = str(row["channel_key"])
             if channel_filter and channel_key not in channel_filter:
@@ -277,34 +286,57 @@ def build_report_payload(
                     "roas": float(derived["roas"]),
                 }
             )
+            channel_raw[channel_key] = {
+                "impressions": imp,
+                "clicks": clk,
+                "spend": spd,
+                "conversions": cvr,
+                "conversion_value": cvv,
+            }
 
         if "by_channel" in sections:
             payload["by_channel"] = channel_items
 
-        # Totals: sum across filtered channels
+        # Totals: kaynak-tipi ayrımıyla (ad vs analytics) — çift-sayımı
+        # önler. Ad platforms (google_ads, meta_ads, ...) ve analytics
+        # kaynakları (ga4, search_console) aynı kolonlara yazar; GA4
+        # dönüşümleri artık reklam platformlarının zaten raporladığı
+        # dönüşümlerin ÜSTÜNE eklenmiyor — bkz. ayaz.services.metrics.
         if "totals" in sections:
-            t_imp = sum(_d(c["impressions"]) for c in channel_items)
-            t_clk = sum(_d(c["clicks"]) for c in channel_items)
-            t_spd = sum(_d(c["spend"]) for c in channel_items)
-            t_cvr = sum(_d(c["conversions"]) for c in channel_items)
-            t_cvv = sum(_d(c["conversion_value"]) for c in channel_items)
+            split = split_channel_totals_by_source(channel_raw)
+            t_imp = split["total_impressions"]
+            t_clk = split["total_clicks"]
+            t_spd = split["total_spend"]
+
+            headline_cvr = resolve_headline_metric(
+                split["analytics_conversions"], split["ad_conversions"]
+            )
+            headline_cvv = resolve_headline_metric(
+                split["analytics_conversion_value"], split["ad_conversion_value"]
+            )
+
             t_derived = compute_derived_metrics(
                 impressions=t_imp,
                 clicks=t_clk,
                 spend=t_spd,
-                conversions=t_cvr,
-                conversion_value=t_cvv,
+                conversions=headline_cvr,
+                conversion_value=headline_cvv,
+            )
+            t_roas = blended_roas(
+                ad_spend=split["ad_spend"],
+                analytics_conversion_value=split["analytics_conversion_value"],
+                ad_conversion_value=split["ad_conversion_value"],
             )
             payload["totals"] = {
                 "spend": float(t_spd),
                 "impressions": float(t_imp),
                 "clicks": float(t_clk),
-                "conversions": float(t_cvr),
-                "conversion_value": float(t_cvv),
+                "conversions": float(headline_cvr),
+                "conversion_value": float(headline_cvv),
                 "ctr": float(t_derived["ctr"]),
                 "cpc": float(t_derived["cpc"]),
                 "cpa": float(t_derived["cpa"]),
-                "roas": float(t_derived["roas"]),
+                "roas": float(t_roas),
             }
 
     # ── timeseries ────────────────────────────────────────────────────────────
@@ -369,8 +401,13 @@ _SEVERITY_BADGE = {
 
 
 def _fmt(value: float, decimals: int = 2) -> str:
-    """Format a float to a fixed number of decimal places."""
-    return f"{value:,.{decimals}f}"
+    """Format a float with Turkish separators (binlik=nokta, ondalık=virgül).
+
+    The white-label report is customer-facing (HTML/PDF), so numbers must
+    follow TR convention — ``398.123,50`` not the EN ``398,123.50``.
+    """
+    return tr_num(value, decimals)
+
 
 
 def _esc(text: str) -> str:
@@ -454,10 +491,10 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
     logo_url = branding.get("logo_url") or ""
     primary_color = _esc(branding.get("primary_color") or "#1A73E8")
 
-    date_from = _esc(payload.get("date_from", ""))
-    date_to = _esc(payload.get("date_to", ""))
+    date_from = _esc(tr_date_short(payload.get("date_from", "")))
+    date_to = _esc(tr_date_short(payload.get("date_to", "")))
     report_name = _esc(payload.get("report_name", "Rapor"))
-    generated_at = _esc(payload.get("generated_at", ""))
+    generated_at = _esc(tr_datetime(payload.get("generated_at", "")))
     sections: list[str] = payload.get("sections", [])
     totals: dict[str, float] = payload.get("totals", {})
     by_channel: list[dict] = payload.get("by_channel", [])
@@ -478,10 +515,10 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         kpi_items = [
             ("Harcama", _fmt(totals.get("spend", 0))),
             ("Gösterim", _fmt(totals.get("impressions", 0), 0)),
-            ("Tiklama", _fmt(totals.get("clicks", 0), 0)),
-            ("Donusum", _fmt(totals.get("conversions", 0), 0)),
-            ("Donusum Degeri", _fmt(totals.get("conversion_value", 0))),
-            ("CTR", f"{totals.get('ctr', 0) * 100:.2f}%"),
+            ("Tıklama", _fmt(totals.get("clicks", 0), 0)),
+            ("Dönüşüm", _fmt(totals.get("conversions", 0), 0)),
+            ("Dönüşüm Değeri", _fmt(totals.get("conversion_value", 0))),
+            ("CTR", tr_pct(totals.get("ctr", 0) * 100, 2)),
             ("CPC", _fmt(totals.get("cpc", 0))),
             ("CPA", _fmt(totals.get("cpa", 0))),
             ("ROAS", _fmt(totals.get("roas", 0))),
@@ -501,7 +538,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         kpi_cards_html = (
             f'<section style="margin-bottom:36px;">'
             f'<h2 style="font-size:16px;font-weight:600;color:#333;margin-bottom:14px;">'
-            f"Ozet Metrikler</h2>"
+            f"Özet Metrikler</h2>"
             f'<div style="display:flex;flex-wrap:wrap;gap:12px;">'
             + "".join(cards)
             + "</div></section>"
@@ -511,8 +548,8 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
     channel_table_html = ""
     if "by_channel" in sections and by_channel:
         header_cells = [
-            "Kanal", "Harcama", "Gosurim", "Tiklama",
-            "Donusum", "Donusum Degeri", "CTR", "CPC", "CPA", "ROAS",
+            "Kanal", "Harcama", "Gösterim", "Tıklama",
+            "Dönüşüm", "Dönüşüm Değeri", "CTR", "CPC", "CPA", "ROAS",
         ]
         th_style = (
             f"background:{primary_color};color:#fff;padding:10px 12px;"
@@ -529,9 +566,9 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
                 f"background:{bg};padding:9px 12px;"
                 f"font-size:13px;border-bottom:1px solid #eee;"
             )
-            ctr_pct = "{:.2f}%".format(ch.get("ctr", 0) * 100)
+            ctr_pct = tr_pct(ch.get("ctr", 0) * 100, 2)
             cells = [
-                f"<td style='{td}'><strong>{_esc(ch['channel'])}</strong></td>",
+                f"<td style='{td}'><strong>{_esc(channel_label(ch['channel']))}</strong></td>",
                 f"<td style='{td}'>{_esc(_fmt(ch.get('spend', 0)))}</td>",
                 f"<td style='{td}'>{_esc(_fmt(ch.get('impressions', 0), 0))}</td>",
                 f"<td style='{td}'>{_esc(_fmt(ch.get('clicks', 0), 0))}</td>",
@@ -547,7 +584,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         channel_table_html = (
             f'<section style="margin-bottom:36px;overflow-x:auto;">'
             f'<h2 style="font-size:16px;font-weight:600;color:#333;margin-bottom:14px;">'
-            f"Kanala Gore Performans</h2>"
+            f"Kanala Göre Performans</h2>"
             f'<table style="width:100%;border-collapse:collapse;font-family:sans-serif;">'
             f"<thead><tr>{header_row}</tr></thead>"
             f"<tbody>{''.join(body_rows)}</tbody>"
@@ -561,7 +598,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         timeseries_html = (
             f'<section style="margin-bottom:36px;">'
             f'<h2 style="font-size:16px;font-weight:600;color:#333;margin-bottom:14px;">'
-            f"Gunluk Harcama Trendi</h2>"
+            f"Günlük Harcama Trendi</h2>"
             f"{chart_svg}"
             f"</section>"
         )
@@ -592,7 +629,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
         insights_html = (
             f'<section style="margin-bottom:36px;">'
             f'<h2 style="font-size:16px;font-weight:600;color:#333;margin-bottom:14px;">'
-            f"Onemli Bulgular</h2>"
+            f"Önemli Bulgular</h2>"
             + "".join(insight_items)
             + "</section>"
         )
@@ -625,8 +662,8 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
     {logo_html}
     <h1>{brand_name} — {report_name}</h1>
     <div class="meta">
-      Donem: {date_from} / {date_to} &nbsp;&bull;&nbsp;
-      Olusturulma: {generated_at}
+      Dönem: {date_from} / {date_to} &nbsp;&bull;&nbsp;
+      Oluşturulma: {generated_at}
     </div>
   </div>
 
@@ -636,7 +673,7 @@ def render_report_html(payload: dict[str, Any], branding: dict[str, Any]) -> str
   {insights_html}
 
   <div class="report-footer">
-    Bu rapor {brand_name} tarafindan olusturulmustur. &copy; {brand_name}
+    Bu rapor {brand_name} tarafından oluşturulmuştur. &copy; {brand_name}
   </div>
 
 </div>

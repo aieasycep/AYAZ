@@ -172,14 +172,32 @@ def _fetch_metric_value(
         in the past.
     channel_filter:
         When not None, an additional WHERE clause ``dim_channel.key = channel_filter``
-        is applied.  When None, all channels are summed.
+        is applied — a single-channel goal can never mix ad + analytics data,
+        so this path is aggregated directly (unchanged from before).
+        When None (account-wide goal), all channels are aggregated PER
+        CHANNEL first and then split by source type (ad vs analytics) —
+        see ``ayaz.services.metrics.split_channel_totals_by_source`` — to
+        avoid double-counting GA4's conversions on top of what ad platforms
+        already self-report.
 
     Returns
     -------
     Decimal
-        The aggregated value.  For ROAS: conversion_value_total / spend_total
-        (returns 0 if spend is 0).
+        The aggregated value.
+        - spend: total spend (ad platforms only ever report non-zero spend).
+        - conversions / conversion_value: source-of-truth value — GA4 wins
+          when present and non-zero, else falls back to the ad total (see
+          ``resolve_headline_metric``).  Identical to the pre-fix behaviour
+          when no analytics channel is connected.
+        - roas: ``blended_roas`` — source-of-truth revenue ÷ ad-only spend
+          (falls back to ad-only ROAS when no analytics channel is present).
     """
+    from ayaz.services.metrics import (
+        blended_roas as _blended_roas,
+        resolve_headline_metric,
+        split_channel_totals_by_source,
+    )
+
     # Build the base query columns we always need
     spend_expr = func.sum(
         func.coalesce(FactDailyMetrics.cost_base_ccy, FactDailyMetrics.cost_raw)
@@ -188,7 +206,8 @@ def _fetch_metric_value(
     conversions_expr = func.sum(FactDailyMetrics.conversions)
 
     if channel_filter is not None:
-        # Join DimChannel to filter by key
+        # Single-channel goal — already source-isolated, no cross-channel
+        # blending is possible. Same query as before the fix.
         stmt = (
             select(
                 spend_expr.label("spend"),
@@ -203,36 +222,77 @@ def _fetch_metric_value(
                 DimChannel.key == channel_filter,
             )
         )
+        row = db.execute(stmt).mappings().one()
+        spend = _d(row["spend"])
+        conv_value = _d(row["conversion_value"])
+        conversions = _d(row["conversions"])
+        roas_value = _roas(conv_value, spend)
     else:
-        stmt = (
+        # Account-wide goal — aggregate per channel, then split ad vs
+        # analytics so GA4 (or Search Console) never gets blindly summed
+        # on top of the ad platforms.
+        rows = db.execute(
             select(
+                DimChannel.key.label("channel_key"),
                 spend_expr.label("spend"),
                 conv_value_expr.label("conversion_value"),
                 conversions_expr.label("conversions"),
             )
+            .join(DimChannel, FactDailyMetrics.channel_id == DimChannel.id)
             .where(
                 FactDailyMetrics.tenant_id == tenant_id,
                 FactDailyMetrics.date_key >= period_start,
                 FactDailyMetrics.date_key <= as_of_date,
             )
+            .group_by(DimChannel.key)
+        ).mappings().all()
+
+        channel_data = {
+            str(r["channel_key"]): {
+                "impressions": Decimal(0),
+                "clicks": Decimal(0),
+                "spend": _d(r["spend"]),
+                "conversions": _d(r["conversions"]),
+                "conversion_value": _d(r["conversion_value"]),
+            }
+            for r in rows
+        }
+        split = split_channel_totals_by_source(channel_data)
+
+        spend = split["total_spend"]
+        conversions = resolve_headline_metric(
+            split["analytics_conversions"], split["ad_conversions"]
         )
-
-    row = db.execute(stmt).mappings().one()
-
-    spend = _d(row["spend"])
-    conv_value = _d(row["conversion_value"])
-    conversions = _d(row["conversions"])
+        conv_value = resolve_headline_metric(
+            split["analytics_conversion_value"], split["ad_conversion_value"]
+        )
+        roas_value = _blended_roas(
+            ad_spend=split["ad_spend"],
+            analytics_conversion_value=split["analytics_conversion_value"],
+            ad_conversion_value=split["ad_conversion_value"],
+        )
 
     if metric == "spend":
         return spend
     elif metric == "roas":
-        return _roas(conv_value, spend)
+        return roas_value
     elif metric == "conversions":
         return conversions
     elif metric == "conversion_value":
         return conv_value
     else:
         return Decimal(0)
+
+
+def _tr_num(value: float, decimals: int = 2) -> str:
+    """Format a number with Turkish separators (1.234,56)."""
+    s = f"{value:,.{decimals}f}"
+    return s.replace(",", "§").replace(".", ",").replace("§", ".")
+
+
+def _tr_pct(value: float) -> str:
+    """Format a 0-100 percent value with one decimal and Turkish comma."""
+    return f"{value:.1f}".replace(".", ",")
 
 
 def _build_recommendation(
@@ -249,69 +309,110 @@ def _build_recommendation(
     """Generate a Turkish recommendation string.
 
     The recommendation is template-based (no network/LLM required).
-    Tone: direct, data-driven, actionable.
+    Tone: direct, data-driven, actionable — always in the formal "siz" form,
+    with Turkish number formatting (comma decimals). Spend goals are budgets:
+    overshooting is a problem, not a success.
 
     Parameters passed in are already computed floats to keep this function pure.
     """
-    pct_gap = max(0.0, 1.0 - pct_to_target)
-    pct_gap_display = round(pct_gap * 100, 1)
+    pct = pct_to_target * 100
+    pct_gap_display = _tr_pct(max(0.0, 100.0 - pct))
+    over_display = _tr_pct(max(0.0, pct - 100.0))
+
+    # Spend goals are budget targets: exceeding the target is an overrun.
+    # The strong warning uses the same tolerance band as _classify_status
+    # (SPEND_AT_RISK_OVERRUN) so the badge and the message never contradict:
+    # a ≤5 % realized overrun keeps the goal on_track, and alarming copy next
+    # to a green "Yolunda" badge would read as a bug.
+    if metric == "spend" and pct_to_target > SPEND_AT_RISK_OVERRUN:
+        if days_remaining <= 0:
+            return (
+                f"Dönem sona erdi. Bütçe %{over_display} aşıldı "
+                f"(hedef: {_tr_num(target_value, 0)}, gerçekleşen: {_tr_num(current_value, 0)})."
+            )
+        return (
+            f"Bütçe hedefi aşılıyor: hedef {_tr_num(target_value, 0)} iken "
+            f"{_tr_num(current_value, 0)} harcandı (%{over_display} üzerinde). "
+            f"Günlük harcama hızını düşürün veya bütçe hedefini güncelleyin."
+        )
+
+    # Mid-period pacing overrun: the realized total is still under target but
+    # the forecast says the budget will blow past it. Without this branch the
+    # goal lands in the generic "you're behind, spend more" message below —
+    # the exact opposite of the right advice for a budget at overrun risk.
+    if (
+        metric == "spend"
+        and target_value > 0.0
+        and forecast_value / target_value > SPEND_AT_RISK_OVERRUN
+    ):
+        forecast_over = _tr_pct(max(0.0, forecast_value / target_value * 100.0 - 100.0))
+        return (
+            f"Bu hızla dönem sonunda bütçe %{forecast_over} aşılacak "
+            f"(tahmin: {_tr_num(forecast_value, 0)}, hedef: {_tr_num(target_value, 0)}). "
+            f"Günlük harcama hızını düşürün veya bütçe hedefini güncelleyin."
+        )
 
     if status == "on_track":
-        return (
-            f"Hedef yolunda gidiyor! Mevcut ilerleme hedefin "
-            f"%{round(pct_to_target * 100, 1)}'ine ulasmis durumda."
-        )
+        if metric == "spend":
+            return f"Bütçe hedefiyle uyumlu ilerliyor (kullanılan: %{_tr_pct(pct)})."
+        if pct >= 100.0:
+            return f"Hedef aşıldı! Tamamlanan: %{_tr_pct(pct)}."
+        return f"Hedef yolunda gidiyor! Tamamlanan: %{_tr_pct(pct)}."
 
     if days_remaining <= 0:
         # Period already ended
         return (
-            f"Donem sona erdi. Hedefe ulasilamadi — hedefin %{pct_gap_display} "
-            f"gerisinde kalindi."
+            f"Dönem sona erdi. Hedefe ulaşılamadı — gerçekleşen, hedefin "
+            f"%{pct_gap_display} altında kaldı."
         )
 
     if metric == "roas":
-        gap = round(target_value - current_value, 2)
         return (
-            f"ROAS hedefinin %{pct_gap_display} gerisindesin. "
-            f"Kalan {days_remaining} gun icinde ROAS'i {round(target_value, 2)}'e "
-            f"cikarmak icin donusum degerini artirman veya harcamayi optimize etmen gerekiyor. "
-            f"Mevcut ROAS: {round(current_value, 2)}, hedef: {round(target_value, 2)}."
+            f"ROAS hedefinin %{pct_gap_display} gerisindesiniz. "
+            f"Kalan {days_remaining} günde hedefe ulaşmak için dönüşüm değerini "
+            f"artırmanız veya harcamayı optimize etmeniz gerekiyor "
+            f"(mevcut ROAS: {_tr_num(current_value)}, hedef: {_tr_num(target_value)})."
         )
 
     elif metric == "spend":
         daily_needed = (target_value - current_value) / days_remaining if days_remaining > 0 else 0
         return (
-            f"Harcama hedefinin %{pct_gap_display} gerisindesin. "
-            f"Kalan {days_remaining} gun icinde gunluk ortalama "
-            f"{round(daily_needed, 2)} birim daha harcaman gerekiyor "
-            f"(toplam hedef: {round(target_value, 2)}, simdilik: {round(current_value, 2)})."
+            f"Bütçe kullanım hedefinin %{pct_gap_display} gerisindesiniz. "
+            f"Kalan {days_remaining} günde günlük ortalama "
+            f"{_tr_num(daily_needed, 0)} birim harcama gerekiyor "
+            f"(hedef: {_tr_num(target_value, 0)}, şu ana kadar: {_tr_num(current_value, 0)})."
         )
 
     elif metric == "conversions":
         daily_needed = (target_value - current_value) / days_remaining if days_remaining > 0 else 0
         return (
-            f"Donusum hedefinin %{pct_gap_display} gerisindesin. "
-            f"Kalan {days_remaining} gun icinde gunluk ortalama "
-            f"{round(daily_needed, 1)} donusum daha elde etmen gerekiyor "
-            f"(hedef: {round(target_value, 0)}, simdilik: {round(current_value, 0)})."
+            f"Dönüşüm hedefinin %{pct_gap_display} gerisindesiniz. "
+            f"Kalan {days_remaining} günde günlük ortalama "
+            f"{_tr_num(daily_needed, 1)} dönüşüm daha gerekiyor "
+            f"(hedef: {_tr_num(target_value, 0)}, şu ana kadar: {_tr_num(current_value, 0)})."
         )
 
     elif metric == "conversion_value":
         daily_needed = (target_value - current_value) / days_remaining if days_remaining > 0 else 0
         return (
-            f"Donusum degeri hedefinin %{pct_gap_display} gerisindesin. "
-            f"Kalan {days_remaining} gun icinde gunluk ortalama "
-            f"{round(daily_needed, 2)} birim deger daha uretmen gerekiyor "
-            f"(hedef: {round(target_value, 2)}, simdilik: {round(current_value, 2)})."
+            f"Dönüşüm değeri hedefinin %{pct_gap_display} gerisindesiniz. "
+            f"Kalan {days_remaining} günde günlük ortalama "
+            f"{_tr_num(daily_needed, 0)} birim değer daha gerekiyor "
+            f"(hedef: {_tr_num(target_value, 0)}, şu ana kadar: {_tr_num(current_value, 0)})."
         )
 
     return (
-        f"Hedefin %{pct_gap_display} gerisindesin; kalan {days_remaining} "
-        f"gun icinde ilerlemeyi hizlandirman gerekiyor."
+        f"Hedefin %{pct_gap_display} gerisindesiniz; kalan {days_remaining} "
+        f"günde ilerlemeyi hızlandırmanız gerekiyor."
     )
 
 
-def _classify_status(forecast_value: float, target_value: float) -> str:
+# Spend (budget) goals: forecast above these multiples of target = overrun.
+SPEND_AT_RISK_OVERRUN = 1.05
+SPEND_OFF_TRACK_OVERRUN = 1.20
+
+
+def _classify_status(forecast_value: float, target_value: float, metric: str = "") -> str:
     """Classify goal status from forecast vs target.
 
     Thresholds (see module docstring):
@@ -319,12 +420,22 @@ def _classify_status(forecast_value: float, target_value: float) -> str:
         at_risk    80 % <= forecast < 95 % of target
         off_track  forecast < 80 % of target
 
+    Spend goals are budgets — a forecast far above target is an overrun, so the
+    band is two-sided: >105 % of target → at_risk, >120 % → off_track.
+
     When target_value == 0, returns "on_track" (target trivially met).
     """
     if target_value == 0.0:
         return "on_track"
 
     ratio = forecast_value / target_value
+
+    if metric == "spend":
+        if ratio > SPEND_OFF_TRACK_OVERRUN:
+            return "off_track"
+        if ratio > SPEND_AT_RISK_OVERRUN:
+            return "at_risk"
+
     if ratio >= ON_TRACK_THRESHOLD:
         return "on_track"
     elif ratio >= AT_RISK_THRESHOLD:
@@ -414,8 +525,8 @@ def compute_progress(
         else:
             forecast_value = 0.0
 
-    # Status
-    status = _classify_status(forecast_value, target_value)
+    # Status (metric-aware: spend goals treat overrun as a problem)
+    status = _classify_status(forecast_value, target_value, metric=goal.metric)
 
     # pct_to_target
     if target_value == 0.0:

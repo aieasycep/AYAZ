@@ -1,0 +1,418 @@
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-5);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Page header */
+
+.pageTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--fw-heavy);
+  color: var(--color-text);
+  letter-spacing: -0.25px;
+}
+
+.pageSubtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+/* Date presets row */
+
+.presetsRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.presetsNote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* KPI grid */
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 1150px) {
+  .kpiGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpiCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.kpiCardHighlight {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.08), var(--shadow-1);
+}
+
+.kpiLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.kpiLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kpiValue {
+  font-size: clamp(20px, 2.4vw, var(--text-xl));
+  font-weight: var(--fw-heavy);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.kpiValueHighlight {
+  font-size: clamp(20px, 2.4vw, var(--text-xl));
+  font-weight: var(--fw-heavy);
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.kpiCaption {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+/* Small pill badges (KPI tiles + channel table "Tür" column) */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.675rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  width: fit-content;
+}
+
+.pillGood {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.pillWarn {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.pillCritical {
+  background: var(--color-critical-bg);
+  color: var(--color-critical-text);
+}
+
+.pillNeutral {
+  background: var(--color-surface-2, rgba(148, 163, 184, 0.15));
+  color: var(--color-text-muted);
+}
+
+/* Data-quality warning banner — amber, distinct from the blue info callout */
+
+.warningBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-text);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+
+.warningIcon {
+  font-size: 1rem;
+  color: var(--color-warning-text);
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.warningText {
+  font-size: var(--text-sm);
+  color: var(--color-warning-text);
+  font-weight: 600;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Explanation callout */
+
+.infoCallout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  background: var(--color-info-bg);
+  border: 1px solid rgba(59, 91, 219, 0.2);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+
+.infoIcon {
+  font-size: 1rem;
+  color: var(--color-info-text);
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.infoText {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Period label + CSV button (SectionCard `right` slot) */
+
+.periodLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-family: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
+  white-space: nowrap;
+}
+
+.csvBtn {
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.csvBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.csvBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Channel table */
+
+.tableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.th {
+  padding: 0.625rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 2px solid var(--color-border);
+  text-align: left;
+}
+
+.td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.right {
+  text-align: right;
+}
+
+.channelCell {
+  font-weight: 600;
+}
+
+.row:last-child .td {
+  border-bottom: none;
+}
+
+.row:hover .td {
+  background: var(--color-surface-2);
+}
+
+/* Source-type badges — "Reklam" (ad, spend-bearing) vs "Analitik" (analytics, spend-free) */
+
+.sourceBadgeAd {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.675rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: rgba(59, 91, 219, 0.1);
+  color: var(--color-primary);
+}
+
+.sourceBadgeAnalytics {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.675rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--color-ai-bg);
+  color: var(--color-ai-text);
+}
+
+/* States */
+
+.stateBox {
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.errorText {
+  color: var(--color-danger);
+  font-size: 0.9rem;
+}
+
+.retryBtn {
+  margin-top: 0.75rem;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  border-radius: var(--radius);
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.retryBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Loading skeleton */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface-2, rgba(148, 163, 184, 0.2)) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--radius);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.skeletonKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 1150px) {
+  .skeletonKpiGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .skeletonKpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.skeletonCard {
+  border-radius: var(--radius);
+  height: 100px;
+}
+
+.skeletonSection {
+  border-radius: var(--radius);
+  height: 260px;
+}
+
+/* Responsive */
+
+@media (max-width: 640px) {
+  .main {
+    padding: var(--space-4);
+    gap: var(--space-4);
+  }
+}

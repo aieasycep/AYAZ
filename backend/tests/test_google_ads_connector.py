@@ -7,6 +7,8 @@ Follows the fixtures-based testing pattern established in test_sample_connector.
 - authenticate() / refresh_token() / fetch() network paths are not exercised;
   only the pure functions (normalize, _parse_stream_response, capabilities,
   incremental_state, discover) are tested here.
+- list_accessible_customers() IS network-shaped (it calls httpx.get()), so its
+  tests monkeypatch ``httpx.get`` with a fake Response — no live vendor calls.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+import httpx
 import pytest
 
 from ayaz.connectors.base import ConnectorConfig, UnifiedRecord
@@ -345,6 +348,199 @@ def test_discover_standalone_account(connector: GoogleAdsConnector) -> None:
     assert "currency" in account
     assert account["id"] == "1234567890"
     assert account["currency"] == "USD"
+
+
+# ── list_accessible_customers() — mocked httpx.get, no live network ──────────
+
+
+def test_list_accessible_customers_returns_bare_ids(
+    connector: GoogleAdsConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two resourceNames in the response → two bare customer IDs, prefix stripped."""
+
+    def fake_get(url: str, headers: dict, timeout: int) -> httpx.Response:
+        assert url.endswith("/customers:listAccessibleCustomers")
+        assert headers["Authorization"] == "Bearer fake-access-token"
+        return httpx.Response(
+            200,
+            json={
+                "resourceNames": ["customers/1234567890", "customers/9876543210"]
+            },
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    connector._access_token = "fake-access-token"
+
+    customer_ids = connector.list_accessible_customers()
+
+    assert customer_ids == ["1234567890", "9876543210"]
+
+
+def test_list_accessible_customers_empty_resource_names(
+    connector: GoogleAdsConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A response with an empty resourceNames list yields an empty list."""
+
+    def fake_get(url: str, headers: dict, timeout: int) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"resourceNames": []},
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    connector._access_token = "fake-access-token"
+
+    assert connector.list_accessible_customers() == []
+
+
+def test_list_accessible_customers_missing_resource_names_key(
+    connector: GoogleAdsConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A response with no resourceNames key at all also yields an empty list."""
+
+    def fake_get(url: str, headers: dict, timeout: int) -> httpx.Response:
+        return httpx.Response(200, json={}, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    connector._access_token = "fake-access-token"
+
+    assert connector.list_accessible_customers() == []
+
+
+def test_list_accessible_customers_requires_access_token(
+    connector: GoogleAdsConnector,
+) -> None:
+    """Without a prior authenticate() call (no access token), raises RuntimeError."""
+    assert connector._access_token is None
+    with pytest.raises(RuntimeError):
+        connector.list_accessible_customers()
+
+
+# ── list_child_customers() — mocked httpx.post, no live network ──────────────
+
+
+def test_list_child_customers_mcc_two_children(
+    connector: GoogleAdsConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An MCC manager account with two leaf children → two leaf dicts."""
+
+    def fake_post(
+        url: str, headers: dict, json: dict, timeout: int
+    ) -> httpx.Response:
+        assert url.endswith("/customers/1112223333/googleAds:search")
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "customerClient": {
+                            "id": "1234567890",
+                            "descriptiveName": "Leaf Account One",
+                            "currencyCode": "USD",
+                        }
+                    },
+                    {
+                        "customerClient": {
+                            "id": "9876543210",
+                            "descriptiveName": "Leaf Account Two",
+                            "currencyCode": "TRY",
+                        }
+                    },
+                ]
+            },
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    connector._access_token = "fake-access-token"
+
+    leaves = connector.list_child_customers("1112223333")
+
+    assert leaves == [
+        {"id": "1234567890", "name": "Leaf Account One", "currency": "USD"},
+        {"id": "9876543210", "name": "Leaf Account Two", "currency": "TRY"},
+    ]
+
+
+def test_list_child_customers_standalone_self_row(
+    connector: GoogleAdsConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A STANDALONE (non-manager) account returns a single self-row."""
+
+    def fake_post(
+        url: str, headers: dict, json: dict, timeout: int
+    ) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "customerClient": {
+                            "id": "1234567890",
+                            "descriptiveName": "Standalone Account",
+                            "currencyCode": "USD",
+                        }
+                    }
+                ]
+            },
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    connector._access_token = "fake-access-token"
+
+    leaves = connector.list_child_customers("1234567890")
+
+    assert leaves == [
+        {"id": "1234567890", "name": "Standalone Account", "currency": "USD"}
+    ]
+
+
+def test_list_child_customers_empty_results(
+    connector: GoogleAdsConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An empty results list yields an empty list, no error."""
+
+    def fake_post(
+        url: str, headers: dict, json: dict, timeout: int
+    ) -> httpx.Response:
+        return httpx.Response(200, json={"results": []}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    connector._access_token = "fake-access-token"
+
+    assert connector.list_child_customers("1112223333") == []
+
+
+def test_list_child_customers_requires_access_token(
+    connector: GoogleAdsConnector,
+) -> None:
+    """Without a prior authenticate() call (no access token), raises RuntimeError."""
+    assert connector._access_token is None
+    with pytest.raises(RuntimeError):
+        connector.list_child_customers("1112223333")
+
+
+def test_list_child_customers_sends_login_customer_id_header(
+    connector: GoogleAdsConnector, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The login-customer-id header must equal manager_id, overriding config.extra."""
+    captured_headers: dict = {}
+
+    def fake_post(
+        url: str, headers: dict, json: dict, timeout: int
+    ) -> httpx.Response:
+        captured_headers.update(headers)
+        return httpx.Response(200, json={"results": []}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    connector._access_token = "fake-access-token"
+    # config.extra has no login_customer_id at all — must still be set from the arg
+    connector.list_child_customers("1112223333")
+
+    assert captured_headers["login-customer-id"] == "1112223333"
 
 
 # ── build_authorization_url() — pure, no network ─────────────────────────────

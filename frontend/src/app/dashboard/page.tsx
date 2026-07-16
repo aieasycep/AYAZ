@@ -101,10 +101,11 @@ function fmtNum(n: number): string {
 
 function fmtPct(n: number): string {
   return (
+    '%' +
     (n * 100).toLocaleString('tr-TR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }) + '%'
+    })
   );
 }
 
@@ -358,7 +359,7 @@ export default function DashboardPage() {
               onClick={handleCsvExport}
               disabled={csvLoading}
             >
-              {csvLoading ? 'Indiriliyor...' : 'CSV Indir'}
+              {csvLoading ? 'İndiriliyor...' : 'CSV İndir'}
             </button>
             {csvError && (
               <span className={styles.csvError}>{csvError}</span>

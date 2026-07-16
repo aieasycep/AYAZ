@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
 import {
@@ -13,6 +13,7 @@ import { parseApiError } from '@/lib/parseApiError';
 import AppNav from '@/components/AppNav';
 import SectionCard from '@/components/SectionCard';
 import BudgetSimulatorPanel from '@/components/BudgetSimulatorPanel';
+import { channelLabel } from '@/lib/channels';
 import styles from './optimizer.module.css';
 
 type BudgetMainTab = 'optimizasyon' | 'senaryo';
@@ -52,10 +53,11 @@ function fmtRoas(n: number): string {
 
 function fmtPct(n: number): string {
   return (
+    '%' +
     (n * 100).toLocaleString('tr-TR', {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
-    }) + '%'
+    })
   );
 }
 
@@ -65,7 +67,7 @@ function ChannelCard({ item }: { item: ChannelAllocation }) {
   const barWidth = Math.min(100, Math.max(0, item.share_of_spend * 100));
   return (
     <div className={styles.channelCard}>
-      <div className={styles.channelName}>{item.channel}</div>
+      <div className={styles.channelName}>{channelLabel(item.channel)}</div>
       <div className={styles.channelSpend}>{fmtCurrency(item.spend)}</div>
       <div className={styles.spendBarTrack}>
         <div
@@ -92,7 +94,8 @@ function SuggestionRow({ s }: { s: BudgetSuggestion }) {
     <div className={styles.suggestionRow}>
       <div className={styles.suggestionMove}>
         <div className={styles.suggestionMoveLabel}>
-          {fmtCurrency(s.amount, 0)} &bull; {s.from_channel} &rarr; {s.to_channel}
+          {fmtCurrency(s.amount, 0)} &bull; {channelLabel(s.from_channel)} &rarr;{' '}
+          {channelLabel(s.to_channel)}
         </div>
         {s.projected_conversion_value_delta > 0 && (
           <div className={styles.suggestionProjection}>
@@ -103,10 +106,10 @@ function SuggestionRow({ s }: { s: BudgetSuggestion }) {
       <div className={styles.suggestionRationale}>{s.rationale}</div>
       <div className={styles.suggestionRoas}>
         <span className={`${styles.roasChip} ${styles.roasFrom}`}>
-          {s.from_channel}: {fmtRoas(s.from_roas)}
+          {channelLabel(s.from_channel)}: {fmtRoas(s.from_roas)}
         </span>
         <span className={`${styles.roasChip} ${styles.roasTo}`}>
-          {s.to_channel}: {fmtRoas(s.to_roas)}
+          {channelLabel(s.to_channel)}: {fmtRoas(s.to_roas)}
         </span>
       </div>
     </div>
@@ -156,7 +159,8 @@ export default function OptimizerPage() {
         const data = await getBudgetOptimization({
           date_from: from,
           date_to: to,
-          max_shift_pct: shift,
+          // UI yüzde olarak alır (20), API 0-1 arası kesir bekler (0.20).
+          max_shift_pct: Math.min(100, Math.max(0, shift)) / 100,
         });
         setResult(data);
         setHasCalculated(true);
@@ -168,6 +172,16 @@ export default function OptimizerPage() {
     },
     [],
   );
+
+  // İlk açılışta varsayılan parametrelerle otomatik hesapla: kullanıcı ekrana
+  // boş bir önizleme yerine gerçek sonuçla karşılansın. Oturum yoksa login
+  // yönlendirmesi devreye girer, istek atılmaz.
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    autoRanRef.current = true;
+    if (getToken()) runOptimization(dateFrom, dateTo, maxShiftPct);
+  }, [runOptimization, dateFrom, dateTo, maxShiftPct]);
 
   function handleCalculate() {
     runOptimization(dateFrom, dateTo, maxShiftPct);

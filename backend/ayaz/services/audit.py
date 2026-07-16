@@ -462,10 +462,17 @@ def _check_goals(db: Session, tenant_id: uuid.UUID) -> dict:
             })
             return {"key": "goals", "label": "Hedefler", "checks": checks}
 
-        # at-risk: status not on-track and pct < 100
+        # at-risk: status not on-track. pct_to_target is a 0..1+ RATIO.
+        # Spend (budget) goals can be flagged for overrun — for them a
+        # realized ratio >= 1.0 IS the problem, so only non-spend goals that
+        # already achieved their target are excluded.
         at_risk = [
             g for g in goals
-            if g.get("status") != "on_track" and (g.get("pct_to_target") or 0) < 100
+            if g.get("status") != "on_track"
+            and (
+                g.get("metric") == "spend"
+                or (g.get("pct_to_target") or 0) < 1.0
+            )
         ]
 
         if at_risk:
@@ -476,8 +483,10 @@ def _check_goals(db: Session, tenant_id: uuid.UUID) -> dict:
                 "id": "goals_at_risk",
                 "severity": "warn",
                 "title": "Risk altındaki hedef(ler)",
+                # Direction-neutral wording: the list may mix behind-pace
+                # growth goals and overrun-pacing budget goals.
                 "finding": (
-                    f"{len(at_risk)} hedef hedefin gerisinde: {names}."
+                    f"{len(at_risk)} hedef plandan sapmış durumda: {names}."
                 ),
                 "recommendation": "Hedef stratejinizi ve bütçe tahsisinizi gözden geçirin.",
             })

@@ -360,7 +360,7 @@ class TestSummariseFunctions:
                 }
             ],
         })
-        assert "3.31" in result
+        assert "3,31" in result  # TR ondalık biçim
         assert "ortalama" in result.lower()
 
     def test_summarise_audit_empty(self):

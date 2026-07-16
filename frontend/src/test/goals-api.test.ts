@@ -80,7 +80,9 @@ describe('goalPayloadToBackend', () => {
   });
 
   it('does not add channel_filter when channel is not present in payload', () => {
-    const payload = { name: 'Goal without channel' };
+    // Açık tip: goalPayloadToBackend generic kısıtı { channel?: ... } — sadece
+    // { name } literal'i "weak type" (TS2559) verir; opsiyonel channel'ı tipte belirtiyoruz.
+    const payload: { name: string; channel?: string | null } = { name: 'Goal without channel' };
     const result = goalPayloadToBackend(payload);
     expect('channel_filter' in result).toBe(false);
     expect('channel' in result).toBe(false);

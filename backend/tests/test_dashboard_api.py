@@ -746,3 +746,144 @@ class TestTimeseriesEndpoint:
             },
         )
         assert resp.status_code == 422
+
+
+# ── Kaynak-tipi mutabakatı: ad + analytics çift-sayım regresyon testleri ──────
+#
+# google_ads (ad, spend+conversions) ile ga4 (analytics, conversions, spend=0)
+# aynı dönemde bulunduğunda, eski davranış ikisinin conversions/conversion_value
+# toplamını "manşet" olarak gösterirdi (çift sayım). Bu testler artık GA4
+# verisinin ad verisinin ÜSTÜNE eklenmediğini, kaynak-doğrusu kuralına göre
+# çözüldüğünü kilitler.
+
+
+@pytest.fixture()
+def ga4_mixed_client(db_session: Session):
+    """TestClient seeded with google_ads (ad) + ga4 (analytics) on the same day.
+
+    google_ads: spend=1000, impressions=10000, clicks=500, conv=20, cv=4000
+    ga4:        spend=0,    impressions=0,     clicks=0,   conv=15, cv=3000
+
+    Expected (post-fix):
+      ad_conversions=20, ad_conversion_value=4000
+      analytics_conversions=15, analytics_conversion_value=3000
+      headline conversions=15 (GA4 wins, NOT 35), conversion_value=3000
+      ad_spend=total_spend=1000 (GA4 contributes 0 spend)
+      blended_roas = 3000/1000 = 3.0 (NOT (4000+3000)/1000=7.0)
+    """
+    tenant = _make_tenant(db_session)
+    user = _make_user(db_session)
+    membership = _make_membership(db_session, user, tenant)
+
+    acct_gads = _make_connected_account(db_session, tenant, Platform.google_ads, "GADS-1")
+    acct_ga4 = _make_connected_account(db_session, tenant, Platform.ga4, "GA4-1")
+
+    ch_gads = _make_channel(db_session, "google_ads")
+    ch_ga4 = _make_channel(db_session, "ga4")
+
+    camp_g = _make_campaign(db_session, tenant, ch_gads, "CAMP-G", "Google Campaign")
+    adset_g = _make_adset(db_session, tenant, camp_g, "ADSET-G")
+    ad_g = _make_ad(db_session, tenant, adset_g, "AD-G")
+
+    camp_a = _make_campaign(db_session, tenant, ch_ga4, "(not set)", "(not set)")
+    adset_a = _make_adset(db_session, tenant, camp_a, "(not set)")
+    ad_a = _make_ad(db_session, tenant, adset_a, "(not set)")
+
+    _insert_fact(
+        db_session, tenant, acct_gads, ch_gads, camp_g, adset_g, ad_g,
+        date(2024, 4, 1),
+        impressions=10000, clicks=500, cost_raw="1000.00",
+        conversions="20", conversion_value_raw="4000.00",
+    )
+    _insert_fact(
+        db_session, tenant, acct_ga4, ch_ga4, camp_a, adset_a, ad_a,
+        date(2024, 4, 1),
+        impressions=0, clicks=0, cost_raw="0",
+        conversions="15", conversion_value_raw="3000.00",
+    )
+    db_session.commit()
+
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    def override_get_membership():
+        return membership
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_membership] = override_get_membership
+
+    client = TestClient(app)
+    yield client
+
+    app.dependency_overrides.clear()
+
+
+class TestSummarySourceTypeSplit:
+    _PARAMS = {"date_from": "2024-04-01", "date_to": "2024-04-01"}
+
+    def test_ad_conversions_is_google_ads_only(self, ga4_mixed_client: TestClient) -> None:
+        body = ga4_mixed_client.get("/api/v1/dashboard/summary", params=self._PARAMS).json()
+        assert body["totals"]["ad_conversions"] == pytest.approx(20.0)
+        assert body["totals"]["ad_conversion_value"] == pytest.approx(4000.0)
+
+    def test_analytics_conversions_is_ga4_only(self, ga4_mixed_client: TestClient) -> None:
+        body = ga4_mixed_client.get("/api/v1/dashboard/summary", params=self._PARAMS).json()
+        assert body["totals"]["analytics_conversions"] == pytest.approx(15.0)
+        assert body["totals"]["analytics_conversion_value"] == pytest.approx(3000.0)
+
+    def test_headline_conversions_is_ga4_not_summed(
+        self, ga4_mixed_client: TestClient
+    ) -> None:
+        """The historically-buggy assertion would be 35 (20+15). Post-fix it
+        must be exactly the GA4 value (15) — analytics wins as source of truth."""
+        body = ga4_mixed_client.get("/api/v1/dashboard/summary", params=self._PARAMS).json()
+        assert body["totals"]["conversions"] == pytest.approx(15.0)
+        assert body["totals"]["conversions"] != pytest.approx(35.0)
+
+    def test_headline_conversion_value_is_ga4_not_summed(
+        self, ga4_mixed_client: TestClient
+    ) -> None:
+        body = ga4_mixed_client.get("/api/v1/dashboard/summary", params=self._PARAMS).json()
+        assert body["totals"]["conversion_value"] == pytest.approx(3000.0)
+        assert body["totals"]["conversion_value"] != pytest.approx(7000.0)
+
+    def test_blended_roas_uses_ga4_revenue_over_ad_spend_only(
+        self, ga4_mixed_client: TestClient
+    ) -> None:
+        """Historically-buggy ROAS would be (4000+3000)/1000 = 7.0. Correct
+        blended ROAS is ga4_revenue / ad_spend = 3000/1000 = 3.0."""
+        body = ga4_mixed_client.get("/api/v1/dashboard/summary", params=self._PARAMS).json()
+        assert body["totals"]["blended_roas"] == pytest.approx(3.0)
+        assert body["totals"]["roas"] == pytest.approx(3.0)
+        assert body["totals"]["roas"] != pytest.approx(7.0)
+
+    def test_ad_spend_reflected_in_total_spend(self, ga4_mixed_client: TestClient) -> None:
+        """GA4 contributes 0 spend, so total spend == ad spend."""
+        body = ga4_mixed_client.get("/api/v1/dashboard/summary", params=self._PARAMS).json()
+        assert body["totals"]["spend"] == pytest.approx(1000.0)
+
+    def test_per_channel_rows_unaffected(self, ga4_mixed_client: TestClient) -> None:
+        """Per-channel breakdown was never double-counted — each channel keeps
+        its own numbers regardless of the cross-channel headline fix."""
+        body = ga4_mixed_client.get("/api/v1/dashboard/summary", params=self._PARAMS).json()
+        by_channel = {c["channel"]: c for c in body["by_channel"]}
+        assert by_channel["google_ads"]["conversions"] == pytest.approx(20.0)
+        assert by_channel["ga4"]["conversions"] == pytest.approx(15.0)
+
+    def test_ad_only_period_falls_back_to_ad_ratio_no_ga4(
+        self, seeded_client: TestClient
+    ) -> None:
+        """Regression guard: tenants with no analytics channel connected at
+        all (the seeded_client fixture — sample + google_ads, both 'ad') must
+        see identical headline numbers to before this fix."""
+        body = seeded_client.get(
+            "/api/v1/dashboard/summary",
+            params={"date_from": "2024-03-15", "date_to": "2024-03-16"},
+        ).json()
+        assert body["totals"]["conversions"] == pytest.approx(11.0)
+        assert body["totals"]["ad_conversions"] == pytest.approx(11.0)
+        assert body["totals"]["analytics_conversions"] == pytest.approx(0.0)
+        assert body["totals"]["roas"] == pytest.approx(975 / 225, rel=1e-4)

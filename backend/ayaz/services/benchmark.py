@@ -418,34 +418,75 @@ def build_benchmark(
     ----------------
     All SQL passes ``tenant_id`` as a WHERE predicate via the shared
     ``_aggregate_by_channel_raw`` helper.  No cross-tenant data is accessible.
+
+    Kaynak-tipi ayrımı (ad vs analytics)
+    -------------------------------------
+    Ad platforms (google_ads, meta_ads, ...) and analytics sources (ga4,
+    search_console) write to the same fact-table columns.  This function's
+    account-level metrics are all **ad-only**:
+
+    - CTR/CPC/CPM use ad-only impressions/clicks/spend — Search Console's
+      organic clicks/impressions would otherwise dilute a comparison meant
+      for PAID media (the TR e-commerce reference ranges are paid-ads
+      benchmarks).
+    - Dönüşüm Oranı (conversion_rate) numerator is the source-of-truth
+      conversions (GA4 wins when present and non-zero, else ad — see
+      ``resolve_headline_metric``); the denominator stays ad-only clicks
+      (mirrors CPA's existing "spend / headline-conversions" convention).
+    - ROAS is the blended formula (source-of-truth revenue ÷ ad-only spend —
+      see ``blended_roas``).
+
+    Per-channel ``channels`` rows only include ``source_type == "ad"``
+    channels: GA4/Search Console have structurally zero spend, so they would
+    otherwise appear as a misleading "weak" 0-ROAS/0-CTR row and could
+    corrupt the "reallocate budget to the best channel" insight (#3 below),
+    which assumes every row is a real ad-spend channel.
     """
-    from ayaz.services.metrics import _aggregate_by_channel_raw
+    from ayaz.services.channels import source_type
+    from ayaz.services.metrics import (
+        _aggregate_by_channel_raw,
+        blended_roas as _blended_roas,
+        resolve_headline_metric,
+        split_channel_totals_by_source,
+    )
 
     channel_data = _aggregate_by_channel_raw(db, tenant_id, date_from, date_to)
 
-    # ── Sum across channels for account-level totals ───────────────────────
-    total_impressions = Decimal(0)
-    total_clicks = Decimal(0)
-    total_spend = Decimal(0)
-    total_conversions = Decimal(0)
-    total_conversion_value = Decimal(0)
+    # ── Kaynak-tipi ayrımı (ad vs analytics) — çift-sayımı önler ───────────
+    split = split_channel_totals_by_source(channel_data)
 
-    for row in channel_data.values():
-        total_impressions += row["impressions"]
-        total_clicks += row["clicks"]
-        total_spend += row["spend"]
-        total_conversions += row["conversions"]
-        total_conversion_value += row["conversion_value"]
+    ad_impressions = split["ad_impressions"]
+    ad_clicks = split["ad_clicks"]
+    ad_spend = split["ad_spend"]
+    ad_conversions = split["ad_conversions"]
+    ad_conversion_value = split["ad_conversion_value"]
+    analytics_conversions = split["analytics_conversions"]
+    analytics_conversion_value = split["analytics_conversion_value"]
 
-    has_data = total_spend > Decimal(0) or total_impressions > Decimal(0)
+    headline_conversions = resolve_headline_metric(analytics_conversions, ad_conversions)
+    headline_conversion_value = resolve_headline_metric(
+        analytics_conversion_value, ad_conversion_value
+    )
 
-    # ── Compute account-level metrics ──────────────────────────────────────
+    has_data = ad_spend > Decimal(0) or ad_impressions > Decimal(0)
+
+    # ── Compute account-level metrics (ad-only impressions/clicks/spend) ───
     metrics_values = _compute_account_metrics(
-        total_impressions,
-        total_clicks,
-        total_spend,
-        total_conversions,
-        total_conversion_value,
+        ad_impressions,
+        ad_clicks,
+        ad_spend,
+        headline_conversions,
+        headline_conversion_value,
+    )
+    # ROAS explicitly via the shared blended-ROAS helper (source-of-truth
+    # revenue ÷ ad-only spend) rather than relying on the coincidence that
+    # ad_spend currently equals total spend.
+    metrics_values["roas"] = float(
+        _blended_roas(
+            ad_spend=ad_spend,
+            analytics_conversion_value=analytics_conversion_value,
+            ad_conversion_value=ad_conversion_value,
+        )
     )
 
     # ── Build metrics list in canonical order ──────────────────────────────
@@ -489,6 +530,10 @@ def build_benchmark(
 
     channel_rows = []
     for ch_key, row in channel_data.items():
+        # Only paid-media channels are comparable to an ad sector benchmark
+        # and reallocatable via the "shift budget" insight (#3 below).
+        if source_type(ch_key) != "ad":
+            continue
         ch_spend = row["spend"]
         ch_impressions = row["impressions"]
         ch_clicks = row["clicks"]

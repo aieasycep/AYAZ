@@ -75,6 +75,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from ayaz.services.trformat import tr_num, tr_pct, tr_roas
+
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 # Sensitivity: how much relative change maps to full score swing.
@@ -204,18 +206,18 @@ def _score_efficiency(curr: dict[str, float], base: dict[str, float]) -> dict:
         roas_pct = _fmt_pct(roas_ratio)
         cpa_pct = _fmt_pct(cpa_inv_ratio)  # cpa_inv_ratio > 1 means CPA went DOWN
         basis = (
-            f"ROAS {curr_roas:.2f}x · önceki dönem {base_roas:.2f}x ({roas_pct}) · "
-            f"CPA {curr_cpa:.2f} · önceki {base_cpa:.2f} ({cpa_pct})"
+            f"ROAS {tr_roas(curr_roas)} · önceki dönem {tr_roas(base_roas)} ({roas_pct}) · "
+            f"CPA {tr_num(curr_cpa)} · önceki {tr_num(base_cpa)} ({cpa_pct})"
         )
     elif has_roas:
         combined_ratio = roas_ratio
         basis = (
-            f"ROAS {curr_roas:.2f}x · önceki dönem {base_roas:.2f}x ({_fmt_pct(roas_ratio)})"
+            f"ROAS {tr_roas(curr_roas)} · önceki dönem {tr_roas(base_roas)} ({_fmt_pct(roas_ratio)})"
         )
     else:
         combined_ratio = cpa_inv_ratio
         basis = (
-            f"CPA {curr_cpa:.2f} · önceki dönem {base_cpa:.2f} ({_fmt_pct(cpa_inv_ratio)})"
+            f"CPA {tr_num(curr_cpa)} · önceki dönem {tr_num(base_cpa)} ({_fmt_pct(cpa_inv_ratio)})"
         )
 
     score = _ratio_to_score(combined_ratio)
@@ -251,7 +253,7 @@ def _score_engagement(curr: dict[str, float], base: dict[str, float]) -> dict:
     ratio = curr_ctr / base_ctr
     score = _ratio_to_score(ratio)
     basis = (
-        f"CTR {curr_ctr * 100:.2f}% · önceki dönem {base_ctr * 100:.2f}% ({_fmt_pct(ratio)})"
+        f"CTR {tr_pct(curr_ctr * 100, 2)} · önceki dönem {tr_pct(base_ctr * 100, 2)} ({_fmt_pct(ratio)})"
     )
     return {
         "key": "engagement",
@@ -263,26 +265,52 @@ def _score_engagement(curr: dict[str, float], base: dict[str, float]) -> dict:
     }
 
 
+def _ad_clicks(totals: dict[str, float]) -> float:
+    """Return ad-only clicks, falling back to blended ``clicks`` when the
+    caller doesn't distinguish source type (geriye dönük uyumluluk)."""
+    return totals.get("ad_clicks", totals["clicks"])
+
+
+def _ad_conversions(totals: dict[str, float]) -> float:
+    """Return ad-only conversions, falling back to blended ``conversions``
+    when the caller doesn't distinguish source type."""
+    return totals.get("ad_conversions", totals["conversions"])
+
+
 def _conversion_rate(totals: dict[str, float]) -> float:
-    """Compute conversion rate = conversions / clicks.  Returns 0.0 when clicks=0."""
-    clicks = totals["clicks"]
-    if clicks == 0.0:
+    """Compute conversion rate = ad_conversions / ad_clicks.
+
+    Kaynak-tipi ayrımı: yalnız reklam (ad) kanallarının dönüşüm/tıklama
+    sayıları kullanılır. Analytics kaynaklarının (ör. GA4) dönüşümleri her
+    zaman 0 tıklamayla gelir (GA4 "clicks" değil "sessions" ölçer); bunları
+    reklam tıklamalarına bölmek CVR'ı yapay şekilde şişirir — bu fonksiyon
+    tam olarak bunu önler.
+
+    ``totals`` içinde ``ad_conversions``/``ad_clicks`` anahtarları yoksa
+    (ör. eski çağrı şekli veya salt-pure-function testleri) mevcut
+    ``conversions``/``clicks`` alanlarına düşülür — geriye dönük uyumlu.
+
+    Returns 0.0 when the (ad) click denominator is zero.
+    """
+    ad_clicks = _ad_clicks(totals)
+    if ad_clicks == 0.0:
         return 0.0
-    return totals["conversions"] / clicks
+    return _ad_conversions(totals) / ad_clicks
 
 
 def _score_conversion(curr: dict[str, float], base: dict[str, float]) -> dict:
     """Score Dönüşüm (Conversion).
 
-    Driver: conversion rate = conversions / clicks (higher is better).
+    Driver: conversion rate = ad_conversions / ad_clicks (higher is better;
+    kaynak-tipi ayrımıyla — bkz. ``_conversion_rate``).
     Returns neutral 50 when:
-    - baseline clicks are zero (no history), OR
-    - current clicks are zero (cannot compute current CVR).
+    - baseline (ad) CVR is zero (no history), OR
+    - current (ad) clicks are zero (cannot compute current CVR).
     """
     curr_cvr = _conversion_rate(curr)
     base_cvr = _conversion_rate(base)
 
-    if base_cvr == 0.0 or curr["clicks"] == 0.0:
+    if base_cvr == 0.0 or _ad_clicks(curr) == 0.0:
         return {
             "key": "conversion",
             "label": "Dönüşüm",
@@ -295,8 +323,8 @@ def _score_conversion(curr: dict[str, float], base: dict[str, float]) -> dict:
     ratio = curr_cvr / base_cvr
     score = _ratio_to_score(ratio)
     basis = (
-        f"Dönüşüm oranı {curr_cvr * 100:.2f}% · "
-        f"önceki dönem {base_cvr * 100:.2f}% ({_fmt_pct(ratio)})"
+        f"Dönüşüm oranı {tr_pct(curr_cvr * 100, 2)} · "
+        f"önceki dönem {tr_pct(base_cvr * 100, 2)} ({_fmt_pct(ratio)})"
     )
     return {
         "key": "conversion",
@@ -328,6 +356,12 @@ def compute_scores(
         spend, impressions, clicks, conversions, conversion_value,
         ctr, cpc, cpa, roas.
         Typically the ``totals`` field from ``_aggregate_period``.
+        Optionally also ``ad_conversions``/``ad_clicks`` — when present, the
+        Dönüşüm (conversion) component uses these ad-only values instead of
+        the blended ``conversions``/``clicks`` (avoids mixing in GA4's
+        0-click conversions or Search Console's organic clicks). When
+        absent, falls back to ``conversions``/``clicks`` unchanged —
+        fully backward compatible with pre-existing callers/tests.
 
     baseline_totals:
         Same shape as ``current_totals`` for the preceding equal-length period.

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { channelLabel } from '@/lib/channels';
 import { getToken } from '@/lib/api';
 import {
   getReports,
@@ -65,10 +66,11 @@ function fmtNum(n: number): string {
 
 function fmtPct(n: number): string {
   return (
+    '%' +
     (n * 100).toLocaleString('tr-TR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }) + '%'
+    })
   );
 }
 
@@ -627,7 +629,7 @@ export default function ReportsPage() {
                   {report.config.channels && report.config.channels.length > 0 && (
                     <div className={styles.reportCardPills}>
                       {report.config.channels.map((ch) => (
-                        <span key={ch} className={styles.channelPill}>{ch}</span>
+                        <span key={ch} className={styles.channelPill}>{channelLabel(ch)}</span>
                       ))}
                     </div>
                   )}

@@ -67,6 +67,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ayaz.services.trformat import tr_num, tr_pct
 from ayaz.models.analytics import DimCampaign, DimChannel, FactDailyMetrics
 from ayaz.models.automation import AutomationRule, AutomationRun
 from ayaz.models.insights import Insight
@@ -553,13 +554,15 @@ def _build_insight_for_rule(
             f"tespit edildi."
         )
         if entity:
-            body += f" Etkilenen: {entity.entity_key}."
+            # Kullanıcıya ham UUID değil, okunabilir ad göster.
+            entity_label = entity.entity_name or entity.entity_key
+            body += f" Etkilenen: {entity_label}."
             if entity.current_value is not None:
-                body += f" Güncel değer: {entity.current_value:.4g}."
+                body += f" Güncel değer: {tr_num(entity.current_value)}."
             if entity.prior_value is not None:
-                body += f" Önceki değer: {entity.prior_value:.4g}."
+                body += f" Önceki değer: {tr_num(entity.prior_value)}."
             if entity.pct_change is not None:
-                body += f" Değişim: %{entity.pct_change * 100:.1f}."
+                body += f" Değişim: {tr_pct(entity.pct_change * 100)}."
 
     window_days = rule.window_days
     as_of = evaluation.as_of_date

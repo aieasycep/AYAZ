@@ -37,8 +37,11 @@ from __future__ import annotations
 import json
 import logging
 import re
+
+from ayaz.services.channels import channel_label
+from ayaz.services.trdate import tr_date
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -148,7 +151,10 @@ def _extract_date_range(
     Fallback: default_from / default_to unchanged.
     """
     norm = _normalise(text)
-    today = date.today()
+    # UTC to stay consistent with the reports endpoint and the UTC-keyed warehouse
+    # (fact_daily_metrics dates come from the ad platforms in UTC). Using local
+    # date.today() here caused an off-by-one vs the endpoint during 00:00–03:00 TRT.
+    today = datetime.now(timezone.utc).date()
 
     # "son N gün" — last N calendar days
     m = re.search(r"son\s+(\d+)\s+g[üu]n", norm)
@@ -193,13 +199,13 @@ def _build_title(
 ) -> str:
     """Generate a concise Turkish report title from the parsed intent."""
     ch_part = (
-        " vs ".join(c.replace("_", " ").title() for c in channels)
+        " vs ".join(channel_label(c) for c in channels)
         if channels
         else "Tüm Kanallar"
     )
     days = (date_to - date_from).days + 1
     if days <= 1:
-        period_part = f"{date_from.isoformat()} Günü"
+        period_part = f"{tr_date(date_from)} Günü"
     elif days == 30:
         period_part = "Son 30 Gün"
     elif days == 7:
@@ -207,7 +213,7 @@ def _build_title(
     elif days == 90:
         period_part = "Son 90 Gün"
     else:
-        period_part = f"{date_from.isoformat()} – {date_to.isoformat()}"
+        period_part = f"{tr_date(date_from)} – {tr_date(date_to)}"
     suffix = " Karşılaştırması" if comparison else " Raporu"
     return f"{ch_part} {period_part}{suffix}"
 
@@ -285,7 +291,7 @@ def _claude_parse(
     """Call Claude to extract a structured JSON spec.  Falls back to stub on error."""
     import httpx
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     system = (
         "Sen bir dijital pazarlama raporlama asistanısın. "
         "Kullanıcının Türkçe doğal dil sorgusunu yapılandırılmış JSON spesifikasyonuna "

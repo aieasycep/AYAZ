@@ -36,6 +36,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ayaz.api.deps import get_current_membership, get_db
+from ayaz.config import settings
 from ayaz.integrations import IntegrationRegistry
 from ayaz.integrations.base import AuthType, IntegrationStatus
 from ayaz.models.integrations import (
@@ -55,7 +56,10 @@ _log = logging.getLogger(__name__)
 
 _PLAN_ORDER = {"free": 0, "starter": 1, "growth": 2, "agency": 3}
 
-_DEFAULT_REDIRECT_BASE = "http://localhost:8000/api/v1"
+# OAuth redirect base — must be the PUBLIC backend URL in production so the
+# provider redirects the browser back to the deployed callback (not localhost).
+# Sourced from settings (OAUTH_REDIRECT_BASE env); dev default stays localhost.
+_DEFAULT_REDIRECT_BASE = settings.oauth_redirect_base
 
 # Keys in the google_workspace bundle that get auto-connections on callback
 _GOOGLE_BUNDLE_KEYS = [
@@ -542,7 +546,7 @@ def create_integration_request(
     integration_key = payload.get("integration_key", "")
     if not integration_key:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="integration_key is required.",
         )
 
@@ -600,7 +604,7 @@ def connect_api_key(
         normalized = instance.validate_credentials(payload)
     except (ValueError, NotImplementedError) as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Anahtar reddedildi: {exc}",
         )
 

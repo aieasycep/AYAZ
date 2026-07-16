@@ -213,7 +213,7 @@ def metric_drill_down(
     """
     if metric not in _ALLOWED_METRICS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Geçersiz metrik: {metric!r}. "
                 f"İzin verilenler: {sorted(_ALLOWED_METRICS)}"
@@ -221,7 +221,7 @@ def metric_drill_down(
         )
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from, date_to'dan önce olmalı.",
         )
 
@@ -291,7 +291,7 @@ def run_detect(
 
     Tenant isolation: every query and every inserted row is scoped to tenant_id.
     """
-    from ayaz.services.narrator import TemplateNarrator
+    from ayaz.services.insights import _default_narrator
 
     tenant_id = membership.tenant_id
     as_of = _latest_fact_date(db, tenant_id)
@@ -306,7 +306,7 @@ def run_detect(
         )
 
     results = run_data_quality_detectors(db, tenant_id, as_of)
-    narrator = TemplateNarrator()
+    narrator = _default_narrator()
 
     counts = {"new_info": 0, "new_warning": 0, "new_critical": 0, "skipped": 0}
 

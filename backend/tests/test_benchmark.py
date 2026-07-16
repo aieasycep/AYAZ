@@ -613,6 +613,154 @@ class TestBuildBenchmark:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# 2b. build_benchmark — kaynak-tipi mutabakatı (ad + analytics) regression tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def _seed_ad_and_analytics_warehouse(
+    db: Session,
+    tenant: Tenant,
+    d: date,
+) -> tuple[DimChannel, DimChannel, DimChannel]:
+    """Seed google_ads (ad) + ga4 (analytics) + search_console (analytics).
+
+    google_ads:      spend=1000, impressions=20000, clicks=500,
+                      conversions=20, conversion_value=4000
+                      -> ad CTR = 500/20000*100 = 2.5%, ad CVR = 20/500*100 = 4.0%
+                      -> ad-only ROAS = 4000/1000 = 4.0
+    ga4:              spend=0, clicks=0 (GA4 measures sessions, not clicks),
+                      conversions=100, conversion_value=50000
+                      (deliberately huge — would massively distort any metric
+                      it leaked into if channel isolation were broken)
+    search_console:   spend=0, clicks=5000 (real ORGANIC clicks),
+                      impressions=200000, conversions=0
+                      (deliberately huge clicks — would dilute ad CTR/CVR if
+                      blended into ad-only denominators)
+    """
+    acct = _make_connected_account(db, tenant)
+
+    google = _make_channel(db, "google_ads", "Google Ads")
+    g_camp = _make_campaign(db, tenant, google)
+    g_adset = _make_adset(db, tenant, g_camp)
+    g_ad = _make_ad(db, tenant, g_adset)
+    _insert_fact(
+        db, tenant, acct, google, g_camp, g_adset, g_ad, d,
+        spend="1000", conversion_value="4000", conversions="20",
+        impressions=20000, clicks=500,
+    )
+
+    ga4 = _make_channel(db, "ga4", "Google Analytics 4")
+    a_camp = _make_campaign(db, tenant, ga4)
+    a_adset = _make_adset(db, tenant, a_camp)
+    a_ad = _make_ad(db, tenant, a_adset)
+    _insert_fact(
+        db, tenant, acct, ga4, a_camp, a_adset, a_ad, d,
+        spend="0", conversion_value="50000", conversions="100",
+        impressions=0, clicks=0,
+    )
+
+    gsc = _make_channel(db, "search_console", "Search Console")
+    s_camp = _make_campaign(db, tenant, gsc)
+    s_adset = _make_adset(db, tenant, s_camp)
+    s_ad = _make_ad(db, tenant, s_adset)
+    _insert_fact(
+        db, tenant, acct, gsc, s_camp, s_adset, s_ad, d,
+        spend="0", conversion_value="0", conversions="0",
+        impressions=200000, clicks=5000,
+    )
+
+    db.commit()
+    return google, ga4, gsc
+
+
+class TestBuildBenchmarkSourceTypeSplit:
+    _date_from = date(2026, 3, 1)
+    _date_to = date(2026, 3, 1)
+
+    def test_roas_is_ad_only_spend_with_ga4_revenue_not_double_counted(
+        self, db_session: Session
+    ) -> None:
+        """Historically-buggy ROAS would be (4000+50000)/1000 = 54.0. Correct
+        blended ROAS = ga4_revenue / ad_spend = 50000/1000 = 50.0 (GA4 wins as
+        source of truth over the ad platform's own 4000)."""
+        tenant = _make_tenant(db_session)
+        _seed_ad_and_analytics_warehouse(db_session, tenant, self._date_from)
+        result = build_benchmark(db_session, tenant.id, self._date_from, self._date_to)
+        roas_metric = next(m for m in result["metrics"] if m["key"] == "roas")
+        assert roas_metric["your_value"] == pytest.approx(50.0)
+        assert roas_metric["your_value"] != pytest.approx(54.0)
+
+    def test_ctr_is_ad_only_not_diluted_by_organic_search_console_clicks(
+        self, db_session: Session
+    ) -> None:
+        """Search Console's 5000 organic clicks / 200000 impressions must NOT
+        blend into the ad CTR. Ad-only CTR = 500/20000*100 = 2.5%."""
+        tenant = _make_tenant(db_session)
+        _seed_ad_and_analytics_warehouse(db_session, tenant, self._date_from)
+        result = build_benchmark(db_session, tenant.id, self._date_from, self._date_to)
+        ctr_metric = next(m for m in result["metrics"] if m["key"] == "ctr")
+        assert ctr_metric["your_value"] == pytest.approx(2.5, abs=0.01)
+
+    def test_conversion_rate_uses_ga4_conversions_over_ad_clicks(
+        self, db_session: Session
+    ) -> None:
+        """Dönüşüm Oranı numerator = source-of-truth conversions (GA4's 100,
+        since it's non-zero) ÷ ad-only clicks (500) = 20.0%. NOT (20+100)/500
+        = 24% (blind sum) and NOT 20/500=4% (ignoring GA4 entirely)."""
+        tenant = _make_tenant(db_session)
+        _seed_ad_and_analytics_warehouse(db_session, tenant, self._date_from)
+        result = build_benchmark(db_session, tenant.id, self._date_from, self._date_to)
+        cr_metric = next(m for m in result["metrics"] if m["key"] == "conversion_rate")
+        assert cr_metric["your_value"] == pytest.approx(20.0)
+
+    def test_channel_rows_exclude_analytics_channels(self, db_session: Session) -> None:
+        """GA4 and Search Console must never appear in the per-channel ad
+        benchmark comparison table — they have no ad spend and would show a
+        misleading 0-ROAS/0-CTR 'weak' row."""
+        tenant = _make_tenant(db_session)
+        _seed_ad_and_analytics_warehouse(db_session, tenant, self._date_from)
+        result = build_benchmark(db_session, tenant.id, self._date_from, self._date_to)
+        channel_keys = {c["channel"] for c in result["channels"]}
+        assert channel_keys == {"google_ads"}
+        assert "ga4" not in channel_keys
+        assert "search_console" not in channel_keys
+
+    def test_has_data_based_on_ad_only_spend(self, db_session: Session) -> None:
+        """A tenant with ONLY GA4 connected (no ad spend at all) has no ad
+        benchmark to compute — has_data must be False, not True from GA4's
+        non-zero conversion_value."""
+        tenant = _make_tenant(db_session, "GA4 Only Tenant")
+        acct = _make_connected_account(db_session, tenant)
+        ga4 = _make_channel(db_session, "ga4", "Google Analytics 4")
+        camp = _make_campaign(db_session, tenant, ga4)
+        adset = _make_adset(db_session, tenant, camp)
+        ad = _make_ad(db_session, tenant, adset)
+        _insert_fact(
+            db_session, tenant, acct, ga4, camp, adset, ad, self._date_from,
+            spend="0", conversion_value="10000", conversions="50",
+            impressions=0, clicks=0,
+        )
+        db_session.commit()
+
+        result = build_benchmark(db_session, tenant.id, self._date_from, self._date_to)
+        for m in result["metrics"]:
+            assert m["position"] == "weak"
+        assert result["channels"] == []
+
+    def test_ad_only_tenant_unaffected_by_fix(self, db_session: Session) -> None:
+        """Regression guard: an ad-only tenant (no analytics channel at all,
+        via the pre-existing _seed_strong_performer fixture) must produce
+        IDENTICAL results to before this fix."""
+        tenant = _make_tenant(db_session)
+        _seed_strong_performer(db_session, tenant, self._date_from)
+        result = build_benchmark(db_session, tenant.id, self._date_from, self._date_to)
+        roas_metric = next(m for m in result["metrics"] if m["key"] == "roas")
+        assert roas_metric["your_value"] == pytest.approx(6.667, abs=0.01)
+        assert roas_metric["position"] == "strong"
+        assert len(result["channels"]) == 2
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # 3. HTTP endpoint tests
 # ═══════════════════════════════════════════════════════════════════════════════
 

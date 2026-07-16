@@ -507,6 +507,13 @@ describe('authFetch 401 handling', () => {
       configurable: true,
     });
 
+    // Kod bare `localStorage` (global) okur — window.localStorage değil; global stub şart.
+    vi.stubGlobal('localStorage', {
+      getItem: () => 'test-token',
+      removeItem: vi.fn(),
+      setItem: vi.fn(),
+    });
+
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,

@@ -40,6 +40,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ayaz.models.insights import Insight
+from ayaz.services.channels import channel_label
+from ayaz.services.trformat import tr_num, tr_pct
 
 
 # ── Data structures ────────────────────────────────────────────────────────────
@@ -89,24 +91,42 @@ class ApplyResult:
 # ── Root-cause templates (Turkish, data-grounded) ─────────────────────────────
 
 
+def _channel_display(channel: str | None) -> str:
+    """Slug → human-readable label for user-facing text (meta_ads → Meta Ads).
+
+    Delegates to the shared channel_label map (single source), which fixes
+    casing the naive .title() got wrong (e.g. tiktok_ads → 'TikTok Ads').
+    """
+    if not channel:
+        return "belirtilmemiş kanal"
+    return channel_label(channel)
+
+
+def _num(value: object, decimals: int = 2) -> str:
+    """TR-format a possibly-missing numeric value; '?' when not a number."""
+    if isinstance(value, (int, float)):
+        return tr_num(float(value), decimals)
+    return "?"
+
+
 def _root_cause_roas_drop(insight: Insight) -> str:
     data = insight.data or {}
-    current = data.get("current_roas", "?")
-    prior = data.get("prior_roas", "?")
+    current = data.get("current_roas")
+    prior = data.get("prior_roas")
     pct = data.get("pct_drop", 0)
-    channel = insight.channel or "belirtilmemiş kanal"
-    spend = data.get("current_spend", "?")
-    cv = data.get("current_conversion_value", "?")
+    channel = _channel_display(insight.channel)
+    spend = data.get("current_spend")
+    cv = data.get("current_conversion_value")
 
     try:
-        pct_display = f"%{pct * 100:.1f}"
+        pct_display = tr_pct(pct * 100)
     except (TypeError, ValueError):
         pct_display = "?"
 
     return (
-        f"'{channel}' kanalında ROAS {pct_display} oranında düştü "
-        f"(önceki dönem: {prior:.2f}x → güncel: {current:.2f}x). "
-        f"Bu dönemde {spend:.2f} birim harcamayla yalnızca {cv:.2f} birim dönüşüm değeri elde edildi. "
+        f"{channel} kanalında ROAS {pct_display} oranında düştü "
+        f"(önceki dönem: {_num(prior)}x → güncel: {_num(current)}x). "
+        f"Bu dönemde {_num(spend)} birim harcamayla yalnızca {_num(cv)} birim dönüşüm değeri elde edildi. "
         "Olası nedenler: reklam yorgunluğu (aynı hedef kitleye çok uzun süre gösterim), "
         "açılış sayfası dönüşüm sorunları, yanlış hedefleme veya artan rekabet maliyetleri. "
         "Dönüşüm izleme pikseli çalışıyor mu kontrol edin."
@@ -116,14 +136,14 @@ def _root_cause_roas_drop(insight: Insight) -> str:
 def _root_cause_zero_conversions(insight: Insight) -> str:
     data = insight.data or {}
     spend = data.get("spend", 0)
-    channel = insight.channel or "belirtilmemiş kanal"
+    channel = _channel_display(insight.channel)
     period_days = (
         (insight.period_end - insight.period_start).days + 1
         if insight.period_end and insight.period_start
         else "?"
     )
     return (
-        f"'{channel}' kanalı son {period_days} günde {spend:.2f} birim harcama yaptı "
+        f"{channel} kanalı son {period_days} günde {_num(spend)} birim harcama yaptı "
         "ancak hiç dönüşüm kaydedilmedi. "
         "En sık karşılaşılan nedenler: dönüşüm takip pikselinin çalışmaması, "
         "açılış sayfasında teknik hata, reklam onay sorunu veya "
@@ -134,17 +154,17 @@ def _root_cause_zero_conversions(insight: Insight) -> str:
 
 def _root_cause_spend_spike(insight: Insight) -> str:
     data = insight.data or {}
-    current = data.get("current_spend", "?")
-    prior = data.get("prior_spend", "?")
+    current = data.get("current_spend")
+    prior = data.get("prior_spend")
     pct = data.get("pct_rise", 0)
-    channel = insight.channel or "belirtilmemiş kanal"
+    channel = _channel_display(insight.channel)
     try:
-        pct_display = f"%{pct * 100:.1f}"
+        pct_display = tr_pct(pct * 100)
     except (TypeError, ValueError):
         pct_display = "?"
     return (
-        f"'{channel}' kanalında harcama {pct_display} oranında ani artış gösterdi "
-        f"(önceki dönem: {prior:.2f} → güncel: {current:.2f}). "
+        f"{channel} kanalında harcama {pct_display} oranında ani artış gösterdi "
+        f"(önceki dönem: {_num(prior)} → güncel: {_num(current)}). "
         "Olası nedenler: bütçe güncellemesi, teklif artışı, yeni reklam seti aktivasyonu "
         "veya rakipler çekildiğinde artan açık artırma verimliliği. "
         "Harcama artışının ROAS'a yansıyıp yansımadığını kontrol edin."
@@ -156,18 +176,21 @@ def _root_cause_ctr_drop(insight: Insight) -> str:
     current = data.get("current_ctr", "?")
     prior = data.get("prior_ctr", "?")
     pct = data.get("pct_drop", 0)
-    channel = insight.channel or "belirtilmemiş kanal"
-    impressions = data.get("current_impressions", "?")
+    channel = _channel_display(insight.channel)
+    impressions = data.get("current_impressions")
     try:
-        pct_display = f"%{pct * 100:.1f}"
-        c_display = f"%{current * 100:.2f}" if isinstance(current, float) else current
-        p_display = f"%{prior * 100:.2f}" if isinstance(prior, float) else prior
+        pct_display = tr_pct(pct * 100)
+        c_display = tr_pct(current * 100, 2) if isinstance(current, float) else current
+        p_display = tr_pct(prior * 100, 2) if isinstance(prior, float) else prior
     except (TypeError, ValueError):
         pct_display = c_display = p_display = "?"
+    imp_display = (
+        tr_num(float(impressions), 0) if isinstance(impressions, (int, float)) else "?"
+    )
     return (
-        f"'{channel}' kanalında tıklama oranı (CTR) {pct_display} düştü "
+        f"{channel} kanalında tıklama oranı (CTR) {pct_display} düştü "
         f"(önceki: {p_display} → güncel: {c_display}). "
-        f"Bu dönemde {impressions} gösterimde bu oran yakalandı. "
+        f"Bu dönemde {imp_display} gösterimde bu oran yakalandı. "
         "Olası nedenler: reklam yorgunluğu (kreatif yenilenmesi gerekiyor), "
         "hedef kitlede reklam doygunluğu veya reklam alaka düzeyinin düşmesi. "
         "Reklam metni ve görsellerin güncellenmesini değerlendirin."
@@ -176,17 +199,17 @@ def _root_cause_ctr_drop(insight: Insight) -> str:
 
 def _root_cause_cpc_rise(insight: Insight) -> str:
     data = insight.data or {}
-    current = data.get("current_cpc", "?")
-    prior = data.get("prior_cpc", "?")
+    current = data.get("current_cpc")
+    prior = data.get("prior_cpc")
     pct = data.get("pct_rise", 0)
-    channel = insight.channel or "belirtilmemiş kanal"
+    channel = _channel_display(insight.channel)
     try:
-        pct_display = f"%{pct * 100:.1f}"
+        pct_display = tr_pct(pct * 100)
     except (TypeError, ValueError):
         pct_display = "?"
     return (
-        f"'{channel}' kanalında tıklama başı maliyet (CPC) {pct_display} arttı "
-        f"(önceki: {prior:.2f} → güncel: {current:.2f}). "
+        f"{channel} kanalında tıklama başı maliyet (CPC) {pct_display} arttı "
+        f"(önceki: {_num(prior)} → güncel: {_num(current)}). "
         "Olası nedenler: artan rekabet, sezonsal açık artırma baskısı, "
         "kalite puanı düşüşü veya teklif stratejisindeki değişiklik. "
         "Anahtar kelime kalite puanlarını ve açık artırma rekabetini inceleyin."
@@ -196,25 +219,25 @@ def _root_cause_cpc_rise(insight: Insight) -> str:
 def _root_cause_anomaly(insight: Insight) -> str:
     data = insight.data or {}
     metric = insight.metric or "?"
-    channel = insight.channel or "belirtilmemiş kanal"
+    channel = _channel_display(insight.channel)
     z = data.get("z_score", "?")
     direction = data.get("direction", "")
     candidate = data.get("candidate_value", "?")
     mean = data.get("history_mean", "?")
     dir_tr = "yüksek" if direction == "yuksek" else "düşük"
     try:
-        z_display = f"{abs(float(z)):.1f}"
+        z_display = tr_num(abs(float(z)), 1)
         z_str = f"istatistiksel sapma: {z_display}σ"
     except (TypeError, ValueError):
         z_str = "istatistiksel anomali"
     try:
-        candidate_str = f"{float(candidate):.2f}"
-        mean_str = f"{float(mean):.2f}"
+        candidate_str = tr_num(float(candidate))
+        mean_str = tr_num(float(mean))
     except (TypeError, ValueError):
         candidate_str = str(candidate)
         mean_str = str(mean)
     return (
-        f"'{channel}' kanalının '{metric}' metriğinde beklenmedik bir {dir_tr} değer tespit edildi "
+        f"{channel} kanalının '{metric}' metriğinde beklenmedik bir {dir_tr} değer tespit edildi "
         f"({z_str}; güncel değer: {candidate_str}, geçmiş ortalama: {mean_str}). "
         "Bu tür ani sapmalar genellikle veri toplama sorununu, kampanya yapılandırma "
         "değişikliğini veya gerçek pazar anomalisini işaret eder. "

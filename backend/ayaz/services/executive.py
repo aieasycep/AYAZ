@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, timedelta
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -41,31 +40,62 @@ def _compute_totals(channel_data: dict[str, dict]) -> dict:
 
     Returns
     -------
-    dict with keys: spend, revenue, conversions, clicks, impressions, roas.
-    All values are float.  roas = revenue / spend (0 when spend == 0).
+    dict with keys: spend, revenue, conversions, clicks, impressions, roas,
+    plus the kaynak-tipi (ad vs analytics) breakdown: ad_conversions,
+    ad_conversion_value, analytics_conversions, analytics_conversion_value.
+    All values are float.
+
+    ``revenue``/``conversions`` are resolved via the source-of-truth rule
+    (``resolve_headline_metric``): analytics (GA4) data wins when present
+    and non-zero, otherwise falls back to the ad-channel total — this is
+    NOT a blind SUM across ad + analytics channels anymore (that double-
+    counted GA4's conversions on top of what the ad platforms already
+    report). ``roas`` = ``blended_roas`` (source-of-truth revenue ÷ ad-only
+    spend). When no analytics channel is present, all of the above reduce
+    exactly to the pre-fix (ad-only) numbers — no behaviour change for
+    tenants without GA4/Search Console connected.
     """
-    total_spend = Decimal(0)
-    total_revenue = Decimal(0)
-    total_conversions = Decimal(0)
-    total_clicks = Decimal(0)
-    total_impressions = Decimal(0)
+    from ayaz.services.metrics import (
+        blended_roas as _blended_roas,
+        resolve_headline_metric,
+        split_channel_totals_by_source,
+    )
 
-    for row in channel_data.values():
-        total_spend += row["spend"]
-        total_revenue += row["conversion_value"]
-        total_conversions += row["conversions"]
-        total_clicks += row["clicks"]
-        total_impressions += row["impressions"]
+    split = split_channel_totals_by_source(channel_data)
 
-    roas = float(total_revenue / total_spend) if total_spend != Decimal(0) else 0.0
+    total_spend = split["total_spend"]
+    total_clicks = split["total_clicks"]
+    total_impressions = split["total_impressions"]
+
+    ad_conversions = split["ad_conversions"]
+    ad_conversion_value = split["ad_conversion_value"]
+    analytics_conversions = split["analytics_conversions"]
+    analytics_conversion_value = split["analytics_conversion_value"]
+
+    headline_conversions = resolve_headline_metric(analytics_conversions, ad_conversions)
+    headline_revenue = resolve_headline_metric(
+        analytics_conversion_value, ad_conversion_value
+    )
+
+    roas = float(
+        _blended_roas(
+            ad_spend=split["ad_spend"],
+            analytics_conversion_value=analytics_conversion_value,
+            ad_conversion_value=ad_conversion_value,
+        )
+    )
 
     return {
         "spend": float(total_spend),
-        "revenue": float(total_revenue),
-        "conversions": float(total_conversions),
+        "revenue": float(headline_revenue),
+        "conversions": float(headline_conversions),
         "clicks": float(total_clicks),
         "impressions": float(total_impressions),
         "roas": roas,
+        "ad_conversions": float(ad_conversions),
+        "ad_conversion_value": float(ad_conversion_value),
+        "analytics_conversions": float(analytics_conversions),
+        "analytics_conversion_value": float(analytics_conversion_value),
     }
 
 
@@ -181,7 +211,9 @@ def build_overview(
             "metric": g["metric"],
             "current_value": g["current_value"],
             "target_value": g["target_value"],
-            "pct_to_target": g["pct_to_target"],
+            # Goal service returns a 0..1+ ratio; the executive payload exposes
+            # a 0-100+ percent so the UI can render bars/labels directly.
+            "pct_to_target": round((g["pct_to_target"] or 0) * 100, 1),
             "status": g["status"],
         }
         for g in raw_goals[:5]
@@ -252,6 +284,9 @@ def _strongest_channel_label(channels: list[dict]) -> str:
     return str(best["label"])
 
 
+from ayaz.services.trformat import tr_pct, tr_roas, tr_tl
+
+
 def _build_headline(
     *,
     date_from: date,
@@ -270,9 +305,9 @@ def _build_headline(
 
     num_days = (date_to - date_from).days + 1
 
-    spend_str = f"₺{curr['spend']:,.0f}"
-    revenue_str = f"₺{curr['revenue']:,.0f}"
-    roas_str = f"{curr['roas']:.2f}x"
+    spend_str = tr_tl(curr["spend"])
+    revenue_str = tr_tl(curr["revenue"])
+    roas_str = tr_roas(curr["roas"])
 
     # "En güçlü kanal" is a performance claim -> rank by ROAS, not spend, so
     # it never contradicts a ROAS-sorted ROI table elsewhere in the UI.
@@ -284,7 +319,7 @@ def _build_headline(
         direction = "arttı" if roas_pct >= 0 else "azaldı"
         abs_pct = abs(roas_pct)
         mom_clause = (
-            f" ROAS geçen döneme göre %{abs_pct:.1f} {direction}."
+            f" ROAS geçen döneme göre {tr_pct(abs_pct)} {direction}."
         )
     else:
         mom_clause = ""

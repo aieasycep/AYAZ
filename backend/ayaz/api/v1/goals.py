@@ -151,12 +151,12 @@ def _validate_dates(period_start: str, period_end: str) -> None:
         pe = date.fromisoformat(period_end)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid date format: {exc}",
         )
     if ps > pe:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="period_start must be <= period_end",
         )
 
@@ -208,12 +208,12 @@ def create_goal_endpoint(
     """
     if body.metric not in ALL_METRICS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid metric {body.metric!r}. Choose from: {sorted(ALL_METRICS)}",
         )
     if body.period not in VALID_PERIODS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid period {body.period!r}. Choose from: {sorted(VALID_PERIODS)}",
         )
     _validate_dates(body.period_start, body.period_end)
@@ -233,7 +233,7 @@ def create_goal_endpoint(
         )
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         )
 
@@ -288,7 +288,7 @@ def update_goal_endpoint(
         goal = update_goal(db, membership.tenant_id, goal_id, **updates)
     except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         )
 

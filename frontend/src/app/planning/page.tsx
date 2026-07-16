@@ -56,20 +56,20 @@ function DeltaBadge({ pct }: { pct: number }) {
   if (pct > 0.5) {
     return (
       <span className={`${styles.deltaBadge} ${styles.deltaUp}`}>
-        ▲ {fmtNum(pct, 1)}%
+        ▲ %{fmtNum(pct, 1)}
       </span>
     );
   }
   if (pct < -0.5) {
     return (
       <span className={`${styles.deltaBadge} ${styles.deltaDown}`}>
-        ▼ {fmtNum(Math.abs(pct), 1)}%
+        ▼ %{fmtNum(Math.abs(pct), 1)}
       </span>
     );
   }
   return (
     <span className={`${styles.deltaBadge} ${styles.deltaFlat}`}>
-      — 0%
+      — %0
     </span>
   );
 }
@@ -408,7 +408,7 @@ function ActualChannelRow({
           }`}
         >
           {isAhead ? '▲' : isBehind ? '▼' : '—'}{' '}
-          {fmtNum(Math.abs(ch.variance_pct), 1)}%
+          %{fmtNum(Math.abs(ch.variance_pct), 1)}
         </span>
       </td>
     </tr>
@@ -653,8 +653,8 @@ export default function PlanningPage() {
     try {
       await deleteBudgetPlan(id);
       setPlans((prev) => prev.filter((p) => p.id !== id));
-    } catch {
-      // non-fatal
+    } catch (err) {
+      alert(parseApiError(err));
     } finally {
       setDeletingId(null);
     }

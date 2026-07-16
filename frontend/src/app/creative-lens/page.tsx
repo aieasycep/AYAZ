@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppNav from '@/components/AppNav';
+import { channelLabel } from '@/lib/channels';
 import SectionCard from '@/components/SectionCard';
 import {
   getCreativeInsights,
@@ -87,7 +88,7 @@ function CreativeCard({ row }: { row: CreativeRow }) {
         <div className={styles.creativeNameBlock}>
           <div className={styles.creativeName}>{row.ad_name}</div>
           <div className={styles.creativeMeta}>
-            <span className={styles.channelBadge}>{row.channel}</span>
+            <span className={styles.channelBadge}>{channelLabel(row.channel)}</span>
             <span className={styles.campaignName}>{row.campaign_name}</span>
           </div>
         </div>

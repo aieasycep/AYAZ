@@ -275,32 +275,32 @@ class TestDateRangeExtraction:
         return date(2026, 1, 31)
 
     def test_son_30_gun(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         d_from, d_to = _extract_date_range("son 30 gün", self._df(), self._dt())
         assert d_to == today
         assert d_from == today - timedelta(days=29)
         assert (d_to - d_from).days == 29  # 30 inclusive days
 
     def test_son_7_gun(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         d_from, d_to = _extract_date_range("son 7 gün", self._df(), self._dt())
         assert d_to == today
         assert (d_to - d_from).days == 6
 
     def test_son_90_gun(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         d_from, d_to = _extract_date_range("son 90 gün", self._df(), self._dt())
         assert d_to == today
         assert (d_to - d_from).days == 89
 
     def test_bu_ay(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         d_from, d_to = _extract_date_range("bu ay raporu", self._df(), self._dt())
         assert d_from == today.replace(day=1)
         assert d_to == today
 
     def test_gecen_ay(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         d_from, d_to = _extract_date_range("geçen ay", self._df(), self._dt())
         first_this = today.replace(day=1)
         last_prev = first_this - timedelta(days=1)
@@ -348,7 +348,7 @@ class TestVizExtraction:
 class TestStubParse:
     def test_meta_vs_google_son_30_gun(self):
         """The canonical example from the spec."""
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         default_from = today - timedelta(days=29)
         spec = _stub_parse(
             "Meta vs Google son 30 gün",
@@ -362,7 +362,7 @@ class TestStubParse:
         assert (spec.date_to - spec.date_from).days == 29
 
     def test_spec_has_all_fields(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         spec = _stub_parse(
             "Meta harcama roas",
             default_from=today - timedelta(days=29),
@@ -377,7 +377,7 @@ class TestStubParse:
         assert isinstance(spec.date_to, date)
 
     def test_metrics_with_no_channel(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         spec = _stub_parse(
             "dönüşüm ve roas analizi son 7 gün",
             default_from=today - timedelta(days=29),
@@ -388,7 +388,7 @@ class TestStubParse:
         assert spec.channels == []
 
     def test_timeseries_viz_detected(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         spec = _stub_parse(
             "Google trend raporu",
             default_from=today - timedelta(days=29),
@@ -397,7 +397,7 @@ class TestStubParse:
         assert spec.viz == "timeseries"
 
     def test_table_viz_detected(self):
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         spec = _stub_parse(
             "Meta tablo görünümü",
             default_from=today - timedelta(days=29),
@@ -410,7 +410,7 @@ class TestStubParse:
         from ayaz import config as cfg
 
         monkeypatch.setattr(cfg.settings, "anthropic_api_key", "")
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         spec = parse_request(
             "Meta vs Google son 30 gün",
             default_from=today - timedelta(days=29),
@@ -654,7 +654,7 @@ class TestBuildEndpoint:
         )
         assert resp.status_code == 200
         spec = resp.json()["spec"]
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         assert spec["date_to"] == today.isoformat()
         assert spec["date_from"] == (today - timedelta(days=29)).isoformat()
 

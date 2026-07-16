@@ -413,7 +413,7 @@ def remove_member(
 
     if m.role == MembershipRole.owner and _owner_count(db, tenant_id) <= 1:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Çalışma alanının son sahibi kaldırılamaz. "
                 "Önce başka bir üyeyi sahip yapın."
@@ -444,7 +444,7 @@ def change_role(
         and _owner_count(db, tenant_id) <= 1
     ):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 "Çalışma alanının son sahibinin rolü değiştirilemez. "
                 "Önce başka bir üyeyi sahip yapın."

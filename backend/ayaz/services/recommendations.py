@@ -53,6 +53,8 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from ayaz.services.trformat import tr_int, tr_pct, tr_roas, tr_tl
+
 log = logging.getLogger(__name__)
 
 # ── Turkish month name map ─────────────────────────────────────────────────────
@@ -263,7 +265,7 @@ def _from_budget(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date | 
                 rationale=(
                     f"Bütçenin %{overall_pace:.0f}'i harcandı ancak ayın yalnızca "
                     f"%{time_pace:.0f}'i geçti. Gerçekleşen harcama "
-                    f"₺{actual_spend:,.0f} / Planlanan ₺{planned_total:,.0f}. "
+                    f"{tr_tl(actual_spend)} / Planlanan {tr_tl(planned_total)}. "
                     "Bütçe erken tükenebilir."
                 ),
                 impact="high",
@@ -283,7 +285,7 @@ def _from_budget(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date | 
                 rationale=(
                     f"Ayın %{time_pace:.0f}'i geçmesine rağmen bütçenin yalnızca "
                     f"%{overall_pace:.0f}'i kullanıldı. Gerçekleşen harcama "
-                    f"₺{actual_spend:,.0f} / Planlanan ₺{planned_total:,.0f}. "
+                    f"{tr_tl(actual_spend)} / Planlanan {tr_tl(planned_total)}. "
                     "Bütçe tam kullanılmayabilir."
                 ),
                 impact="medium",
@@ -321,12 +323,12 @@ def _from_benchmark(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date
                     category_label="Sektör Kıyaslaması",
                     title="ROAS sektör ortalamasının altında",
                     rationale=(
-                        f"Hesap genelinde ROAS {roas_val:.2f}x — sektör referansının "
-                        f"alt sınırı {ref_low:.1f}x. Reklam optimizasyonu önerilir."
+                        f"Hesap genelinde ROAS {tr_roas(roas_val)} — sektör referansının "
+                        f"alt sınırı {tr_roas(ref_low)}. Reklam optimizasyonu önerilir."
                     ),
                     impact="medium",
                     effort="medium",
-                    metric={"label": "ROAS", "value": f"{roas_val:.2f}x"},
+                    metric={"label": "ROAS", "value": tr_roas(roas_val)},
                     action_label="Kıyaslama raporunu aç",
                     action_href="/benchmark",
                     state=states.get(key),
@@ -341,8 +343,8 @@ def _from_benchmark(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date
                     category_label="Sektör Kıyaslaması",
                     title="Tıklama oranı (TO) sektör ortalamasının altında",
                     rationale=(
-                        f"Hesap genelinde CTR %{ctr_val:.2f} — sektör referansının "
-                        f"alt sınırı %{ref_low:.1f}. Kreatif yenilenmesi önerilir."
+                        f"Hesap genelinde CTR {tr_pct(ctr_val, 2)} — sektör referansının "
+                        f"alt sınırı {tr_pct(ref_low, 1)}. Kreatif yenilenmesi önerilir."
                     ),
                     impact="medium",
                     effort="medium",
@@ -365,12 +367,12 @@ def _from_benchmark(db: Session, tenant_id: uuid.UUID, states: dict, as_of: date
                     category_label="Sektör Kıyaslaması",
                     title=f"{ch_label} ROAS'ı sektör ortalamasının altında",
                     rationale=(
-                        f"{ch_label} kanalının ROAS'ı {ch_roas:.2f}x — sektör "
+                        f"{ch_label} kanalının ROAS'ı {tr_roas(ch_roas)} — sektör "
                         "referans alt sınırının (2.0x) altında. Kanal optimizasyonu önerilir."
                     ),
                     impact="medium",
                     effort="medium",
-                    metric={"label": f"{ch_label} ROAS", "value": f"{ch_roas:.2f}x"},
+                    metric={"label": f"{ch_label} ROAS", "value": tr_roas(ch_roas)},
                     action_label="Kıyaslama raporunu aç",
                     action_href="/benchmark",
                     state=states.get(key),
@@ -389,19 +391,67 @@ def _from_goals(db: Session, tenant_id: uuid.UUID, states: dict) -> list[dict]:
     try:
         result = _get_goal_progress(db, tenant_id)
         goals = result.get("goals", [])
-        at_risk = [
-            g for g in goals
-            if g.get("status") in ("at_risk", "off_track") and (g.get("pct_to_target") or 0) < 100
+
+        # pct_to_target is a 0..1+ ratio from the goal service. Spend goals
+        # flagged for OVERRUN pacing must not land in the "behind" card —
+        # "hedefin gerisinde / hızlan" would be the opposite of the right
+        # advice. They get their own budget-overrun recommendation below.
+        def _spend_overrun(g: dict) -> bool:
+            if g.get("metric") != "spend":
+                return False
+            target = g.get("target_value") or 0
+            forecast = g.get("forecast_value") or 0
+            return bool(target) and (forecast / target) > 1.05
+
+        flagged = [
+            g for g in goals if g.get("status") in ("at_risk", "off_track")
         ]
+        overrun = [g for g in flagged if _spend_overrun(g)]
+        at_risk = [
+            g for g in flagged
+            if not _spend_overrun(g) and (g.get("pct_to_target") or 0) < 1.0
+        ]
+
+        if overrun:
+            key = "goal:budget_overrun"
+            names = ", ".join(f"'{g['name']}'" for g in overrun[:3])
+            if len(overrun) > 3:
+                names += f" ve {len(overrun) - 3} diğeri"
+            worst = overrun[0]
+            w_target = worst.get("target_value", 0) or 0
+            w_forecast = worst.get("forecast_value", 0) or 0
+            over_pct = (w_forecast / w_target * 100 - 100) if w_target else 0
+            recs.append(_rec(
+                key=key,
+                category="goal",
+                category_label="Hedefler",
+                title="Bütçe hedefi aşım riskinde",
+                rationale=(
+                    f"{len(overrun)} bütçe hedefi aşım temposunda: {names}. "
+                    f"'{worst['name']}': bu hızla dönem sonunda hedef "
+                    f"%{over_pct:.0f} aşılacak (tahmin {tr_tl(w_forecast)} / "
+                    f"hedef {tr_tl(w_target)}). Harcama hızını düşürün."
+                ),
+                impact="high",
+                effort="medium",
+                metric={"label": "Tahmini Aşım", "value": f"%{over_pct:.0f}"},
+                action_label="Hedefleri incele",
+                action_href="/goals",
+                state=states.get(key),
+            ))
+
         if at_risk:
             key = "goal:behind_pace"
             names = ", ".join(f"'{g['name']}'" for g in at_risk[:3])
             if len(at_risk) > 3:
                 names += f" ve {len(at_risk) - 3} diğeri"
             best = at_risk[0]
-            pct = best.get("pct_to_target", 0) or 0
+            pct = ((best.get("pct_to_target", 0) or 0)) * 100
             target = best.get("target_value", 0) or 0
             current = best.get("current_value", 0) or 0
+            # Turkish thousands separator (dot) for the inline numbers.
+            cur_txt = f"{current:,.0f}".replace(",", ".")
+            tgt_txt = f"{target:,.0f}".replace(",", ".")
             recs.append(_rec(
                 key=key,
                 category="goal",
@@ -410,7 +460,7 @@ def _from_goals(db: Session, tenant_id: uuid.UUID, states: dict) -> list[dict]:
                 rationale=(
                     f"{len(at_risk)} hedef hedefin gerisinde: {names}. "
                     f"'{best['name']}': %{pct:.0f} tamamlandı "
-                    f"(mevcut {current:,.0f} / hedef {target:,.0f})."
+                    f"(mevcut {cur_txt} / hedef {tgt_txt})."
                 ),
                 impact="high",
                 effort="medium",
@@ -703,8 +753,8 @@ def _template_strategy(
 
     if spend > 0:
         narrative = (
-            f"Son 30 günde toplam ₺{spend:,.0f} harcama ile {conversions:,.0f} dönüşüm "
-            f"sağlandı; ortalama ROAS {roas:.2f}x olarak gerçekleşti. "
+            f"Son 30 günde toplam {tr_tl(spend)} harcama ile {tr_int(conversions)} dönüşüm "
+            f"sağlandı; ortalama ROAS {tr_roas(roas)} olarak gerçekleşti. "
         )
     else:
         narrative = "Reklam performans verisi henüz oluşmamış. "
@@ -799,8 +849,8 @@ class _ClaudeStrategyGenerator:
         prompt = (
             f"Bir dijital pazarlama platformunun haftalık Türkçe strateji özetini yaz. "
             f"Referans haftası: {_week_label(ref)}. "
-            f"Son 30 gün KPI'ları: harcama=₺{kpis.get('spend', 0):,.0f}, "
-            f"ROAS={kpis.get('roas', 0):.2f}x, dönüşüm={kpis.get('conversions', 0):,.0f}. "
+            f"Son 30 gün KPI'ları: harcama={tr_tl(kpis.get('spend', 0))}, "
+            f"ROAS={tr_roas(float(kpis.get('roas', 0) or 0))}, dönüşüm={tr_int(kpis.get('conversions', 0))}. "
             f"Açık öneri sayısı: {summary.get('open', 0)} (yüksek etkili: {summary.get('high_impact_open', 0)}). "
             f"En kritik öneriler: {json.dumps([{'title': r['title'], 'category': r['category_label'], 'impact': r['impact']} for r in open_recs[:3]], ensure_ascii=False)}. "
             "Şu alanları Türkçe ve doğal bir dille doldurarak JSON formatında yanıtla: "

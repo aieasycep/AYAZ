@@ -25,7 +25,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import StaticPool, create_engine
+from sqlalchemy import StaticPool, create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from ayaz.database import get_db
@@ -823,6 +823,93 @@ class TestGenerateInsights:
         total1 = counts1["new_info"] + counts1["new_warning"] + counts1["new_critical"]
         assert counts2["skipped"] >= total1
 
+    def test_ga4_channel_isolated_from_google_ads_no_cross_contamination(
+        self, db_session: Session
+    ) -> None:
+        """Kaynak-tipi mutabakatı regresyon testi (Batch A.2).
+
+        insights.py's detectors are ALREADY channel-scoped (every detector
+        loops ``by_channel.items()`` and sums only WITHIN one channel's own
+        time series) — a campaign/channel never spans both an ad platform
+        and an analytics source, so there is no cross-channel blind SUM to
+        fix here. This test locks that property: seeding google_ads (ad,
+        real spend+clicks+conversions) alongside ga4 (analytics, 0 spend/
+        clicks, large conversions) on the SAME days must produce insights
+        whose numeric ``data`` reflects ONLY the channel they're tagged
+        with — google_ads's own signals must never include GA4's numbers
+        and vice versa.
+        """
+        from ayaz.services.insights import _load_daily_points
+
+        tenant = _make_tenant(db_session)
+        acct = _make_connected_account(db_session, tenant)
+
+        ch_ads = _make_channel(db_session, "google_ads")
+        camp_ads = _make_campaign(db_session, tenant, ch_ads, "Ads Camp")
+        adset_ads = _make_adset(db_session, tenant, camp_ads)
+        ad_ads = _make_ad(db_session, tenant, adset_ads)
+
+        ch_ga4 = _make_channel(db_session, "ga4")
+        camp_ga4 = _make_campaign(db_session, tenant, ch_ga4, "(not set)")
+        adset_ga4 = _make_adset(db_session, tenant, camp_ga4)
+        ad_ga4 = _make_ad(db_session, tenant, adset_ga4)
+
+        base = date(2024, 4, 1)
+        for i in range(14):
+            d = date.fromordinal(base.toordinal() + i)
+            _insert_fact(
+                db_session, tenant, acct, ch_ads, camp_ads, adset_ads, ad_ads, d,
+                impressions=1000, clicks=50,
+                cost_raw="100.00", conversions="10",
+                conversion_value_raw="500.00",
+            )
+            # GA4: zero spend/clicks, LARGE conversions — if channel
+            # isolation were broken this would inflate google_ads' own CVR
+            # or ROAS-adjacent signals.
+            _insert_fact(
+                db_session, tenant, acct, ch_ga4, camp_ga4, adset_ga4, ad_ga4, d,
+                impressions=0, clicks=0,
+                cost_raw="0", conversions="500",
+                conversion_value_raw="50000.00",
+            )
+        db_session.commit()
+
+        points = _load_daily_points(db_session, tenant.id, base, date.fromordinal(base.toordinal() + 13))
+        by_channel = _group_by_channel(points)
+
+        assert set(by_channel.keys()) == {"google_ads", "ga4"}
+
+        # google_ads points must show ONLY the ad numbers — never GA4's.
+        for p in by_channel["google_ads"]:
+            assert p.conversions == Decimal("10")
+            assert p.conversion_value == Decimal("500.00")
+            assert p.spend == Decimal("100.00")
+
+        # ga4 points must show ONLY GA4's own numbers — never blended with ads.
+        for p in by_channel["ga4"]:
+            assert p.conversions == Decimal("500")
+            assert p.spend == Decimal("0")
+            assert p.clicks == Decimal("0")
+
+        # generate_insights end-to-end: any signal tagged channel="google_ads"
+        # must carry ad-only numbers in its data payload (spot-check the
+        # fields detectors commonly report).
+        counts = generate_insights(db_session, tenant.id, as_of_date=date.fromordinal(base.toordinal() + 13))
+        assert counts["new_info"] + counts["new_warning"] + counts["new_critical"] >= 0  # no crash
+
+        insights = db_session.scalars(select(Insight).where(Insight.tenant_id == tenant.id)).all()
+        for ins in insights:
+            if ins.channel == "google_ads":
+                for key in ("current_spend", "current_conversions", "current_conversion_value"):
+                    if key in (ins.data or {}):
+                        # Ad-only values are always <= the tiny ad-scale numbers
+                        # seeded (100/10/500) times the lookback window — GA4's
+                        # 500-conversion/50000-value scale must never appear here.
+                        assert ins.data[key] < 5000, (
+                            f"Insight for google_ads has suspiciously large "
+                            f"{key}={ins.data[key]} — GA4 data may have leaked in"
+                        )
+
     def test_zero_conversion_anomaly_creates_insight(self, db_session: Session) -> None:
         """Spend with zero conversions should produce at least one insight."""
         tenant = _make_tenant(db_session)
@@ -1289,3 +1376,29 @@ class TestAlertRuleCRUD:
         finally:
             # Restore: the fixture teardown will call _test_app.dependency_overrides.clear()
             pass
+
+
+# ── _default_narrator factory (Batch C: turn LLM on when key is set) ──────────
+
+def test_default_narrator_uses_template_without_key(monkeypatch):
+    """No ANTHROPIC_API_KEY → TemplateNarrator (byte-identical to old default)."""
+    from ayaz.services import insights as insights_mod
+    from ayaz.services.narrator import TemplateNarrator
+
+    monkeypatch.setattr(insights_mod, "_default_narrator", insights_mod._default_narrator)
+    from ayaz.config import settings
+    monkeypatch.setattr(settings, "anthropic_api_key", "")
+    assert isinstance(insights_mod._default_narrator(), TemplateNarrator)
+
+
+def test_default_narrator_uses_claude_with_key(monkeypatch):
+    """ANTHROPIC_API_KEY set → ClaudeNarrator (real reasoning; self-falls-back on error)."""
+    from ayaz.services import insights as insights_mod
+    from ayaz.services.narrator import ClaudeNarrator
+    from ayaz.config import settings
+
+    monkeypatch.setattr(settings, "anthropic_api_key", "sk-ant-test-key")
+    narr = insights_mod._default_narrator()
+    assert isinstance(narr, ClaudeNarrator)
+    # model comes from config (claude_narrator_model), not a stale hardcode
+    assert narr._model == settings.claude_narrator_model

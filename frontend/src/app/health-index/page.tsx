@@ -272,10 +272,16 @@ export default function HealthIndexPage() {
                   </span>
                 </div>
 
+                <p className={styles.heroDesc}>
+                  Genel skor, aşağıdaki {data.summary.scored_count} boyutun
+                  ağırlıklı ortalamasıdır. Zayıf boyutlar iyileştirme
+                  fırsatlarının en büyük olduğu alanları gösterir.
+                </p>
+
                 <div className={styles.summaryChips}>
                   <span className={styles.chipStrong}>{data.summary.strong_count} güçlü</span>
                   <span className={styles.chipSep}>·</span>
-                  <span className={styles.chipWeak}>{data.summary.weak_count} zayıf</span>
+                  <span className={data.summary.weak_count === 0 ? styles.chipNeutral : styles.chipWeak}>{data.summary.weak_count} zayıf</span>
                   <span className={styles.chipSep}>·</span>
                   <span className={styles.chipNeutral}>{data.summary.scored_count} boyut</span>
                 </div>

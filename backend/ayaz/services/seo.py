@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from ayaz.models.seo import SeoSearchMetric
 from ayaz.models.insights import Insight
+from ayaz.services.trformat import tr_num, tr_pct
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +246,7 @@ def get_opportunities(
         opportunities.append({
             "type": "striking_distance",
             "severity": "warning",
-            "title": f"'{query}' sorgusu {avg_position:.1f}. sırada — ilk sayfaya yakın",
+            "title": f"'{query}' sorgusu {tr_num(avg_position, 1)}. sırada — ilk sayfaya yakın",
             "body": (
                 f"Bu sorgu için {impressions} gösterim var ama tıklama oranınız düşük. "
                 f"İçeriği optimize ederek ilk sayfaya taşıyabilirsiniz."
@@ -298,7 +299,7 @@ def get_opportunities(
         opportunities.append({
             "type": "low_ctr",
             "severity": "warning",
-            "title": f"'{query}' yüksek gösterim, düşük tıklama: %{ctr * 100:.1f} CTR",
+            "title": f"'{query}' yüksek gösterim, düşük tıklama: {tr_pct(ctr * 100, 1)} CTR",
             "body": (
                 f"İlk 10'da görünüyorsunuz ama {impressions} gösterimden sadece "
                 f"{clicks} tıklama alıyorsunuz. Meta açıklaması ve başlığı "
@@ -449,9 +450,9 @@ def get_opportunities(
             opportunities.append({
                 "type": "top_movers",
                 "severity": "info",
-                "title": f"'{query}' {delta:.1f} pozisyon yükseldi!",
+                "title": f"'{query}' {tr_num(delta, 1)} pozisyon yükseldi!",
                 "body": (
-                    f"Bu sorgu için sıralamanız iyileşti ({old_pos:.1f} → {new_pos:.1f}). "
+                    f"Bu sorgu için sıralamanız iyileşti ({tr_num(old_pos, 1)} → {tr_num(new_pos, 1)}). "
                     f"Momentum'u korumak için içeriği güncel tutun."
                 ),
                 "data": {
@@ -467,9 +468,9 @@ def get_opportunities(
             opportunities.append({
                 "type": "top_movers",
                 "severity": "warning",
-                "title": f"'{query}' {drop:.1f} pozisyon düştü",
+                "title": f"'{query}' {tr_num(drop, 1)} pozisyon düştü",
                 "body": (
-                    f"Bu sorgunun sıralaması geriledi ({old_pos:.1f} → {new_pos:.1f}). "
+                    f"Bu sorgunun sıralaması geriledi ({tr_num(old_pos, 1)} → {tr_num(new_pos, 1)}). "
                     f"Rakip içeriklerini inceleyip sayfanızı güncelleyin."
                 ),
                 "data": {

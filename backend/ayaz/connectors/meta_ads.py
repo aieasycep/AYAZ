@@ -13,7 +13,7 @@ Required credentials (store in Vault; reference via ConnectorConfig.vault_secret
     The Meta ad account ID without the ``act_`` prefix (e.g. ``"123456789"``).
     The connector prepends ``act_`` when forming API URLs.
 ``api_version``  (optional)
-    Graph API version string, e.g. ``"v21.0"``.  Defaults to ``_API_VERSION``.
+    Graph API version string, e.g. ``"v25.0"``.  Defaults to ``_API_VERSION``.
 ``currency``  (optional)
     ISO-4217 currency code for the account (e.g. ``"USD"``).  Defaults to ``"USD"``.
     The ``spend`` field in the API is always in the account's currency.
@@ -58,7 +58,9 @@ Rate limits
 
 API version
 -----------
-Targets ``v21.0`` of the Graph API.  Update ``_API_VERSION`` to upgrade.
+Targets ``v25.0`` of the Graph API (latest GA, Feb 2026).  Update ``_API_VERSION``
+to upgrade.  Unlike Google Ads (which hard-404s a sunset version), Meta keeps old
+versions ~2 years and only warns — but bump periodically to stay well inside window.
 
 Meta Marketing API reference
 -----------------------------
@@ -68,7 +70,7 @@ https://developers.facebook.com/docs/marketing-api/insights
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -85,7 +87,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-_API_VERSION = "v21.0"
+_API_VERSION = "v25.0"
 
 # Insights endpoint — formatted with api_version and act_{ad_account_id}
 _INSIGHTS_URL = "https://graph.facebook.com/{ver}/{account}/insights"
@@ -111,6 +113,13 @@ _DEFAULT_CONVERSION_ACTION = "offsite_conversion.fb_pixel_purchase"
 # Pagination: maximum rows per page (Meta default is 25; we raise to 500 to
 # minimise round-trips on large accounts).
 _PAGE_LIMIT = 500
+
+# Meta's Insights endpoint returns HTTP 500 / times out on large *synchronous*
+# pulls (a wide date range × ``time_increment=1`` × many campaigns explodes the
+# response — unlike Google Ads' searchStream, which handles a full year in one
+# call). fetch() therefore splits the requested window into chunks of at most
+# this many days and pages through each independently, concatenating results.
+_INSIGHTS_CHUNK_DAYS = 30
 
 
 # ── Connector ─────────────────────────────────────────────────────────────────
@@ -245,12 +254,22 @@ class MetaAdsConnector(Connector):
         For regular user tokens the OAuth Broker must call ``refresh_token()``
         before the 60-day window expires.
 
+        ``ad_account_id`` is intentionally NOT required here: a user who has
+        just completed the OAuth dialog has an ``access_token`` but has not
+        picked an ad account yet.  ``discover()`` (the account picker) needs
+        to run with only the token — requiring ``ad_account_id`` up front
+        creates a chicken-and-egg RuntimeError that blocks account selection
+        entirely.  Mirrors ``GoogleAdsConnector.authenticate()``, which does
+        not require ``customer_id`` either.  ``_ad_account_id()`` /
+        ``_insights_url()`` still fall back to ``config.external_account_id``
+        once an account has been selected and persisted.
+
         Raises
         ------
         RuntimeError
-            If ``access_token`` or ``ad_account_id`` are absent from config.extra.
+            If ``access_token`` is absent from config.extra.
         """
-        required = ("access_token", "ad_account_id")
+        required = ("access_token",)
         missing = [k for k in required if not self._get_secret(k)]
         if missing:
             raise RuntimeError(
@@ -321,7 +340,9 @@ class MetaAdsConnector(Connector):
         for item in body.get("data", []):
             accounts.append(
                 {
-                    "id": str(item.get("account_id", item.get("id", ""))).lstrip("act_"),
+                    "id": str(
+                        item.get("account_id", item.get("id", ""))
+                    ).removeprefix("act_"),
                     "name": str(item.get("name", "")),
                     "currency": str(item.get("currency", "USD")),
                 }
@@ -362,28 +383,39 @@ class MetaAdsConnector(Connector):
                 "Supported: ['daily_campaign_metrics']"
             )
 
-        base_params: dict[str, Any] = {
-            "access_token": self._token(),
-            "fields": _FIELDS,
-            "time_increment": "1",
-            "level": "campaign",
-            "time_range": f'{{"since":"{since.isoformat()}","until":"{until.isoformat()}"}}',
-            "limit": str(_PAGE_LIMIT),
-        }
-
         rows: list[dict[str, Any]] = []
-        url: str | None = self._insights_url()
-        params: dict[str, Any] | None = base_params
+        insights_url = self._insights_url()
 
-        while url:
-            resp = httpx.get(url, params=params, timeout=60)
-            resp.raise_for_status()
-            body: dict[str, Any] = resp.json()
-            rows.extend(body.get("data", []))
-            # Pagination: follow cursor if present
-            next_url = body.get("paging", {}).get("next")
-            url = next_url
-            params = None  # ``next`` URL already contains all query params
+        # Split [since, until] into <= _INSIGHTS_CHUNK_DAYS windows so each
+        # synchronous Insights call stays small enough for Meta to serve (a
+        # full-year daily pull on a busy account otherwise 500s). Each chunk is
+        # paginated independently; all rows are concatenated.
+        chunk_start = since
+        while chunk_start <= until:
+            chunk_end = min(
+                chunk_start + timedelta(days=_INSIGHTS_CHUNK_DAYS - 1), until
+            )
+            url: str | None = insights_url
+            params: dict[str, Any] | None = {
+                "access_token": self._token(),
+                "fields": _FIELDS,
+                "time_increment": "1",
+                "level": "campaign",
+                "time_range": (
+                    f'{{"since":"{chunk_start.isoformat()}",'
+                    f'"until":"{chunk_end.isoformat()}"}}'
+                ),
+                "limit": str(_PAGE_LIMIT),
+            }
+            while url:
+                resp = httpx.get(url, params=params, timeout=60)
+                resp.raise_for_status()
+                body: dict[str, Any] = resp.json()
+                rows.extend(body.get("data", []))
+                # Pagination: follow cursor if present
+                url = body.get("paging", {}).get("next")
+                params = None  # ``next`` URL already contains all query params
+            chunk_start = chunk_end + timedelta(days=1)
 
         if rows:
             latest = max(date.fromisoformat(r["date_start"]) for r in rows)

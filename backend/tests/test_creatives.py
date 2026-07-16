@@ -642,9 +642,9 @@ class TestCommentary:
             "/api/v1/creatives/performance", params=_DATE_PARAMS
         )
         commentary = resp.json()["commentary"]
-        # ROAS=10.00x should appear as "10.00x"
-        assert "10.00x" in commentary, (
-            f"Commentary should include ROAS '10.00x': {commentary}"
+        # ROAS=10.00x should appear in Turkish decimal format as "10,00x"
+        assert "10,00x" in commentary, (
+            f"Commentary should include ROAS '10,00x': {commentary}"
         )
 
     def test_commentary_mentions_durdur_for_zero_conversions(
@@ -809,3 +809,36 @@ class TestAdPerformanceService:
         )
         for ad in result["ads"]:
             assert ad["ad_name"] != "Tenant B Ad"
+
+    def test_ga4_channel_excluded_and_does_not_affect_ad_totals(
+        self, creatives_client
+    ) -> None:
+        """Confirms (not a code fix — see Batch A.2 report) that GA4 rows
+        can never appear here: the GA4 connector always writes ad_id/ad_name
+        as the "(not set)" sentinel (no creative grain), which
+        ``_query_ad_aggregates`` already excludes. Adding a GA4 row must
+        leave the ads/top/bottom results completely unchanged."""
+        db = creatives_client["db"]
+        tenant = creatives_client["tenant"]
+
+        acct_ga4 = _make_connected_account(db, tenant, Platform.ga4, "GA4-CR-001")
+        ch_ga4 = _make_channel(db, "ga4")
+        camp_ga4 = _make_campaign(db, tenant, ch_ga4, "CGA4-CR-001", "(not set)")
+        adset_ga4 = _make_adset(db, tenant, camp_ga4, "AGA4-CR-001")
+        ad_ga4 = _make_ad(db, tenant, adset_ga4, "ADGA4-CR-001", "(not set)")
+        for i in range(7):
+            d = _START + timedelta(days=i)
+            _insert_fact(
+                db, tenant, acct_ga4, ch_ga4, camp_ga4, adset_ga4, ad_ga4, d,
+                impressions=0, clicks=0, cost_raw="0",
+                conversions="9999", conversion_value_raw="500000.00",
+            )
+        db.commit()
+
+        tenant_id = tenant.id
+        result = ad_performance(db, tenant_id, _START, _END)
+        assert len(result["ads"]) == 3
+        assert all(a["ad_name"] != "(not set)" for a in result["ads"])
+        winner = next(a for a in result["ads"] if a["ad_name"] == "Video — Indirim")
+        assert winner["spend"] == pytest.approx(_WINNER_SPEND)
+        assert winner["roas"] == pytest.approx(10.0)

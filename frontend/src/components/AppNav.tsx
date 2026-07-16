@@ -36,6 +36,7 @@ export const NAV_LINKS = [
   { href: '/products', label: 'Ürün Performansı' },
   { href: '/benchmark', label: 'Sektör Kıyaslama' },
   { href: '/audit', label: 'Hesap Taraması' },
+  { href: '/atif', label: 'Atıf' },
   { href: '/reports', label: 'Raporlar' },
   { href: '/report-builder', label: 'Rapor Oluşturucu' },
   { href: '/goals', label: 'Hedefler' },
@@ -114,6 +115,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/products', label: 'Ürün Performansı' },
       { href: '/benchmark', label: 'Sektör Kıyaslama' },
       { href: '/audit', label: 'Hesap Taraması' },
+      { href: '/atif', label: 'Atıf' },
     ],
   },
   {

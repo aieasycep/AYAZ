@@ -36,6 +36,7 @@ import time
 import urllib.parse
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -76,9 +77,15 @@ _PLATFORM_CONFIGS: dict[str, _PlatformOAuthConfig] = {
         scopes=["https://www.googleapis.com/auth/webmasters.readonly"],
     ),
     "meta_ads": _PlatformOAuthConfig(
-        authorize_url="https://www.facebook.com/v21.0/dialog/oauth",
-        token_url="https://graph.facebook.com/v21.0/oauth/access_token",
-        scopes=["ads_read", "ads_management", "business_management"],
+        authorize_url="https://www.facebook.com/v25.0/dialog/oauth",
+        token_url="https://graph.facebook.com/v25.0/oauth/access_token",
+        # Least privilege: AYAZ is read-only for Meta (see
+        # MetaAdsConnector.capabilities().supports_write=False). "ads_management"
+        # (write) is deliberately excluded to narrow the App Review scope —
+        # "ads_read" + "business_management" is sufficient for /me/adaccounts
+        # and Insights. Keep in sync with
+        # MetaAdsConnector.build_authorization_url()'s default scopes.
+        scopes=["ads_read", "business_management"],
     ),
     "tiktok_ads": _PlatformOAuthConfig(
         authorize_url="https://business-api.tiktok.com/portal/auth",
@@ -172,13 +179,15 @@ def generate_pkce_pair() -> tuple[str, str]:
 
 # ── State token helpers (CSRF) — HMAC-signed, expiring ───────────────────────
 
-_STATE_TTL_SECONDS = 600  # 10 minutes
+_STATE_TTL_SECONDS = 1800  # 30 minutes — OAuth akışı 2FA/SMS doğrulaması + soğuk
+# başlatma (Render free) ile 10 dk'yı aşabiliyordu; state'in erken bitip callback'i
+# reddetmesini önlemek için 30 dk. CSRF için hâlâ güvenli (kısa, HMAC imzalı, nonce'lu).
 
 
 def _sign_state(account_id: str, tenant_id: str) -> str:
     """Encode account_id + tenant_id into a URL-safe HMAC-signed state token.
 
-    The token has a 10-minute expiry and is signed with HMAC-SHA256 using
+    The token has a 30-minute expiry and is signed with HMAC-SHA256 using
     ``settings.jwt_secret`` as the key.
 
     Parameters
@@ -255,6 +264,40 @@ def parse_state(state: str) -> tuple[str, str]:
         return payload["aid"], payload["tid"]
     except KeyError as exc:
         raise ValueError(f"Invalid OAuth state token: missing key {exc}") from exc
+
+
+# ── Token expiry helper ───────────────────────────────────────────────────────
+
+
+def _with_absolute_expiry(data: dict[str, Any]) -> dict[str, Any]:
+    """Add an absolute ``token_expires_at`` (ISO-8601 UTC) to ``data`` in place,
+    computed from its ``expires_in`` (relative seconds), if present.
+
+    Every platform token endpoint returns a *relative* ``expires_in`` — that
+    number is only meaningful at the instant the HTTP response was received.
+    Once the token dict is persisted to the Vault and read back later (e.g. by
+    a sync task hours or days afterward), a relative value can no longer say
+    whether the token is still alive. Converting to an absolute timestamp here
+    — right where "now" is well-defined — lets any later caller (see
+    ``sync.py``'s Meta rolling-refresh) compare against ``datetime.now(UTC)``
+    directly.
+
+    Silently leaves ``data`` untouched if ``expires_in`` is absent or not a
+    valid number — defensive, since not every platform response guarantees
+    the field (e.g. system-user tokens, or a malformed response we'd rather
+    not crash the whole exchange over).
+    """
+    expires_in = data.get("expires_in")
+    if expires_in is None:
+        return data
+    try:
+        seconds = int(expires_in)
+    except (TypeError, ValueError):
+        return data
+    data["token_expires_at"] = (
+        datetime.now(timezone.utc) + timedelta(seconds=seconds)
+    ).isoformat()
+    return data
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -383,23 +426,81 @@ def exchange_code(
     try:
         resp = client.post(cfg.token_url, data=payload, timeout=30)
         resp.raise_for_status()
+        data: dict[str, Any] = resp.json()
+
+        # TikTok wraps the tokens in a ``data`` envelope
+        if platform == "tiktok_ads":
+            data = data.get("data", data)
+
+        if "access_token" not in data:
+            raise ValueError(
+                f"Token exchange for {platform!r} returned no access_token. "
+                f"Response: {data}"
+            )
+
+        if platform == "meta_ads":
+            # Meta's ``authorization_code`` grant only ever returns a
+            # SHORT-LIVED user access token (~1-2h). Unlike Google, Meta's
+            # authenticate() does not refresh on every sync — a short-lived
+            # token left unattended would die within hours and nothing
+            # would repair it. Immediately hop to the long-lived exchange
+            # (same token endpoint, GET, grant_type=fb_exchange_token) so
+            # the token handed back to the caller/Vault is the ~60-day
+            # long-lived one. Reuses the same ``client`` (and same
+            # test-injected transport) as the first hop — mirrors how the
+            # TikTok branch above gets special per-platform treatment
+            # inline rather than as a second public function.
+            data = _meta_exchange_long_lived_token(
+                client, cfg.token_url, client_id, client_secret, data
+            )
     finally:
         if http_client is None:
             client.close()
 
-    data: dict[str, Any] = resp.json()
+    return _with_absolute_expiry(data)
 
-    # TikTok wraps the tokens in a ``data`` envelope
-    if platform == "tiktok_ads":
-        data = data.get("data", data)
 
-    if "access_token" not in data:
+def _meta_exchange_long_lived_token(
+    client: httpx.Client,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    short_lived_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Hop a short-lived Meta user access token to a long-lived (~60d) one.
+
+    ``GET {token_url}?grant_type=fb_exchange_token&client_id=...&client_secret=...
+    &fb_exchange_token=<short_lived_token>`` — per Meta's "Long-Lived Access
+    Tokens" doc. Meta has no ``refresh_token`` concept; this exchange (and
+    ``refresh()`` below, which repeats it) is the only way to keep a user
+    token alive beyond the first couple of hours.
+
+    Returns the short-lived response dict with ``access_token`` /
+    ``expires_in`` (and any other keys the long-lived response includes,
+    e.g. ``token_type``) overwritten by the long-lived response. Any keys
+    present only in the short-lived response are preserved.
+    """
+    short_lived_token = short_lived_data.get("access_token", "")
+    resp = client.get(
+        token_url,
+        params={
+            "grant_type": "fb_exchange_token",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "fb_exchange_token": short_lived_token,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    long_lived_data: dict[str, Any] = resp.json()
+
+    if "access_token" not in long_lived_data:
         raise ValueError(
-            f"Token exchange for {platform!r} returned no access_token. "
-            f"Response: {data}"
+            "Meta long-lived token exchange returned no access_token. "
+            f"Response: {long_lived_data}"
         )
 
-    return data
+    return {**short_lived_data, **long_lived_data}
 
 
 def refresh(
@@ -440,43 +541,63 @@ def refresh(
     cfg = _PLATFORM_CONFIGS[platform]
     client_id, client_secret = _credentials_for(platform)
 
-    if platform == "tiktok_ads":
-        payload: dict[str, Any] = {
-            "app_id": client_id,
-            "secret": client_secret,
-            "refresh_token": refresh_token,
-        }
-        token_url = (
-            "https://business-api.tiktok.com/open_api/v1.3/oauth2/refresh_token/"
-        )
-    else:
-        payload = {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "refresh_token": refresh_token,
-            "grant_type": "refresh_token",
-        }
-        token_url = cfg.token_url
-
     client = http_client or httpx.Client()
     try:
-        resp = client.post(token_url, data=payload, timeout=30)
+        if platform == "tiktok_ads":
+            payload: dict[str, Any] = {
+                "app_id": client_id,
+                "secret": client_secret,
+                "refresh_token": refresh_token,
+            }
+            token_url = (
+                "https://business-api.tiktok.com/open_api/v1.3/oauth2/refresh_token/"
+            )
+            resp = client.post(token_url, data=payload, timeout=30)
+        elif platform == "meta_ads":
+            # Meta has NO ``refresh_token`` grant — sending
+            # grant_type=refresh_token (the generic branch below) is
+            # rejected by Graph API. The only way to extend a Meta user
+            # token is the SAME fb_exchange_token hop used in
+            # exchange_code() (see _meta_exchange_long_lived_token above
+            # and MetaAdsConnector.refresh_token(), which already does
+            # this at the connector layer). The caller passes the current
+            # long-lived access token in as ``refresh_token`` (Meta has no
+            # separate refresh-token artifact; the Vault stores the
+            # long-lived access token under that key by convention).
+            resp = client.get(
+                cfg.token_url,
+                params={
+                    "grant_type": "fb_exchange_token",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "fb_exchange_token": refresh_token,
+                },
+                timeout=30,
+            )
+        else:
+            payload = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            }
+            resp = client.post(cfg.token_url, data=payload, timeout=30)
+
         resp.raise_for_status()
+        data: dict[str, Any] = resp.json()
+        if platform == "tiktok_ads":
+            data = data.get("data", data)
+
+        if "access_token" not in data:
+            raise ValueError(
+                f"Token refresh for {platform!r} returned no access_token. "
+                f"Response: {data}"
+            )
     finally:
         if http_client is None:
             client.close()
 
-    data: dict[str, Any] = resp.json()
-    if platform == "tiktok_ads":
-        data = data.get("data", data)
-
-    if "access_token" not in data:
-        raise ValueError(
-            f"Token refresh for {platform!r} returned no access_token. "
-            f"Response: {data}"
-        )
-
-    return data
+    return _with_absolute_expiry(data)
 
 
 def revoke(

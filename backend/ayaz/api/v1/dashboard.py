@@ -49,10 +49,13 @@ from ayaz.api.deps import get_current_membership, get_db
 from ayaz.models.analytics import DimCampaign, DimChannel, FactDailyMetrics
 from ayaz.models.oltp import Membership
 from ayaz.services.metrics import (
+    blended_roas as _blended_roas,
     compute_derived_metrics,
     compute_top_movers,
     effective_spend,
+    resolve_headline_metric,
     roas as _roas_metric,
+    split_channel_totals_by_source,
 )
 from ayaz.services.scores import compute_scores
 
@@ -138,6 +141,18 @@ class SummaryTotals(BaseModel):
     cpc: float
     cpa: float
     roas: float
+    # ── Kaynak-tipi ayrımı (çift-sayım düzeltmesi, bkz. ayaz/services/metrics.py) ──
+    # ``conversions``/``conversion_value``/``roas`` yukarıdaki alanlar artık
+    # kaynak-doğrusu (source-of-truth) kuralına göre çözülür: analytics (GA4)
+    # verisi varsa o, yoksa reklam kanallarının toplamı. Aşağıdaki alanlar HER
+    # İKİ tarafı da ayrı ayrı gösterir ki panel hangi rakamın nereden geldiğini
+    # netleştirebilsin; mevcut alanlar kör toplam DEĞİLDİR artık.
+    ad_conversions: float
+    ad_conversion_value: float
+    ad_clicks: float
+    analytics_conversions: float
+    analytics_conversion_value: float
+    blended_roas: float
 
 
 class PeriodDeltas(BaseModel):
@@ -257,6 +272,16 @@ def _aggregate_period(
 ) -> tuple[SummaryTotals, list[ChannelMetrics]]:
     """Run the per-channel aggregation for [date_from, date_to] and return
     (totals, by_channel).  Shared by summary and CSV export.
+
+    Totals no longer blindly SUM ``conversions``/``conversion_value`` across
+    every channel: ad platforms (Google Ads, Meta Ads, ...) and analytics
+    sources (GA4, Search Console) write to the same fact-table columns but
+    measure different things (self-attributed platform conversions vs.
+    real on-site activity).  See ``ayaz.services.metrics.
+    split_channel_totals_by_source`` / ``resolve_headline_metric`` /
+    ``blended_roas`` for the shared source-of-truth logic.  Per-channel rows
+    in ``by_channel`` are UNAFFECTED — a single channel's own numbers were
+    never double-counted.
     """
     channel_rows = db.execute(
         select(
@@ -280,44 +305,77 @@ def _aggregate_period(
     ).mappings().all()
 
     by_channel: list[ChannelMetrics] = []
+    channel_raw: dict[str, dict] = {}
     for row in channel_rows:
-        by_channel.append(
-            _channel_row_to_metrics(
-                channel_key=str(row["channel_key"]),
-                row={
-                    "impressions": row["impressions"],
-                    "clicks": row["clicks"],
-                    "spend": row["spend"],
-                    "conversions": row["conversions"],
-                    "conversion_value": row["conversion_value"],
-                },
-            )
-        )
+        ch_key = str(row["channel_key"])
+        raw_row = {
+            "impressions": row["impressions"],
+            "clicks": row["clicks"],
+            "spend": row["spend"],
+            "conversions": row["conversions"],
+            "conversion_value": row["conversion_value"],
+        }
+        channel_raw[ch_key] = {
+            "impressions": _d(raw_row["impressions"]),
+            "clicks": _d(raw_row["clicks"]),
+            "spend": _d(raw_row["spend"]),
+            "conversions": _d(raw_row["conversions"]),
+            "conversion_value": _d(raw_row["conversion_value"]),
+        }
+        by_channel.append(_channel_row_to_metrics(channel_key=ch_key, row=raw_row))
 
-    total_impressions = sum(_d(c.impressions) for c in by_channel)
-    total_clicks = sum(_d(c.clicks) for c in by_channel)
-    total_spend = sum(_d(c.spend) for c in by_channel)
-    total_conversions = sum(_d(c.conversions) for c in by_channel)
-    total_conv_value = sum(_d(c.conversion_value) for c in by_channel)
+    # ── Kaynak-tipi ayrımı (ad vs analytics) — çift-sayımı önler ───────────
+    split = split_channel_totals_by_source(channel_raw)
+
+    total_impressions = split["total_impressions"]
+    total_clicks = split["total_clicks"]
+    total_spend = split["total_spend"]
+
+    ad_conversions = split["ad_conversions"]
+    ad_conversion_value = split["ad_conversion_value"]
+    analytics_conversions = split["analytics_conversions"]
+    analytics_conversion_value = split["analytics_conversion_value"]
+
+    # "Manşet" dönüşüm/gelir: analytics (GA4) verisi varsa o, yoksa ad
+    # kanallarının toplamı. Kör (ad+analytics) toplama DEĞİL.
+    headline_conversions = resolve_headline_metric(analytics_conversions, ad_conversions)
+    headline_conversion_value = resolve_headline_metric(
+        analytics_conversion_value, ad_conversion_value
+    )
 
     total_derived = compute_derived_metrics(
         impressions=total_impressions,
         clicks=total_clicks,
         spend=total_spend,
-        conversions=total_conversions,
-        conversion_value=total_conv_value,
+        conversions=headline_conversions,
+        conversion_value=headline_conversion_value,
+    )
+
+    # Blended ROAS: kaynak-doğrusu gelir ÷ yalnız reklam harcaması.
+    # ``ad_conversion_value`` geçilir → GA4 bağlı değilken eski (yalnız-ad)
+    # ROAS'a düşülür (geriye dönük uyumluluk — bkz. blended_roas docstring).
+    computed_blended_roas = _blended_roas(
+        ad_spend=split["ad_spend"],
+        analytics_conversion_value=analytics_conversion_value,
+        ad_conversion_value=ad_conversion_value,
     )
 
     totals = SummaryTotals(
         spend=float(total_spend),
         impressions=float(total_impressions),
         clicks=float(total_clicks),
-        conversions=float(total_conversions),
-        conversion_value=float(total_conv_value),
+        conversions=float(headline_conversions),
+        conversion_value=float(headline_conversion_value),
         ctr=float(total_derived["ctr"]),
         cpc=float(total_derived["cpc"]),
         cpa=float(total_derived["cpa"]),
-        roas=float(total_derived["roas"]),
+        roas=float(computed_blended_roas),
+        ad_conversions=float(ad_conversions),
+        ad_conversion_value=float(ad_conversion_value),
+        ad_clicks=float(split["ad_clicks"]),
+        analytics_conversions=float(analytics_conversions),
+        analytics_conversion_value=float(analytics_conversion_value),
+        blended_roas=float(computed_blended_roas),
     )
 
     return totals, by_channel
@@ -493,7 +551,7 @@ def summary(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
 
@@ -556,12 +614,12 @@ def timeseries(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
     if metric not in _TIMESERIES_METRICS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Unsupported metric {metric!r}. "
                 f"Choose from: {sorted(_TIMESERIES_METRICS)}"
@@ -664,17 +722,17 @@ def top_movers(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
     if dimension not in ("channel", "campaign"):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="dimension must be 'channel' or 'campaign'",
         )
     if metric not in _TOP_MOVERS_METRICS:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
                 f"Unsupported metric {metric!r}. "
                 f"Choose from: {sorted(_TOP_MOVERS_METRICS)}"
@@ -729,7 +787,13 @@ def top_movers(
 
 
 def _totals_to_scores_dict(totals: SummaryTotals) -> dict:
-    """Convert a SummaryTotals Pydantic model to a plain dict for compute_scores."""
+    """Convert a SummaryTotals Pydantic model to a plain dict for compute_scores.
+
+    ``ad_conversions``/``ad_clicks`` are also included so the Dönüşüm
+    (conversion) score component can compute conversion rate from ad-only
+    numbers — GA4's 0-click conversions must never be divided by ad clicks
+    (see ``ayaz.services.scores._conversion_rate``).
+    """
     return {
         "spend": totals.spend,
         "impressions": totals.impressions,
@@ -740,6 +804,8 @@ def _totals_to_scores_dict(totals: SummaryTotals) -> dict:
         "cpc": totals.cpc,
         "cpa": totals.cpa,
         "roas": totals.roas,
+        "ad_conversions": totals.ad_conversions,
+        "ad_clicks": totals.ad_clicks,
     }
 
 
@@ -777,7 +843,7 @@ def scores(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
 
@@ -871,7 +937,7 @@ def export_dashboard(
     """
     if date_from > date_to:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="date_from must be <= date_to",
         )
 

@@ -249,7 +249,7 @@ def sync_account(
     db: Session = Depends(get_db),
     membership: Membership = Depends(get_current_membership),
     vault: SecretsVault = Depends(_get_vault),
-    days: int = 30,
+    days: int = 90,
 ) -> SyncResultResponse:
     """Pull recent data for a connected account and upsert into the warehouse.
 
@@ -257,7 +257,10 @@ def sync_account(
     current deployment), scoped to the requesting tenant.  The stored OAuth
     credentials are loaded from the Vault and injected into the connector.
 
-    ``days`` bounds the backfill window (clamped to 1..90; default 30).
+    ``days`` bounds the backfill window (clamped to 1..365; default 90). The
+    upper bound matches the connectors' ``max_backfill_days`` so a first sync can
+    reach up to 12 months back — important when an account's most recent activity
+    predates the default 30-day window (older campaigns would otherwise look empty).
 
     Errors
     ------
@@ -277,7 +280,7 @@ def sync_account(
             detail="Hesap bulunamadı.",
         )
 
-    window = max(1, min(days, 90))
+    window = max(1, min(days, 365))
     until = datetime.now(timezone.utc).date()
     since = until - timedelta(days=window - 1)
 
@@ -396,6 +399,19 @@ def discover_accounts(
             detail="Bu hesap için saklı kimlik yok — önce OAuth ile bağlanın.",
         )
 
+    # Inject operator-level (global) platform credentials — same rationale as
+    # sync_connected_account: the Vault only holds the tenant's own OAuth
+    # refresh_token, never the shared client_id/client_secret/developer_token.
+    # Without this, Google Ads discovery always 502s (authenticate() raises on
+    # missing developer_token).
+    from ayaz.services.sync import (
+        inject_operator_credentials,
+        resolve_ga4_targets,
+        resolve_google_ads_targets,
+    )
+
+    inject_operator_credentials(account.platform.value, secrets)
+
     connector_cls = ConnectorRegistry.get(account.platform.value)
     config = ConnectorConfig(
         tenant_id=str(account.tenant_id),
@@ -408,7 +424,35 @@ def discover_accounts(
     connector = connector_cls(config=config)
     try:
         connector.authenticate()
-        found = connector.discover()
+        if account.platform.value == "google_ads":
+            # Route through the same leaf-resolving logic used by sync so the
+            # user picks from real syncable ad accounts (MCC children), not
+            # the raw (possibly manager-only) accessible-customers list.
+            targets = resolve_google_ads_targets(connector)
+            found = [
+                {
+                    "id": t["customer_id"],
+                    "name": t["name"],
+                    "currency": t["currency"],
+                }
+                for t in targets
+            ]
+        elif account.platform.value == "ga4":
+            # Route through the Admin API property listing so the picker shows
+            # every accessible property, not the generic ``discover()`` (which
+            # only echoes back the already-configured — likely still empty —
+            # property).
+            ga4_targets = resolve_ga4_targets(connector)
+            found = [
+                {
+                    "id": t["property_id"],
+                    "name": t["name"],
+                    "currency": "",
+                }
+                for t in ga4_targets
+            ]
+        else:
+            found = connector.discover()
     except Exception:
         logger.exception("Discover failed: account=%s", account_id)
         raise HTTPException(

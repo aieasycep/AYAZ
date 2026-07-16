@@ -260,7 +260,7 @@ def post_recommendation_action(
     """
     if not recommendation_key or not recommendation_key.strip():
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="recommendation_key boş olamaz.",
         )
 

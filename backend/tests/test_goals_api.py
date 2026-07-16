@@ -703,6 +703,155 @@ class TestGoalProgress:
         assert resp.status_code == 404
 
 
+# ── Kaynak-tipi mutabakatı (ad + analytics) regression tests ──────────────────
+
+
+@pytest.fixture()
+def seeded_client_ga4(db_session: Session):
+    """Client with google_ads (ad) + ga4 (analytics) fact data for the same
+    3-day window, to regression-test the account-wide (no channel_filter)
+    goal progress fix.
+
+    google_ads: 2026-07-01..03, spend=100/day, conversions=10/day,
+                conversion_value=500/day (ad totals: 300 / 30 / 1500)
+    ga4:        2026-07-01..03, spend=0, clicks=0, conversions=200/day,
+                conversion_value=45000/day (analytics totals: 0 / 600 / 135000)
+    """
+    tenant = _make_tenant(db_session, "GA4 Mixed Tenant")
+    user = _make_user(db_session, "ga4_goals@ayaz.app")
+    membership = _make_membership(db_session, user, tenant)
+    acct = _make_connected_account(db_session, tenant)
+
+    ch_gads = _make_channel(db_session, "google_ads")
+    ch_ga4 = _make_channel(db_session, "ga4")
+
+    camp_g = _make_campaign(db_session, tenant, ch_gads)
+    adset_g = _make_adset(db_session, tenant, camp_g)
+    ad_g = _make_ad(db_session, tenant, adset_g)
+
+    camp_a = _make_campaign(db_session, tenant, ch_ga4)
+    adset_a = _make_adset(db_session, tenant, camp_a)
+    ad_a = _make_ad(db_session, tenant, adset_a)
+
+    for day in (date(2026, 7, 1), date(2026, 7, 2), date(2026, 7, 3)):
+        _insert_fact(
+            db_session, tenant, acct, ch_gads, camp_g, adset_g, ad_g, day,
+            spend="100", conversions="10", conversion_value="500",
+        )
+        _insert_fact(
+            db_session, tenant, acct, ch_ga4, camp_a, adset_a, ad_a, day,
+            spend="0", conversions="200", conversion_value="45000",
+        )
+
+    db_session.commit()
+
+    client = _make_client(db_session, membership)
+    yield client, tenant, membership
+    app.dependency_overrides.clear()
+
+
+class TestGoalProgressSourceTypeSplit:
+    """Account-wide (no channel_filter) goal progress must not double-count
+    GA4's conversions/revenue on top of what google_ads already reports."""
+
+    _PERIOD = {"period_start": "2026-07-01", "period_end": "2026-07-30"}
+    _AS_OF = "2026-07-03"
+
+    def _create_goal(self, client, metric: str, target: float) -> dict:
+        resp = client.post(
+            "/api/v1/goals",
+            json={
+                "name": f"Mixed {metric}",
+                "metric": metric,
+                "target_value": target,
+                "period": "month",
+                **self._PERIOD,
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        return resp.json()
+
+    def _progress(self, client, goal_id: str) -> dict:
+        resp = client.get(
+            f"/api/v1/goals/{goal_id}/progress",
+            params={"as_of": self._AS_OF},
+        )
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    def test_conversions_not_double_counted(self, seeded_client_ga4):
+        """Historically-buggy total = 30(ad)+600(ga4)=630. Correct: GA4 wins
+        as source of truth -> 600 (NOT summed with the ad platform's own 30)."""
+        client, _, _ = seeded_client_ga4
+        goal = self._create_goal(client, "conversions", 6000.0)
+        p = self._progress(client, goal["id"])
+        assert p["current_value"] == pytest.approx(600.0)
+        assert p["current_value"] != pytest.approx(630.0)
+
+    def test_conversion_value_ga4_wins(self, seeded_client_ga4):
+        """ad conversion_value=1500, ga4=135000. Historically-buggy total
+        would be 136500; correct is 135000 (GA4 wins)."""
+        client, _, _ = seeded_client_ga4
+        goal = self._create_goal(client, "conversion_value", 200000.0)
+        p = self._progress(client, goal["id"])
+        assert p["current_value"] == pytest.approx(135000.0)
+        assert p["current_value"] != pytest.approx(136500.0)
+
+    def test_spend_is_ad_only_unaffected(self, seeded_client_ga4):
+        """GA4 contributes 0 spend — total spend must equal google_ads' own
+        300 (spend was never part of the double-counting bug)."""
+        client, _, _ = seeded_client_ga4
+        goal = self._create_goal(client, "spend", 3000.0)
+        p = self._progress(client, goal["id"])
+        assert p["current_value"] == pytest.approx(300.0)
+
+    def test_roas_is_blended_not_summed(self, seeded_client_ga4):
+        """Historically-buggy ROAS = (1500+135000)/300 = 455.0. Correct
+        blended ROAS = ga4_revenue / ad_spend = 135000/300 = 450.0."""
+        client, _, _ = seeded_client_ga4
+        goal = self._create_goal(client, "roas", 450.0)
+        p = self._progress(client, goal["id"])
+        assert p["current_value"] == pytest.approx(450.0, rel=1e-4)
+        assert p["current_value"] != pytest.approx(455.0, rel=1e-4)
+
+    def test_channel_filtered_goal_unaffected_by_split(self, seeded_client_ga4):
+        """A goal explicitly filtered to channel='google_ads' must see only
+        the ad platform's own numbers — untouched by the account-wide fix."""
+        client, _, _ = seeded_client_ga4
+        resp = client.post(
+            "/api/v1/goals",
+            json={
+                "name": "Filtered",
+                "metric": "conversions",
+                "target_value": 300.0,
+                "channel_filter": "google_ads",
+                "period": "month",
+                **self._PERIOD,
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        p = self._progress(client, resp.json()["id"])
+        assert p["current_value"] == pytest.approx(30.0)
+
+    def test_channel_filtered_ga4_goal(self, seeded_client_ga4):
+        """A goal filtered to channel='ga4' must see only GA4's own numbers."""
+        client, _, _ = seeded_client_ga4
+        resp = client.post(
+            "/api/v1/goals",
+            json={
+                "name": "GA4 Filtered",
+                "metric": "conversions",
+                "target_value": 6000.0,
+                "channel_filter": "ga4",
+                "period": "month",
+                **self._PERIOD,
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        p = self._progress(client, resp.json()["id"])
+        assert p["current_value"] == pytest.approx(600.0)
+
+
 # ── Tenant isolation test ─────────────────────────────────────────────────────
 
 

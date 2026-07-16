@@ -505,6 +505,112 @@ class TestBuildReportPayload:
 # ── render_report_html tests ──────────────────────────────────────────────────
 
 
+class TestBuildReportPayloadSourceTypeSplit:
+    """Kaynak-tipi mutabakatı regresyon testleri: google_ads (ad) + ga4
+    (analytics) aynı dönemde bulunduğunda totals çift saymamalı."""
+
+    def _defn(self, db: Session, tenant: Tenant) -> ReportDefinition:
+        defn = ReportDefinition(
+            id=uuid.uuid4(),
+            tenant_id=tenant.id,
+            name="Mixed Source Report",
+            config={"sections": ["totals", "by_channel"]},
+        )
+        db.add(defn)
+        db.flush()
+        return defn
+
+    def _seed_ga4(self, db: Session, tenant: Tenant, d: date) -> None:
+        """Add a ga4 (analytics) fact row on ``d`` alongside the client
+        fixture's existing sample+google_ads facts (both 'ad' channels)."""
+        acct = ConnectedAccount(
+            id=uuid.uuid4(), tenant_id=tenant.id,
+            platform=Platform.ga4, external_account_id="GA4-001",
+            display_name="GA4", vault_secret_ref="", sync_status=SyncStatus.idle,
+        )
+        db.add(acct)
+        db.flush()
+        ch_ga4 = _make_channel(db, "ga4")
+        camp = _make_campaign(db, tenant, ch_ga4, "(not set)", "(not set)")
+        adset = _make_adset(db, tenant, camp, "(not set)")
+        ad = _make_ad(db, tenant, adset, "(not set)")
+        _insert_fact(
+            db, tenant, acct, ch_ga4, camp, adset, ad, d,
+            impressions=0, clicks=0, cost_raw="0",
+            conversions="50", conversion_value_raw="9000.00",
+        )
+        db.commit()
+
+    def test_totals_conversions_not_double_counted_with_ga4(
+        self, client: TestClient
+    ) -> None:
+        """Existing fixture: sample (2+4) + google_ads (5) = 11 ad conversions
+        over 2024-03-15/16. Add ga4 with 50 conversions on 2024-03-15.
+        Historically-buggy totals would blindly sum to 11+50=61; post-fix,
+        the window-level source-of-truth resolves to GA4's 50 (non-zero
+        analytics wins over the ad platforms' own 11)."""
+        db = client._db_session
+        tenant = client._tenant
+        self._seed_ga4(db, tenant, date(2024, 3, 15))
+
+        defn = self._defn(db, tenant)
+        payload = build_report_payload(db, defn, date(2024, 3, 15), date(2024, 3, 16))
+        # ad conversions (sample+google_ads) = 2+4+5 = 11; analytics (ga4) = 50.
+        assert payload["totals"]["conversions"] == pytest.approx(50.0)
+        assert payload["totals"]["conversions"] != pytest.approx(61.0)
+
+    def test_totals_conversion_value_ga4_wins(self, client: TestClient) -> None:
+        db = client._db_session
+        tenant = client._tenant
+        self._seed_ga4(db, tenant, date(2024, 3, 15))
+
+        defn = self._defn(db, tenant)
+        payload = build_report_payload(db, defn, date(2024, 3, 15), date(2024, 3, 16))
+        # ad conversion_value (sample+google_ads) = 200+400+375 = 975; ga4 = 9000.
+        assert payload["totals"]["conversion_value"] == pytest.approx(9000.0)
+        assert payload["totals"]["conversion_value"] != pytest.approx(9975.0)
+
+    def test_totals_roas_uses_ga4_revenue_over_ad_spend(
+        self, client: TestClient
+    ) -> None:
+        """Ad spend stays 225 (50+100+75). Blended ROAS = 9000/225 = 40.0 —
+        NOT the historically-buggy (975+9000)/225 = 44.33."""
+        db = client._db_session
+        tenant = client._tenant
+        self._seed_ga4(db, tenant, date(2024, 3, 15))
+
+        defn = self._defn(db, tenant)
+        payload = build_report_payload(db, defn, date(2024, 3, 15), date(2024, 3, 16))
+        assert payload["totals"]["spend"] == pytest.approx(225.0)
+        assert payload["totals"]["roas"] == pytest.approx(40.0)
+        assert payload["totals"]["roas"] != pytest.approx(9975 / 225, rel=1e-4)
+
+    def test_by_channel_rows_show_ga4_own_numbers_unaffected(
+        self, client: TestClient
+    ) -> None:
+        db = client._db_session
+        tenant = client._tenant
+        self._seed_ga4(db, tenant, date(2024, 3, 15))
+
+        defn = self._defn(db, tenant)
+        payload = build_report_payload(db, defn, date(2024, 3, 15), date(2024, 3, 16))
+        by_channel = {c["channel"]: c for c in payload["by_channel"]}
+        assert by_channel["ga4"]["conversions"] == pytest.approx(50.0)
+        assert by_channel["google_ads"]["conversions"] == pytest.approx(5.0)
+
+    def test_no_ga4_totals_unchanged_from_before_fix(self, client: TestClient) -> None:
+        """Regression guard: without any analytics channel, totals must be
+        byte-identical to the pre-fix values already covered by
+        TestBuildReportPayload."""
+        db = client._db_session
+        tenant = client._tenant
+        defn = self._defn(db, tenant)
+        payload = build_report_payload(db, defn, date(2024, 3, 15), date(2024, 3, 16))
+        assert payload["totals"]["conversions"] == pytest.approx(11.0)
+        assert payload["totals"]["conversion_value"] == pytest.approx(975.0)
+        assert payload["totals"]["roas"] == pytest.approx(975 / 225, rel=1e-4)
+
+
 class TestRenderReportHtml:
     """Verify the HTML renderer produces Turkish labels and correct KPI values."""
 
@@ -579,7 +685,7 @@ class TestRenderReportHtml:
     def test_contains_turkish_label_donusum(self) -> None:
         payload = self._make_payload()
         html_str = render_report_html(payload, payload["branding"])
-        assert "Donusum" in html_str
+        assert "Dönüşüm" in html_str  # proper Turkish diacritics
 
     def test_contains_turkish_label_kanal(self) -> None:
         payload = self._make_payload()
@@ -589,13 +695,14 @@ class TestRenderReportHtml:
     def test_contains_spend_value(self) -> None:
         payload = self._make_payload(spend=225.0)
         html_str = render_report_html(payload, payload["branding"])
-        assert "225.00" in html_str
+        assert "225,00" in html_str  # TR biçim (binlik nokta, ondalık virgül)
 
     def test_contains_channel_names(self) -> None:
         payload = self._make_payload()
         html_str = render_report_html(payload, payload["branding"])
-        assert "sample" in html_str
-        assert "google_ads" in html_str
+        # Channels render via channel_label() — readable labels, not raw slugs
+        assert "Örnek Kaynak" in html_str
+        assert "Google Ads" in html_str
 
     def test_contains_insights_title(self) -> None:
         payload = self._make_payload()
@@ -731,7 +838,7 @@ class TestShareAndPublicEndpoint:
             f"/api/v1/reports/public/{token}",
             params={"date_from": "2024-03-15", "date_to": "2024-03-16"},
         )
-        assert "225.00" in resp.text
+        assert "225,00" in resp.text  # TR biçim
 
     def test_public_link_increments_view_count(self, client: TestClient) -> None:
         def_id = self._create_def(client)

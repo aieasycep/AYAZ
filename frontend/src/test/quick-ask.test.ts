@@ -5,15 +5,24 @@
  * (create conversation → send first message → return conversation)
  * without hitting the network.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createConversationWithMessage } from '@/lib/assistant-api';
 
-// Stub out localStorage (jsdom provides it but getToken reads from it)
+// jsdom bu ortamda native localStorage sağlamıyor (opaque origin); kod tabanının
+// diğer testlerdeki kalıbına uyup localStorage'ı stub'lıyoruz — getToken buradan okur.
 const fakeToken = 'test-token';
 
 beforeEach(() => {
-  localStorage.setItem('ayaz_token', fakeToken);
+  vi.stubGlobal('localStorage', {
+    getItem: (_key: string) => fakeToken,
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+  });
   vi.restoreAllMocks();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 /** Build a minimal Response-like object that fetch would return. */

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/api';
+import { channelLabel } from '@/lib/channels';
 import {
   getInsights,
   patchInsight,
@@ -552,7 +553,7 @@ export default function InsightsPage() {
                     baslik: ins.title,
                     aciklama: ins.body,
                     metrik: ins.metric ?? '',
-                    kanal: ins.channel ?? '',
+                    kanal: channelLabel(ins.channel),
                     varlik: ins.entity_name ?? '',
                     donem_baslangic: fmtDate(ins.period_start),
                     donem_bitis: fmtDate(ins.period_end),
@@ -676,7 +677,7 @@ export default function InsightsPage() {
                         <span className={styles.metaChip}>{ins.metric}</span>
                       )}
                       {ins.channel && (
-                        <span className={styles.metaChip}>{ins.channel}</span>
+                        <span className={styles.metaChip}>{channelLabel(ins.channel)}</span>
                       )}
                       {ins.entity_name && (
                         <span className={styles.metaChip}>
@@ -836,6 +837,7 @@ export default function InsightsPage() {
                           className={styles.fieldInput}
                           type="text"
                           placeholder="ör. CPC %20 Düşüş"
+                          aria-label="Kural Adı"
                           value={ruleForm.name}
                           onChange={(e) =>
                             setRuleForm((f) => ({ ...f, name: e.target.value }))
@@ -849,6 +851,7 @@ export default function InsightsPage() {
                           className={styles.fieldInput}
                           type="text"
                           placeholder="ör. cpc, spend, roas"
+                          aria-label="Metrik"
                           value={ruleForm.metric}
                           onChange={(e) =>
                             setRuleForm((f) => ({ ...f, metric: e.target.value }))
@@ -860,6 +863,7 @@ export default function InsightsPage() {
                         <label className={styles.fieldLabel}>Karşılaştırıcı</label>
                         <select
                           className={styles.fieldSelect}
+                          aria-label="Karşılaştırıcı"
                           value={ruleForm.comparator}
                           onChange={(e) =>
                             setRuleForm((f) => ({
@@ -884,6 +888,7 @@ export default function InsightsPage() {
                             type="number"
                             step="any"
                             placeholder="ör. 20"
+                            aria-label="Eşik Değeri"
                             value={ruleForm.threshold}
                             onChange={(e) =>
                               setRuleForm((f) => ({
@@ -899,6 +904,7 @@ export default function InsightsPage() {
                         <label className={styles.fieldLabel}>Bildirim</label>
                         <select
                           className={styles.fieldSelect}
+                          aria-label="Bildirim türü"
                           value={ruleForm.delivery}
                           onChange={(e) =>
                             setRuleForm((f) => ({
@@ -928,6 +934,7 @@ export default function InsightsPage() {
                                 ? 'ornek@sirket.com'
                                 : 'https://hooks.slack.com/...'
                             }
+                            aria-label="Bildirim hedefi"
                             value={ruleForm.destination}
                             onChange={(e) =>
                               setRuleForm((f) => ({
